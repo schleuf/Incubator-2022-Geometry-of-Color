@@ -9,7 +9,7 @@ from setuptools import setup
 
 # add mosaic_topog to our path in order to use the branch_scheme function
 sys.path.append("mosaic_topog")
-from branch_scheme import branch_scheme  # noqa
+#from branch_scheme import branch_scheme  # noqa
 
 with io.open("README.md", "r", encoding="utf-8") as readme_file:
     readme = readme_file.read()
@@ -17,7 +17,7 @@ with io.open("README.md", "r", encoding="utf-8") as readme_file:
 setup_args = {
     "name": "mosaic_topog",
     "author": "Sierra Schleufer, Sabesan Lab",
-    "url": "https://github.com/schleuf/Incubator-2022-Geometry-of-Color/mosaic_topog/
+    "url": "https://github.com/schleuf/Incubator-2022-Geometry-of-Color/mosaic_topog/",
     "license": "MIT",
     "description": "tools for analyzing the geometry of cones in the photoreceptor mosaic",
     "long_description": readme,
@@ -25,7 +25,7 @@ setup_args = {
     "package_dir": {"mosaic_topog": "mosaic_topog"},
     "packages": ["mosaic_topog", "mosaic_topog.tests"],
     "scripts": glob.glob("scripts/*"),
-    "use_scm_version": {"local_scheme": branch_scheme},
+    #"use_scm_version": {"local_scheme": branch_scheme},
     "include_package_data": True,
     "install_requires": [
         "numpy",
