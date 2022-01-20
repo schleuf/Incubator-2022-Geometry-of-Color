@@ -1,0 +1,11 @@
+name: incubator
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - jupyter
+  - matplotlib
+  - numpy
+  - scipy
+  - pip
+
