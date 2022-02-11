@@ -2,7 +2,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy import spatial
 
+import mosaic_topog.show as show
 
+#-------------------------------------------------------------------------------------------------------
+
+# CALCULATE DISTANCE BETWEEN ALL CONES IN A MOSAIC
+#   this needs to be edited to have a less gross solution for dealing with one
+#   versus multiple sets of coordinates
 
 def dist_matrices(coords):
     """
@@ -52,8 +58,10 @@ def dist_matrices(coords):
 
     return dist_square, dist_vect
 
+#-------------------------------------------------------------------------------------------------------
 
-
+#GENERATE A QUANTITY OF MONTE CARLO MOSAICS SUCH THAT CONES MAY
+#OCCUPY ANY (X,Y) POSITION IN THE ROI
 def MonteCarlo_uniform(num_mc,num_coords,xlim,ylim):
     """ 
         generate array of monte carlo shuffled points distributed uniformly within a 2D range
@@ -67,8 +75,13 @@ def MonteCarlo_uniform(num_mc,num_coords,xlim,ylim):
     
     return(mc_coords)
 
+#-------------------------------------------------------------------------------------------------------
+
+#CALCULATE THE MEAN AND STD OF DATA GIVEN
+#   needs to be edited as something that just plots 
+#   a mean & std, and calculate the mean & std elsewhere
 def quad_stats(x,plot_dict,xstd,unit,ids,colors):
-    axes,fig = quad_fig([9,9])
+    axes,fig = show.quad_fig([9,9])
     
     mean = {}
     std = {}
@@ -90,4 +103,4 @@ def quad_stats(x,plot_dict,xstd,unit,ids,colors):
                         
     return [axes, fig, mean, std]
 
-
+#-------------------------------------------------------------------------------------------------------
