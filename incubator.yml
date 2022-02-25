@@ -8,4 +8,7 @@ dependencies:
   - numpy
   - scipy
   - pip
+  - pytest
+  - flake8
+  - h5py
 

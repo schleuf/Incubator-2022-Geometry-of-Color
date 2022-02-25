@@ -1,146 +1,259 @@
 import matplotlib.pyplot as plt
+import mosaic_topog.utilities as util
 
-#-------------------------------------------------------------------------------------------------------
 
-def plotOnROI(img, coords, ids, colors, size):
-    
-    #plot the ROI, then outline all classed cones in yellow and fill in with their respective cone type 
-    fig, ((ax0)) = plt.subplots(1,1)
-    fig.set_size_inches(size,size)
+def getAx(kwargs):
+    """
+    Checks whether user input their own subplot, 
+    generates one if they didn't
 
-    #overlay cone coordinates on the image
-    ax0.imshow(img)
-    
-    for ind,cone_type in enumerate(ids):
-        
-        #outline all cones in the 'all' mosaic in white
+    Parameters
+    ----------
+    kwargs : dict
+
+    Returns
+    -------
+    ax : AxesSubplot
+
+    """
+    if 'ax' in kwargs.keys():
+        ax = kwargs['ax']
+    elif 'figsize' in kwargs.keys():
+        fig, ax = plt.subplots(1, 1, figsize=[kwargs['figsize'],
+                               kwargs['figsize']])
+    else:
+        fig, ax = plt.subplots(1, 1)
+    return ax
+
+
+def plotKwargs(kwargs, id):
+    ax = getAx(kwargs)
+
+    if 'title' in kwargs.keys():
+        ax.set_title(id + ': ' + kwargs['title'])
+    else:
+        ax.set_title(id)
+
+    if 'ylabel' in kwargs.keys():
+        ax.set_ylabel(kwargs['ylabel'])
+
+    if 'xlabel' in kwargs.keys():
+        ax.set_xlabel(['xlabel'])
+
+    return ax
+
+
+def plotOnROI(img, coords, cone_types, id, colors, **kwargs):
+    """
+    # plot the ROI image, then outline all classed cones in yellow and fill in
+    # with their respective cone type
+    Parameters
+    ----------
+    img :
+        ROI image loaded in by pyplot
+    coords : dict of np.array
+        cone coordinates to be plotted on the image
+    ids : list of str
+        conetypes to be plotted, which are also the keys to the coords
+        dictionary, eg. ['all', 'L', 'M', 'S']
+    colors : dict of str
+        each str corresponds to a color, e.g ['y', 'r', 'g'] that will be used
+        to plot the conetype of the same index in ids
+    axes : AxesSubplot, optional
+
+    Returns
+    -------
+    ax : AxesSubplot
+
+    """
+    ax = plotKwargs(kwargs, id)
+
+    # overlay cone coordinates on the image
+    ax.imshow(img)
+
+    for ind, cone_type in enumerate(cone_types):
+
+        # outline all cones in the 'all' mosaic
         if cone_type == 'all':
             csize = 30
             cface = 'none'
             cedge = colors[ind]
-            
-        else: # for 'L','M', and 'S' mosaics plot all cones in solid circles of their respective color
+
+        else:  # plot all cones in solid circles based on their classification
             csize = 10
             cface = colors[ind]
             cedge = 'none'
-            
-        if coords[ind].size > 0:
-            
-            if coords[ind].size > 2:
-                xcoords = coords[ind][:,0]
-                ycoords = coords[ind][:,1]
-                
-            else:
-                xcoords = coords[ind][0]
-                ycoords = coords[ind][1]
-                
-            ax0.scatter(x=xcoords, y=ycoords, s=csize, facecolors=cface,edgecolors=cedge)
 
-#-------------------------------------------------------------------------------------------------------
+        if coords[cone_type].size > 0:  # catch for an empty coordinate array
 
-def quad_fig(size):
-    """
-    initialize 2x2 figure.  input: size = [x,y] in inches
-    """
-    
-    fig, ((ax0, ax1),(ax2, ax3)) = plt.subplots(2,2)
-    axes = [ax0,ax1,ax2,ax3]
-    fig.set_size_inches(size[0],size[1])
-    fig.tight_layout()
-    
-    return axes,fig
+            if coords[cone_type].size > 2:
+                xcoords = coords[cone_type][:, 0]
+                ycoords = coords[cone_type][:, 1]
 
-#-------------------------------------------------------------------------------------------------------
+            else:  # catch for a coordinate array w only one element
+                xcoords = coords[cone_type][0]
+                ycoords = coords[cone_type][1]
 
-def quad_coord(coord_dict,z_dim,unit,ids,colors):
-    """
-    """
-    axes,fig = quad_fig([9,9])
-    
-    for ind,id_str in enumerate(ids): 
-        
-        if len(coord_dict[id_str].shape) == 2:    # 2D COORDINATE ARRAY
-            scatter_x = coord_dict[id_str][:,0]
-            scatter_y = coord_dict[id_str][:,1]
-            
-        else: #3D COORDINATE ARRAY
-            scatter_x = coord_dict[id_str][:,0,z_dim]
-            scatter_y = coord_dict[id_str][:,1,z_dim]
-            
-        axes[ind].scatter(x = scatter_x, y = scatter_y,
-                     s = 10,
-                     facecolors=colors[ind],
-                     edgecolors='none') 
-        axes[ind].set_xlabel('distance (' + unit +')')
-        axes[ind].set_title(id_str)
-        axes[ind].set_ylabel('distance (' + unit +')')
-        axes[ind].set_aspect('equal')
-    
-    return axes
+            ax.scatter(x=xcoords, y=ycoords, s=csize, facecolors=cface,
+                       edgecolors=cedge)
 
-def quad_scat(x_dict,y_dict,z_dim,unit,ids,colors):
-    """
-    """
-    axes,fig = quad_fig([9,9])
-    
-    for ind,id_str in enumerate(ids): 
-        
-        if len(y_dict[id_str].shape) == 1:    # 2D COORDINATE ARRAY
-            scatter_x = x_dict[id_str]
-            scatter_y = y_dict[id_str]
-            
-        else: #3D COORDINATE ARRAY
-            for z in z_dim:
-                scatter_x = x_dict[id_str]
-                scatter_y = y_dict[id_str][:,z]
-                
-                axes[ind].scatter(x = scatter_x, y = scatter_y,
-                     s = 10,
-                     facecolors=colors[ind],
-                     edgecolors='none') 
-            
-        axes[ind].scatter(x = scatter_x, y = scatter_y,
-                     s = 10,
-                     facecolors=colors[ind],
-                     edgecolors='none') 
-        axes[ind].set_xlabel('distance (' + unit +')')
-        axes[ind].set_title(id_str)
-        axes[ind].set_ylabel('distance (' + unit +')')
-    
-    return axes, fig
+    return ax
 
-#-------------------------------------------------------------------------------------------------------
 
-def quad_hist(hist_dict,bin_edges,unit,ids,colors,x_dim):
+# def quad_fig(size):
+#     """
+#     initialize 2x2 figure.  input: size = [x,y] in inches
+#     """
+
+#     fig, ((ax, ax1),(ax2, ax3)) = plt.subplots(2,2)
+#     axes = [ax,ax1,ax2,ax3]
+#     fig.set_size_inches(size[0],size[1])
+#     fig.tight_layout()
+
+#     return axes,fig
+
+
+def scatt(coords, id, plot_col='w', bckg_col='k', z_dim=0, **kwargs):
     """
+    2D scatter plot
+
+    Parameters
+    ----------
+    coords : np.array
+    unit : str
+    id : str
+    plot_col : str, default = 'w'
+    bckg_col : str, default = 'k'
+    z_dim : int, default = 0
+    axes : AxesSubplot, optional
+
+    Returns
+    -------
+    ax : AxesSubplot
+
     """
-    axes,fig = quad_fig([9,9])
-        
+    # Handle any other
+    ax = plotKwargs(kwargs, id)
+
+    if len(coords.shape) == 2:  # 2D COORDINATE ARRAY
+        scatter_x = coords[:, 0]
+        scatter_y = coords[:, 1]
+
+    else:  # 3D COORDINATE ARRAY
+        scatter_x = coords[:, 0, z_dim]
+        scatter_y = coords[:, 1, z_dim]
+
+    ax.set_facecolor(bckg_col)
+    ax.scatter(x=scatter_x, y=scatter_y,
+               s=10,
+               facecolors=plot_col,
+               edgecolors='none')
+    ax.set_aspect('equal')
+
+    return ax
+
+
+def histo(hist_data, bin_edges, id, x_dim, plot_col='w',
+          bckg_col='k', **kwargs):
+    """
+
+    Parameters
+    ----------
+    hist_data : np.array
+    bin_edges : np.array
+    id : str
+    plot_col : str, default = 'w'
+    bckg_col : str, default = 'k'
+    z_dim : int, default = 0
+    axes : AxesSubplot, optional
+    figsize : int, optional
+    title : str, optional
+    xlabel : str, optional
+    ylabel : str, optional
+
+    Returns
+    -------
+    ax : AxesSubplot
+
+    """
+    ax = plotKwargs(kwargs)
+
     # plot histogram of intercone distances for each mosaic
-    for  ind,id_str in enumerate(ids):
-        if len(hist_dict[id_str].shape)==1:
-            hist_data = hist_dict[id_str]
-        else:
-            hist_data = hist_dict[id_str][:,x_dim]
-        bin_width = bin_edges[id_str][1] - bin_edges[id_str][0]
-        axes[ind].hist(hist_data, 
-                    bins=bin_edges[id_str],
-                    color = colors[ind])
-        axes[ind].set_xlabel('distance ('+ unit + ')')
-        axes[ind].set_title(id_str)
-        axes[ind].set_ylabel('cones per ' + str(bin_width) + unit + ' bin')   
-        
-    return axes
+    if len(hist_data[id].shape) == 1:
+        hist_data = hist_data
+    else:
+        hist_data = hist_data[id][:, x_dim]
 
-#-------------------------------------------------------------------------------------------------------
+    ax.set_facecolor(bckg_col)
+    ax.hist(hist_data,
+            bins=bin_edges[id],
+            color=plot_col)
 
-def quad_plot(x, plot_dict,unit,ids,colors):
-    axes,fig = quad_fig([9,9])
-    
-    for ind,id_str in enumerate(ids):
-        axes[ind].plot(x[id_str],plot_dict[id_str],color=colors[ind])
-        axes[ind].set_title(id_str)
-        
-    return axes,fig
+    return ax
 
-#-------------------------------------------------------------------------------------------------------
+
+def line(x, y, id, plot_col='w', bckg_col='k', **kwargs):
+    """
+    Plot a line
+
+    Parameters
+    ----------
+    x : np.array
+    y : np.array
+    id : str
+    plot_col : str, default = 'w'
+    bckg_col : str, default = 'k'
+    z_dim : int, default = 0
+    axes : AxesSubplot, optional
+    figsize : int, optional
+    title : str, optional
+    xlabel : str, optional
+    ylabel : str, optional
+
+    Returns
+    -------
+    ax : AxesSubplot
+    """
+    ax = plotKwargs(kwargs, id)
+    ax.set_facecolor(bckg_col)
+    ax.plot(x, y, color=plot_col)
+
+    return ax
+
+
+def shadyStats(x, mean, std, id, scale_std=1, plot_col='w',
+               bckg_col='k', **kwargs):
+    """
+    plot the mean of function with the std shaded around it
+
+    Parameters
+    ----------
+    x : np.array
+        1D x-values, same length as data and std
+    mean : np.array
+        1D mean of the data
+    std : np.array
+        1D std of the data
+    scale_std : int, default = 1
+    id : str
+    axes : AxesSubplot
+    figsize : int
+    title_col : str
+    bckg_col : str
+    plot_col : str
+
+    Returns
+    -------
+    ax : AxesSubplot
+
+    """
+
+    err_high = mean+(std*scale_std)
+    err_low = mean-(std*scale_std)
+
+    ax = plotKwargs(kwargs, id)
+    ax.set_facecolor(bckg_col)
+    ax.plot(x, mean, color=plot_col)
+    ax.fill_between(x, err_low, err_high, color=plot_col, alpha=.5)
+
+    return ax
