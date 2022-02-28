@@ -57,7 +57,7 @@ def getConeData(fold_path, subject, angle, eccentricity, conetypes,
 
     Returns
     -------
-    data : list
+    data : numpy.ndarray
         a list of np.arrays corresponding to cone coordinates (filetype
         = '.csv') or pyplot images of cone mosaics (filetype ='.tiff')
     mosaics : list of str
@@ -69,9 +69,10 @@ def getConeData(fold_path, subject, angle, eccentricity, conetypes,
             conetypes], respectively, such that the nth value of all
             vectors indicate the descriptors of the nth piece of data
             in the list returned.
-        'mos' : np.array
+        'mos' : numpy.ndarray
             index vector like the other keys but corresponds to the
             returned variable 'mosaics'
+    flnames_all : list of str
 
     """
 
@@ -93,7 +94,7 @@ def getConeData(fold_path, subject, angle, eccentricity, conetypes,
 
     data = np.asarray(data)
 
-    return data, mosaics, index
+    return data, mosaics, index, flnames_all
 
 
 def getFilesByDataGroup(path, subject, angle, eccentricity, conetypes,
@@ -307,10 +308,10 @@ def getIndex(cat_vals, fl_strings):
     return index
 
 
-def getDataByCatVal(data, index, val):
-    """
+def filesToCreate(folder,fls_requested,func):
+    # get all filenames in the folder
 
-    """
-    data_by_ind = data[np.nonzero(index == val)[0]]
+    # find which files are in there
 
-    return data_by_ind
+    # return indices of the ones not in the list 
+    return(files2make)

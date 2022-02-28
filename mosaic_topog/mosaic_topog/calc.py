@@ -7,7 +7,7 @@ from scipy import spatial
 # Monte_Carlo_uniform
 
 
-def dist_matrices(coords, dims=1, self=-1):
+def dist_matrices(coords, dims=3, self=-1):
     """
      Get all intercone distances of a mosaic
 
@@ -28,78 +28,49 @@ def dist_matrices(coords, dims=1, self=-1):
         matrix or vector.
 
     """
-
-    # [cut] numzeros = coords.shape[0]
-
-    # [cut] if len(coords.shape) == 2:    # 1 COORDINATE ARRAY
-
-    # 2D array of every intercone distance in the mosaic
-    if coords.shape == 2:
+    print(coords.shape)
+    # if we have multiple cones...
+    if len(coords.shape) == 2 and coords.shape[1] == 2:
+        # 2D array of every intercone distance in the mosaic
         dist_square = spatial.distance_matrix(coords, coords)
-    elif coords.shape == 1:
-        if coords.shape[0] == 0:
-            dist_square = []
-        else:
-            dist_square = [0]
+        one_cone = False
+    # if there is only one cone...
+    elif len(coords.shape) == 1 and coords.shape[0] == 2:
+        dist_square = [0]
+        one_cone = True
+    elif coords.shape[0] == 0:
+        if dims == 1 or dims == 2:
+            return []
+        elif dims == 3:
+            return[]
+    else:
+        raise Exception('bad input for coords to dist_matrices()')
 
+    # replace distance of cones to themselves with -1 if dim == -1
+    # flags to handle a situation with 1 or no cones
     if self == -1:
-        for cone, blah in enumerate(coords[:, 0]):
-            dist_square[cone, cone] = -1
+        if not one_cone:
+            iter = np.arange(0, coords.shape[0])
+        else:
+            iter = np.array([0])
+        for cone in iter:
+            if not one_cone:
+                dist_square[cone, cone] = -1
+            else:
+                dist_square[cone] = -1
 
+    # return the square matrix, a vector, or both
     if dims == 2:
         return dist_square
-
-    elif dims == 1:
+    elif (dims == 1 or dims == 3) and not one_cone:
         # vectorize the square distance matrix
         temp = np.reshape(dist_square, -1)
-
         # sort the vector
         dist_vect = np.sort(temp)
-
-        return dist_vect
-
-    # [cut]
-        # findzeros = np.nonzero(dist_vect == 0)[0].size
-
-        # if numzeros != findzeros:
-        #     print('ERROR: bad logic about distance = 0. lreal num zeros is ',
-        #           findzeros, ', expected ', numzeros)
-
-        # dist_vect = dist_vect[numzeros+1:]    
-
-    # elif len(coords.shape) == 3:    # >1 COORDINATE ARRAY 
-
-    #     print(coords.shape)
-    #     #initialize 3D array for stack of square distance matrices and 2D array for columns of sorted cone distances
-    #     dist_square = np.zeros([coords.shape[0],coords.shape[0],coords.shape[2]])
-    #     dist_vect = np.zeros([pow(coords.shape[0],2),coords.shape[2]])
-
-    #     for z in np.arange(0,coords.shape[2]):
-
-    #         # fill w stack of 2D arrays of intercone distances
-    #         dist_square[:,:,z] = spatial.distance_matrix(coords[:,:,z],coords[:,:,z])
-
-    #         #turn ^ into 2D array with every column being an array of distances
-    #         temp = np.reshape(dist_square[:,:,z], -1)
-
-    #         #sort the vectors
-    #         dist_vect[:,z] = np.sort(temp)
-    
-    #     #remove zeros
-    #     findzeros = np.nonzero(dist_vect[:,z]==0)[0].size
-    #     if numzeros != findzeros:
-    #         print('ERROR: bad logic about distance = 0. real # zeros is ',
-    #               findzeros , ', expected ', numzeros)
-    #     dist_vect = dist_vect[numzeros+1:,:]
-
-    # else: #if there are zero cones or only one in this data set, doesn't make
-    #     #sense to return anything
-
-    #     dist_square = []
-    #     dist_vect = []
-    #     if not coords.size == 0 and not coords.size == 2:
-    #         print('HEY unexpected shape for coordinate data, you should look into that')
-    #         print('it''s shaped like this: ' + str(coords.shape))
+        if dims == 1:
+            return dist_vect
+    if dims == 3:
+        return dist_square, dist_vect
 
 
 def MonteCarlo_uniform(num_mc, num_coords, xlim, ylim):
