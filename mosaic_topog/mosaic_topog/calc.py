@@ -7,7 +7,7 @@ from scipy import spatial
 # Monte_Carlo_uniform
 
 
-def dist_matrices(coords, dims=3, self=-1):
+def dist_matrices(coords, dist_self=-1):
     """
      Get all intercone distances of a mosaic
 
@@ -16,8 +16,8 @@ def dist_matrices(coords, dims=3, self=-1):
     coord : str
         2D np.array of ints or floats corresponding to cone coordinates in a
         single mosaic. rows = cones, columns = [x,y]
-    dims : {1, 2}, default 1
-        2 returns square matrix, 1 returns vector
+    dims : {1, 2, 3}, default 3
+        2 returns square matrix, 1 returns vector, 3 returns both
     self : {-1, 0}, default -1
         sets distance between a cone and itself as -1 or 0
 
@@ -25,52 +25,23 @@ def dist_matrices(coords, dims=3, self=-1):
     -------
     np.array
         all intercone distances of the input cone coordinates, as a square
-        matrix or vector.
+        matrix or vector (returns both if dims==3)
 
     """
-    print(coords.shape)
     # if we have multiple cones...
     if len(coords.shape) == 2 and coords.shape[1] == 2:
         # 2D array of every intercone distance in the mosaic
-        dist_square = spatial.distance_matrix(coords, coords)
-        one_cone = False
-    # if there is only one cone...
-    elif len(coords.shape) == 1 and coords.shape[0] == 2:
-        dist_square = [0]
-        one_cone = True
-    elif coords.shape[0] == 0:
-        if dims == 1 or dims == 2:
-            return []
-        elif dims == 3:
-            return[]
+        dists = spatial.distance_matrix(coords, coords)
     else:
         raise Exception('bad input for coords to dist_matrices()')
 
     # replace distance of cones to themselves with -1 if dim == -1
     # flags to handle a situation with 1 or no cones
-    if self == -1:
-        if not one_cone:
-            iter = np.arange(0, coords.shape[0])
-        else:
-            iter = np.array([0])
-        for cone in iter:
-            if not one_cone:
-                dist_square[cone, cone] = -1
-            else:
-                dist_square[cone] = -1
+    if dist_self == -1:
+        for ind,cone in enumerate(coords[:,0]):
+            dists[ind, ind] = -1
 
-    # return the square matrix, a vector, or both
-    if dims == 2:
-        return dist_square
-    elif (dims == 1 or dims == 3) and not one_cone:
-        # vectorize the square distance matrix
-        temp = np.reshape(dist_square, -1)
-        # sort the vector
-        dist_vect = np.sort(temp)
-        if dims == 1:
-            return dist_vect
-    if dims == 3:
-        return dist_square, dist_vect
+    return dists
 
 
 def MonteCarlo_uniform(num_mc, num_coords, xlim, ylim):
