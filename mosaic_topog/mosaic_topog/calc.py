@@ -1,10 +1,36 @@
 import numpy as np
 from scipy import spatial
+import mosaic_topog.show as show
 
 # Functions
 # ---------
 # dist_matrices
 # Monte_Carlo_uniform
+
+
+def annulusArea(annulus_edge):
+    """
+    get the areas of concentric annuli
+
+    Parameters
+    ----------
+    annulus_edges : list of float
+        vector
+    Returns
+    -------
+    annulus_area : list of float
+        vector, one element smaller than annulus edges
+
+    """
+    annulus_area = []
+    for ind, edge in enumerate(annulus_edge):
+        if ind < annulus_edge.size-1:
+            annulus_area.append(np.pi * (np.power(annulus_edge[ind+1], 2)
+                                - np.power(edge, 2)))
+
+    annulus_area = np.array(annulus_area)
+    
+    return annulus_area
 
 
 def dist_matrices(coords, dist_self=-1):
@@ -38,13 +64,29 @@ def dist_matrices(coords, dist_self=-1):
     # replace distance of cones to themselves with -1 if dim == -1
     # flags to handle a situation with 1 or no cones
     if dist_self == -1:
-        for ind,cone in enumerate(coords[:,0]):
+        for ind, cone in enumerate(coords[:, 0]):
             dists[ind, ind] = -1
 
     return dists
 
 
-def MonteCarlo_uniform(num_mc, num_coords, xlim, ylim):
+def distHist(dists, bin_width):
+    # vectorize the matrix of distances
+    dists = np.sort(np.reshape(dists, -1))
+
+    # remove any -1s if present (indicate distance from self, if flagged to mark these in dist_matrices)
+    dists = np.delete(dists, np.where(dists == -1))
+
+    # calculate bin stuff
+    bin_edges = np.arange(1, int(max(dists) + bin_width), bin_width)
+
+    # get histogram
+    hist = np.histogram(dists, bins=bin_edges)[0]
+
+    return hist, bin_edges
+
+
+def MonteCarlo(num_coords, num_mc, mc_type, xlim, ylim):
     """
         generate array of monte carlo shuffled points distributed uniformly
         within a 2D range
@@ -77,3 +119,4 @@ def MonteCarlo_uniform(num_mc, num_coords, xlim, ylim):
                                            size=(num_coords, num_mc))
 
     return(mc_coords)
+    

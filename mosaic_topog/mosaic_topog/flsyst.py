@@ -3,6 +3,8 @@ import matplotlib.pyplot as plt
 import glob
 import os
 import mosaic_topog.utilities as util
+import yaml
+import h5py
 
 # Functions
 # ---------
@@ -13,8 +15,98 @@ import mosaic_topog.utilities as util
 # getIndex
 
 
-def getConeData(fold_path, subject, angle, eccentricity, conetypes,
-                filetype):
+def setProcessByType(file, proc, var, data):
+    """
+    sets process in a read-in .hdf5 file open for writing or reading+writing
+
+    """
+    if isinstance(data, str):
+        file[proc][var] = np.string_(data)
+    elif isinstance(data, float):
+        file[proc][var] = np.float_(data)
+    elif isinstance(data, int):
+        file[proc][var] = np.int_(data)
+    elif isinstance(data, np.ndarray):
+        file[proc][var] = data
+    elif isinstance(data, bool):
+        file[proc][var] = np.bool_(data)
+    else:
+        print('data for "' + var + '" is type "' + str(type(data)) + '" and flsyst.setProcessByType() does not know what to do.')
+        print('something is wrong with the data being sent to process:'+proc+', variable:'+var+', OR')
+        print('a condition for this type needs to be addded to flsyst.setProcessByType().')
+
+
+def setProcessVarsFromDict(param, sav_cfg, proc, data_to_set, spec='all'):
+    sav_fl = param['sav_fl']
+
+    with h5py.File(sav_fl, 'r+') as file:
+
+        # find all variables for this process
+        proc_vars = sav_cfg[proc]['variables']
+
+        if spec == 'all':
+            # set spec to equal all variables
+            spec = proc_vars
+
+        # check if requested variables for this process are valid for our configuration file
+        for var in spec:
+            if var not in proc_vars:
+                print('variable"' + var + '" being set is not found in the configuration file for process "' + proc + '". it will not be set.')
+                del spec[spec.index(var)]
+
+        # stash all the variables that have already been set for this
+        # process.  they will only be overwritten if the variable is
+        # specified in spec
+        # delete the process key in the save file if it already exists 
+        if proc in file.keys():
+            temp_vars = file[proc]
+            del file[proc]
+        else:
+            temp_vars = []
+
+        # check if variables found in the save file for this process are valid for our configuration file
+        for var in temp_vars:
+            if var not in proc_vars:
+                print('variable "' + var + '" found in the save file is not found in the configuration file for process "' + proc + '". it will be removed from the save file.')
+                del temp_vars[temp_vars.index(var)]
+
+        # create process key in the save file
+        file.create_group(proc)
+
+        # set variables
+        for var in proc_vars:
+            if var in spec:
+                setProcessByType(file, proc, var, data_to_set[var])
+            elif var in temp_vars:
+                # sets variable to its pre-existing values if 'spec'
+                # doesn't equal "all" and the variable name is not
+                # contained in 'spec'
+                setProcessByType(file, proc, var, temp_vars[var])
+            else:
+                print('check for variables failed, go look for the bug earlier in this function')
+
+
+def saveNameFromLoadPath(fls, save_path, load_type='.csv', save_type='.hdf5'):
+    """
+
+    """
+    save_names = [
+        save_path + os.path.splitext(os.path.basename(fl))[0] + save_type for fl in fls
+    ]
+    return(save_names)
+
+
+def readYaml(flnm):
+    # load in the config file that dictates the information that can be saved by mosaic_topog
+    with open(flnm, "r") as stream:
+        try:
+            sav_cfg = yaml.safe_load(stream)
+        except yaml.YAMLError as exc:
+            print(exc)
+    return sav_cfg
+
+
+def getConeData(fold_path, user_param, filetype):
 
     """
     Get cone data based on mosaic and datatype specifications
@@ -75,10 +167,7 @@ def getConeData(fold_path, subject, angle, eccentricity, conetypes,
     flnames_all : list of str
 
     """
-
-    mosaics, flnames_all, index = getFilesByDataGroup(fold_path, subject,
-                                                      angle, eccentricity,
-                                                      conetypes, filetype)
+    mosaic, flnames_all, index = getFilesByDataGroup(fold_path, user_param, filetype)
 
     data = []
 
@@ -86,19 +175,18 @@ def getConeData(fold_path, subject, angle, eccentricity, conetypes,
 
         if filetype == '.csv':
             # load in cone coordinates (relative to ROI lower left corner)
-            data.append(np.loadtxt(fold_path + fl, delimiter=','))
+            data.append(np.loadtxt(fl, delimiter=','))
 
         elif filetype == '.png':
             # load in ROI image
-            data.append(plt.imread(fold_path + fl))
+            data.append(plt.imread(fl))
 
     data = np.asarray(data)
 
-    return data, mosaics, index, flnames_all
+    return data, mosaic, index, flnames_all
 
 
-def getFilesByDataGroup(path, subject, angle, eccentricity, conetypes,
-                        filetype):
+def getFilesByDataGroup(folder, user_param, filetype):
     """
     Get cone data based on mosaic and datatype specifications
 
@@ -143,12 +231,17 @@ def getFilesByDataGroup(path, subject, angle, eccentricity, conetypes,
         mosaic in cat_comb
 
     """
+    subject = user_param['subject']
+    angle = user_param['angle']
+    eccentricity = user_param['eccentricity']
+    conetype = user_param['conetype']
+
     # get all file paths in the directory
-    fl_list = glob.glob(path + '*')
+    fl_list = glob.glob(folder + '*')
 
     fl_list = [os.path.basename(file) for file in fl_list]  # listcomprehension
 
-    mosaics = []
+    mosaic = []
     mos_fls = []
     mos_count = 0
     fl_count = 0
@@ -156,14 +249,14 @@ def getFilesByDataGroup(path, subject, angle, eccentricity, conetypes,
     # build the file paths I want based on the category inputs
     delim = '_'
     cat_comb = []  # will contain all the permutations of categories
-    
+
     for s in subject:
         for a in angle:
             for e in eccentricity:
-                mosaics.append(s + delim + a + delim + e)
+                mosaic.append(s + delim + a + delim + e)
                 mos_fls.append([])
                 if filetype == '.csv':
-                    for c in conetypes:  # only look for conetype specific data
+                    for c in conetype:  # only look for conetype specific data
                         # if this is coordinate data
                         cat_comb.append(s + delim + a + delim + e + delim
                                         + c + filetype)
@@ -186,7 +279,7 @@ def getFilesByDataGroup(path, subject, angle, eccentricity, conetypes,
         files_kept = util.indsNotInList(mos, pop_fls)
         if not files_kept:
             pop_mos.append(ind)
-    mosaics = util.removeListInds(mosaics, pop_mos)
+    mosaic = util.removeListInds(mosaic, pop_mos)
 
     # get substrings of filenames that indicate the file's value for each
     # category (so that we can use them to create indexes for each category)
@@ -194,8 +287,8 @@ def getFilesByDataGroup(path, subject, angle, eccentricity, conetypes,
 
     # define the categories to be indexed the substrings to reference to get
     # the indexes
-    categories = [subject, angle, eccentricity, conetypes, mosaics]
-    cat_names = ['subject', 'angle', 'eccentricity', 'conetypes', 'mosaics']
+    categories = [subject, angle, eccentricity, conetype, mosaic]
+    cat_names = ['subject', 'angle', 'eccentricity', 'conetype', 'mosaic']
     cat_str = [subj_str, ang_str, ecc_str, end_str, cat_comb]
 
     # get category vectors to output
@@ -204,8 +297,10 @@ def getFilesByDataGroup(path, subject, angle, eccentricity, conetypes,
     print('found ' + str(len(cat_comb)) + ' files')
     print('')
 
-    cat_comb = np.asarray(cat_comb)
-    return mosaics, cat_comb, cat_index
+    for ind, fl in enumerate(cat_comb):
+        cat_comb[ind] = folder + fl
+
+    return mosaic, cat_comb, cat_index
 
 
 def getFileSubstrings(fl_list):
@@ -308,10 +403,76 @@ def getIndex(cat_vals, fl_strings):
     return index
 
 
-def filesToCreate(folder,fls_requested,func):
-    # get all filenames in the folder
+def getProcessesToRun(fl_names, save_names, save_path, proc_to_run, sav_cfg):
+    """
+    Determine which mosaics will be run through which processes 
+    
+    Mosaics are selected to be run on all processes if there is not already an .hdf5 in the save folder
+    that describes this mosaic.  If there is an .hdf5 for this file, mosaics are only selected to be run
+    on requested processes that are not already present in the file.  
+    
+    Modifications that will make this mroe useful down the line:
+        - Add a name to the savefl_config keys file that clarifies this is the single_mosaic_processes save file, 
+          and make the check for whether the savefile exists check for this
+        - Add a git-commit-hash key to each process in the save file so that when processes are checked in found 
+          save files, the data can be flagged to be re run if it is found but was not run on the current version
+    
+    Parameters
+    ----------
+    fl_names : list of str
+        mosaic .csv filenames, path not included
+    save_names: list of str
+        single_mosaic_process .hdf5 filenames, path included.  
+        corresponds to fl_names
+    proc_to_run: list of str
+        processes requested by the user
+    sav_cfg : dict
+        map organizing single_mosaic_processes, read in from configuration file
+    
+    
+    Returns
+    -------
+    processes : dict of list of int
+        keys are comprised of 1) mandatory keys for data run & saved by single_mosaic_processes 
+                              2) processes requested by user in the input "data_to_run"
+        lists returned for each key/process are int indices corresponding to data files in the list "flnames" 
+        that need to be run through that process  
+    
+    Raises
+    ------
+    
+    
+    """
 
-    # find which files are in there
+    # look for files associated with each data file in the save folder
+    # If no data file is found, add it to the list to collect all data for
+    folder_hdf5s = glob.glob(save_path + '*.hdf5') # get all .hdf5 files in the save path
+    collect_all = util.indsNotInList(save_names,folder_hdf5s)
+    
+    # initialize map between categories and files to be run on them
+    processes = {} 
+    
+    # for each category of processes, identify files that will be run through 
+    for proc in proc_to_run:
+        # make sure the category is valid
+        if proc not in sav_cfg.keys():
+            print('element "' + str(proc) + '" in variable "proc_to_run" is not a process specified in the configuration file. skipping.')
+        else:
+            # select only files missing data for the requested category
+            collect_this = []
+            # YO SIERRA COME BACK AND TURN THIS INTO LIST COMPREHENSION + CONTEXT MANAGER
+            for ind,fl in enumerate(save_names):
+                if ind not in collect_all:
+                    temp = h5py.File(save_names[ind], 'r')
+                    for p in sav_cfg[proc]:
+                        if p not in temp.keys():
+                            collect_this.append(ind)
+                    temp.close()
+            # YO SIERRA YO YO
+            # get a sorted list of files missing entirely and files missing data from the requested category
+            collect_this = np.union1d(collect_all,collect_this).astype(int)
+        # indicate the indices of the files that were selected for the category    
+        processes[proc] = collect_this
+        
+    return processes
 
-    # return indices of the ones not in the list 
-    return(files2make)

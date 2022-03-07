@@ -23,6 +23,7 @@ def indsNotInList(check_list, ref_list):
     Returns
     -------
     pop_inds : list of int
+    
 
     """
     pop_inds = []

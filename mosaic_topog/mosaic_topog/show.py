@@ -1,7 +1,6 @@
 import matplotlib.pyplot as plt
 import mosaic_topog.utilities as util
 
-
 def getAx(kwargs):
     """
     Checks whether user input their own subplot, 
@@ -100,17 +99,17 @@ def plotOnROI(img, coords, cone_types, id, colors, **kwargs):
     return ax
 
 
-# def quad_fig(size):
-#     """
-#     initialize 2x2 figure.  input: size = [x,y] in inches
-#     """
+def quad_fig(size):
+    """
+    initialize 2x2 figure.  input: size = [x,y] in inches
+    """
 
-#     fig, ((ax, ax1),(ax2, ax3)) = plt.subplots(2,2)
-#     axes = [ax,ax1,ax2,ax3]
-#     fig.set_size_inches(size[0],size[1])
-#     fig.tight_layout()
+    fig, ((ax, ax1),(ax2, ax3)) = plt.subplots(2,2)
+    axes = [ax,ax1,ax2,ax3]
+    fig.set_size_inches(size[0],size[1])
+    fig.tight_layout()
 
-#     return axes,fig
+    return axes,fig
 
 
 def scatt(coords, id, plot_col='w', bckg_col='k', z_dim=0, **kwargs):
@@ -153,7 +152,7 @@ def scatt(coords, id, plot_col='w', bckg_col='k', z_dim=0, **kwargs):
     return ax
 
 
-def histo(hist_data, bin_edges, id, x_dim, plot_col='w',
+def histo(hist_data, bin_edges, id, x_dim=1, plot_col='w',
           bckg_col='k', **kwargs):
     """
 
@@ -176,17 +175,17 @@ def histo(hist_data, bin_edges, id, x_dim, plot_col='w',
     ax : AxesSubplot
 
     """
-    ax = plotKwargs(kwargs)
+    ax = plotKwargs(kwargs,id)
 
     # plot histogram of intercone distances for each mosaic
-    if len(hist_data[id].shape) == 1:
+    if len(hist_data.shape) == 1:
         hist_data = hist_data
     else:
-        hist_data = hist_data[id][:, x_dim]
+        hist_data = hist_data[:, x_dim]
 
     ax.set_facecolor(bckg_col)
     ax.hist(hist_data,
-            bins=bin_edges[id],
+            bins=bin_edges,
             color=plot_col)
 
     return ax

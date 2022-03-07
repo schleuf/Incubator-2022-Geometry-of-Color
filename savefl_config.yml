@@ -1,0 +1,47 @@
+meta:
+  process: meta_process
+  variables:
+    - mosaic
+    - subject
+    - angle
+    - eccentricity
+    - conetype
+input_data: 
+  process: input_data_process
+  variables: 
+    - cone_img
+    - cone_coord
+    - coord_unit
+    - conetype_color
+    - bin_width
+    - dist_area_norm
+intracone_dist:
+  process: intracone_dist_process
+  variables:
+    - dist
+    - mean_nearest
+    - std_nearest
+    - hist
+    - bin_edge
+    - annulus_area
+monteCarlo_uniform:
+  process: monteCarlo_uniform_process
+  variables:
+    - mc_coord
+monteCarlo_coneLocked:
+  process: monteCarlo_coneLocked_process
+  variables:
+  variables:
+    - mc_coord
+monteCarlo_intracone_dist:
+  process: monteCarlo_intracone_dist_process
+  variables:
+    - dist
+    - mean_nearest
+    - std_nearest
+    - hist
+    - bin_edge
+    - annulus_area
+mandatory_proc:
+  - meta
+  - input_data
