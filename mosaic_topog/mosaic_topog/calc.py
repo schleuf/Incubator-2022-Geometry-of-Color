@@ -134,6 +134,5 @@ def monteCarlo_coneLocked(num_coord, all_coord, num_mc):
             mc_coord[mc, c, 1] = temp_y[r]
             temp_x = np.delete(temp_x, r, 0)
             temp_y = np.delete(temp_y, r, 0)
-            print(temp_x.shape)
 
     return mc_coord

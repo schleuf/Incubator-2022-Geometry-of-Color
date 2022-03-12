@@ -309,13 +309,11 @@ def runSingleMosaicProcess(user_param, sav_cfg):
     mandatoryProcesses(user_param, sav_cfg)
     processes = user_param['processes']
 
-    print(sav_cfg['order_optional_proc'])
     for proc in sav_cfg['order_optional_proc']:
         if proc not in sav_cfg.keys():
             print('process "' + proc + '" listed under optional processes is not found in the configuration file, skipping...')
         elif proc in processes.keys():
             print('Running process "' + proc + '" on ' + str(len(processes[proc])) + ' mosaic coordinate files...')
-            print(sav_cfg[proc]['process'])
             for ind in processes[proc]:
                 param = unpackThisParam(user_param, ind)
                 globals()[sav_cfg[proc]['process']](param, sav_cfg)
