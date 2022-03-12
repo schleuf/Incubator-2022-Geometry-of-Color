@@ -86,7 +86,7 @@ def distHist(dists, bin_width):
     return hist, bin_edges
 
 
-def monteCarlo(num_coord, num_mc, mc_type, xlim, ylim):
+def monteCarlo_uniform(num_coord, num_mc, xlim, ylim):
     """
         generate array of monte carlo shuffled points distributed uniformly
         within a 2D range
@@ -110,13 +110,30 @@ def monteCarlo(num_coord, num_mc, mc_type, xlim, ylim):
             1st column x, 2nd column y.
     """
     # [0] = cone index, [1] = (x,y), [2] = Monte Carlo trial
-    mc_coords = np.zeros([num_mc, num_coord, 2])
+    mc_coord = np.zeros([num_mc, num_coord, 2])
 
     # randomly sample coordinates from a uniform distribution of the space
     for mc in np.arange(0, num_mc):
-        mc_coords[mc, :, 0] = np.random.uniform(low=xlim[0], high=xlim[1],
-                                                size=(num_coord))
-        mc_coords[mc, :, 1] = np.random.uniform(low=ylim[0], high=ylim[1],
-                                                size=(num_coord))
+        mc_coord[mc, :, 0] = np.random.uniform(low=xlim[0], high=xlim[1],
+                                               size=(num_coord))
+        mc_coord[mc, :, 1] = np.random.uniform(low=ylim[0], high=ylim[1],
+                                               size=(num_coord))
+    return mc_coord
 
-    return(mc_coords)
+
+def monteCarlo_coneLocked(num_coord, all_coord, num_mc):
+    mc_coord = np.zeros([num_mc, num_coord, 2])
+    for mc in np.arange(0, num_mc):
+        temp_x = all_coord[:,0]
+        temp_y = all_coord[:,1]
+
+        for c in np.arange(0, num_coord):
+            # get random int between 1 and length temp 
+            r = np.random.randint(low=0, high=len(temp_x), size=1)
+            mc_coord[mc, c, 0] = temp_x[r]
+            mc_coord[mc, c, 1] = temp_y[r]
+            temp_x = np.delete(temp_x, r, 0)
+            temp_y = np.delete(temp_y, r, 0)
+            print(temp_x.shape)
+
+    return mc_coord

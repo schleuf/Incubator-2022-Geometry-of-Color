@@ -9,6 +9,44 @@ import mosaic_topog.show as show
 import mosaic_topog.utilities as util
 
 
+def norm_by_MCU_mean_process(param, sav_cfg):
+    proc = 'norm_by_MCU_mean'
+    proc_vars = sav_cfg[proc]['variables']
+
+    sav_fl = param['sav_fl']
+    with h5py.File(sav_fl, 'r') as file:
+        hist = file['intracone_dist']['hist'][()]
+        MCU_mean = file['monteCarlo_uniform_intracone_dist']['mean_hist'][()]
+        MCU_std = file['monteCarlo_uniform_intracone_dist']['std_hist'][()]
+
+    if not np.isnan(hist).any():
+        if hist.shape[0] > MCU_mean.shape[0]:
+            num_pad = hist.shape[0] - MCU_mean.shape[0]
+            MCU_mean = np.append(MCU_mean, np.zeros(num_pad))
+            MCU_std = np.append(MCU_std, np.zeros(num_pad))
+            bin_edge_source = 'intracone_dist'
+        elif hist.shape[0] < MCU_mean.shape[0]:
+            num_pad = MCU_mean.shape[0] - hist.shape[0]
+            hist = np.append(hist, np.zeros(num_pad))
+            bin_edge_source = 'monteCarlo_uniform_intracone_dist'
+        else:
+            bin_edge_source = 'intracone_dist'
+
+        with h5py.File(sav_fl, 'r') as file:
+            bin_edge = file[bin_edge_source]['bin_edge'][()]
+
+        hist = hist / MCU_mean
+        MCU_std = MCU_std / MCU_mean
+        MCU_mean = MCU_mean / MCU_mean
+
+        data_to_set = util.mapStringToLocal(proc_vars, locals())
+
+    else:
+        data_to_set = util.mapStringToNan(proc_vars)
+
+    flsyst.setProcessVarsFromDict(param, sav_cfg, proc, data_to_set)
+
+
 def intracone_dist_common(coord, bin_width, dist_area_norm):
     """
     intracone_dist code shared for true and mc coordinate processes
@@ -45,18 +83,16 @@ def intracone_dist_common(coord, bin_width, dist_area_norm):
     return dist, mean_nearest, std_nearest, hist, bin_edge, annulus_area
 
 
-def monteCarlo_uniform_intracone_dist_process(param, sav_cfg):
-    """
-    """
+def monteCarlo_intracone_dist_common(param, sav_cfg, mc_type):
     # get any needed info from the save file
     sav_fl = param['sav_fl']
     with h5py.File(sav_fl, 'r') as file:
-        coord = file['monteCarlo_uniform']['coord'][()]
+        coord = file['monteCarlo_' + mc_type]['coord'][()]
         num_mc = file['input_data']['bin_width'][()]
         bin_width = file['input_data']['bin_width'][()]
         dist_area_norm = file['input_data']['dist_area_norm'][()]
 
-    proc = 'monteCarlo_uniform_intracone_dist'
+    proc = 'monteCarlo_'+mc_type+'_intracone_dist'
     proc_vars = sav_cfg[proc]['variables']
 
     if len(coord[0].shape) == 2 and coord[0].shape[1] == 2:
@@ -82,8 +118,8 @@ def monteCarlo_uniform_intracone_dist_process(param, sav_cfg):
         while len(bin_edge) < max_hist_bin + 1:
             bin_edge = np.append(bin_edge, np.max(bin_edge)+bin_width)
 
-        mean_dist_hist = np.mean(hist_mat, 0)
-        std_dist_hist = np.std(hist_mat, 0)
+        mean_hist = np.mean(hist_mat, 0)
+        std_hist = np.std(hist_mat, 0)
 
         data_to_set = util.mapStringToLocal(proc_vars, locals())
         
@@ -91,6 +127,18 @@ def monteCarlo_uniform_intracone_dist_process(param, sav_cfg):
         data_to_set = util.mapStringToNan(proc_vars)
 
     flsyst.setProcessVarsFromDict(param, sav_cfg, proc, data_to_set)
+
+
+def monteCarlo_coneLocked_intracone_dist_process(param, sav_cfg):
+    """
+    """
+    monteCarlo_intracone_dist_common(param, sav_cfg, 'coneLocked')
+
+
+def monteCarlo_uniform_intracone_dist_process(param, sav_cfg):
+    """
+    """
+    monteCarlo_intracone_dist_common(param, sav_cfg, 'uniform')
 
 
 def monteCarlo_process(param, sav_cfg, mc_type):
@@ -109,11 +157,25 @@ def monteCarlo_process(param, sav_cfg, mc_type):
     if len(real_coord.shape) == 2 and real_coord.shape[1] == 2:
         data_to_set = {}
         num_coord = real_coord.shape[0]
-        xlim = [0, img.shape[0]]
-        ylim = [0, img.shape[1]]
-        coord = calc.monteCarlo(num_coord, num_mc, mc_type, xlim, ylim)
-
-        data_to_set = util.mapStringToLocal(proc_vars, locals())
+        if mc_type == 'uniform':
+            xlim = [0, img.shape[0]]
+            ylim = [0, img.shape[1]]
+            coord = calc.monteCarlo_uniform(num_coord, num_mc, xlim, ylim)
+            data_to_set = util.mapStringToLocal(proc_vars, locals())
+        elif mc_type == 'coneLocked':
+            # look for all cone mosaic for this data
+            mosaic = param['mosaic']
+            save_path = os.path.dirname(sav_fl)
+            all_coord_fl = save_path + '\\' + mosaic + '_all.hdf5'
+            # try:
+            with h5py.File(all_coord_fl, 'r') as file:
+                all_coord = file['input_data']['cone_coord'][()]
+            coord = calc.monteCarlo_coneLocked(num_coord, all_coord, num_mc)
+            data_to_set = util.mapStringToLocal(proc_vars, locals())
+            # except:
+            #     print('could not find "' + all_coord_fl + ", cannot create coneLocked monteCarlo, skipping...")
+            #     data_to_set = util.mapStringToNan(proc_vars)
+        
     else:
         data_to_set = util.mapStringToNan(proc_vars)
 
@@ -286,6 +348,56 @@ def viewIntraconeDistHists(save_names):
         else:
             print(id + ' contains < 2 cones, skipping... ')
 
+
+def viewMonteCarlo(save_name, mc_type, mc):
+    for fl in save_name:
+        # get intracone distance histogram data and plotting parameters from the save file
+        with h5py.File(fl, 'r') as file:  # context manager
+            mosaic = bytes(file['meta']['mosaic'][()]).decode("utf8")
+            conetype = bytes(file['meta']['conetype'][()]).decode("utf8")
+            coord_unit = bytes(file['input_data']['coord_unit'][()]).decode("utf8")
+            conetype_color = bytes(file['input_data']['conetype_color'][()]).decode("utf8")
+            num_mc = file['input_data']['num_mc'][()]
+            coord = file['monteCarlo_'+mc_type]['coord'][()]
+
+        if not np.isnan(coord[0]).any():
+            num_cone = coord.shape[0]
+            for m in mc:
+                id_str = 'monteCarlo_' + mc_type + '_(' + str(m+1) + '//' + str(num_mc) + ')_' + mosaic + '_(' + str(num_cone) + ' cones)'
+                xlab = coord_unit
+                ylab = coord_unit
+                show.scatt(coord[m], id_str, plot_col=conetype_color, xlabel=xlab, ylabel=ylab,)
+
+        else:
+            print('no monteCarlo for "' + fl + '," skipping')
+
+
+def viewMonteCarloStats(save_name, mc_type):
+    for fl in save_name:
+        # get intracone distance histogram data and plotting parameters from the save file
+        with h5py.File(fl, 'r') as file:  # context manager
+            coord = file['input_data']['cone_coord'][()]
+            mosaic = bytes(file['meta']['mosaic'][()]).decode("utf8")
+            conetype = bytes(file['meta']['conetype'][()]).decode("utf8")
+            coord_unit = bytes(file['input_data']['coord_unit'][()]).decode("utf8")
+            conetype_color = bytes(file['input_data']['conetype_color'][()]).decode("utf8")
+            num_mc = file['input_data']['num_mc'][()]
+            bin_edge = file['monteCarlo_' + mc_type + '_intracone_dist']['bin_edge'][()]
+            mean_hist = file['monteCarlo_' + mc_type + '_intracone_dist']['mean_hist'][()]
+            std_hist = file['monteCarlo_' + mc_type + '_intracone_dist']['std_hist'][()]
+        num_cone = coord.shape[0]
+        id_str = mosaic + '_' + conetype
+        if not np.isnan(mean_hist[0]):
+
+            # set up inputs to plot
+            xlab = 'distance, ' + coord_unit
+            ylab = 'bin count (binsize = ' + str(bin_edge[1]-bin_edge[0])
+            tit = 'MCU intracone distance (' + str(num_cone) + " cones, " + str(num_mc) + " MCUs)"
+            x = bin_edge[1:]/2
+
+            show.shadyStats(x, mean_hist, std_hist, id_str,
+                            plot_col=conetype_color, title=tit, xlabel=xlab,
+                            ylabel=ylab)
         # saving images
         # .png if it doesn't need to be gorgeous and scaleable
         # .pdf otherwise, or eps, something vectorized 
@@ -293,3 +405,37 @@ def viewIntraconeDistHists(save_names):
 
         # manually setting up parallel in python kinda sucks
         #   mpi is one approach
+
+
+def viewMCUnormed(save_name):
+    for fl in save_name:
+        # get intracone distance histogram data and plotting parameters from the save file
+        with h5py.File(fl, 'r') as file:  # context manager
+            coord = file['input_data']['cone_coord'][()]
+            mosaic = bytes(file['meta']['mosaic'][()]).decode("utf8")
+            conetype = bytes(file['meta']['conetype'][()]).decode("utf8")
+            coord_unit = bytes(file['input_data']['coord_unit'][()]).decode("utf8")
+            conetype_color = bytes(file['input_data']['conetype_color'][()]).decode("utf8")
+            num_mc = file['input_data']['num_mc'][()]
+            bin_width = file['input_data']['bin_width'][()]
+            bin_edge = file['norm_by_MCU_mean']['bin_edge'][()]
+            hist = file['norm_by_MCU_mean']['hist'][()]
+            MCU_mean = file['norm_by_MCU_mean']['MCU_mean'][()]
+            MCU_std = file['norm_by_MCU_mean']['MCU_std'][()]
+
+        num_cone = coord.shape[0]
+        id_str = mosaic + '_' + conetype
+        if not np.isnan(hist).any():
+
+            # set up inputs to plot
+            xlab = 'distance, ' + coord_unit
+            ylab = 'bin count (binsize = ' + str(bin_width)
+            tit = 'intracone dists normed by MCU (' + str(num_cone) + " cones, " + str(num_mc) + " MCs)"
+            x = bin_edge[1:]/2
+
+            ax = show.shadyStats(x, MCU_mean, MCU_std, id_str,
+                                 plot_col=conetype_color, title=tit,
+                                 xlabel=xlab, ylabel=ylab)
+   
+            show.line(x, hist, ax=ax, plot_col='w', id=id_str,
+                      xlabel=xlab, ylabel=ylab, title=tit)
