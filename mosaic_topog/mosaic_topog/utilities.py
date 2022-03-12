@@ -1,13 +1,31 @@
+from cmath import nan
+import numpy as np
 
 # Functions
 # ---------
+# mapStringToNan
+#   returns a dict in which input strings are keys to a numpy array 
+#   containing only a NaN
+#
 # indsNotInList
-#    find the indices of a list where the nth value is not contained
+#    return the indices of a list where the nth value is not contained
 #    in another list
 #
 #  removeListInds
 #    remove more than one index from a list at once
 #
+
+
+def mapStringToLocal(proc_vars,local, data_to_set={}):
+    for var in proc_vars:
+        data_to_set[var] = local[var]
+    return data_to_set
+
+
+def mapStringToNan(string, data_to_set={}):
+    for s in string:
+        data_to_set[s] = np.asarray([nan])
+    return data_to_set
 
 
 def indsNotInList(check_list, ref_list):

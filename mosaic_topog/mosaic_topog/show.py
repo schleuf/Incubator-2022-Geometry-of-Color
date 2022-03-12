@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import mosaic_topog.utilities as util
 
+
 def getAx(kwargs):
     """
     Checks whether user input their own subplot, 
@@ -37,7 +38,7 @@ def plotKwargs(kwargs, id):
         ax.set_ylabel(kwargs['ylabel'])
 
     if 'xlabel' in kwargs.keys():
-        ax.set_xlabel(['xlabel'])
+        ax.set_xlabel(kwargs['xlabel'])
 
     return ax
 
@@ -191,7 +192,7 @@ def histo(hist_data, bin_edges, id, x_dim=1, plot_col='w',
     return ax
 
 
-def line(x, y, id, plot_col='w', bckg_col='k', **kwargs):
+def line(x, y, id, plot_col='w', bckg_col='k', linestyle='-', marker="", markersize=1, **kwargs):
     """
     Plot a line
 
@@ -215,7 +216,7 @@ def line(x, y, id, plot_col='w', bckg_col='k', **kwargs):
     """
     ax = plotKwargs(kwargs, id)
     ax.set_facecolor(bckg_col)
-    ax.plot(x, y, color=plot_col)
+    ax.plot(x, y, color=plot_col, linestyle=linestyle, marker=marker, markersize=markersize)
 
     return ax
 

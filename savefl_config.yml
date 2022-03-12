@@ -1,3 +1,11 @@
+mandatory_proc:
+  - meta
+  - input_data
+order_optional_proc:
+  - intracone_dist
+  - monteCarlo_uniform
+  - monteCarlo_uniform_intracone_dist
+# Processes
 meta:
   process: meta_process
   variables:
@@ -15,6 +23,7 @@ input_data:
     - conetype_color
     - bin_width
     - dist_area_norm
+    - num_mc
 intracone_dist:
   process: intracone_dist_process
   variables:
@@ -27,14 +36,10 @@ intracone_dist:
 monteCarlo_uniform:
   process: monteCarlo_uniform_process
   variables:
-    - mc_coord
-monteCarlo_coneLocked:
-  process: monteCarlo_coneLocked_process
-  variables:
-  variables:
-    - mc_coord
-monteCarlo_intracone_dist:
-  process: monteCarlo_intracone_dist_process
+    - coord
+monteCarlo_uniform_intracone_dist:
+  process: monteCarlo_uniform_intracone_dist_process
+  dependency:
   variables:
     - dist
     - mean_nearest
@@ -42,6 +47,5 @@ monteCarlo_intracone_dist:
     - hist
     - bin_edge
     - annulus_area
-mandatory_proc:
-  - meta
-  - input_data
+    - mean_dist_hist
+    - std_dist_hist

@@ -6,20 +6,13 @@ import mosaic_topog.utilities as util
 import yaml
 import h5py
 
-# Functions
-# ---------
-# getConeData
-# getFilesByDataGroup
-# getFileSubstrings
-# getIndexes
-# getIndex
-
 
 def setProcessByType(file, proc, var, data):
     """
     sets process in a read-in .hdf5 file open for writing or reading+writing
 
     """
+
     if isinstance(data, str):
         file[proc][var] = np.string_(data)
     elif isinstance(data, float):
@@ -27,7 +20,12 @@ def setProcessByType(file, proc, var, data):
     elif isinstance(data, int):
         file[proc][var] = np.int_(data)
     elif isinstance(data, np.ndarray):
-        file[proc][var] = data
+        try:
+            file[proc][var] = data
+        except TypeError:
+            print('GAH')
+            file[proc][var] = np.float_(data.astype('float64'))
+            
     elif isinstance(data, bool):
         file[proc][var] = np.bool_(data)
     else:
@@ -68,7 +66,7 @@ def setProcessVarsFromDict(param, sav_cfg, proc, data_to_set, spec='all'):
         for var in temp_vars:
             if var not in proc_vars:
                 print('variable "' + var + '" found in the save file is not found in the configuration file for process "' + proc + '". it will be removed from the save file.')
-                del temp_vars[temp_vars.index(var)]
+                del temp_vars[var]
 
         # create process key in the save file
         file.create_group(proc)
@@ -90,10 +88,10 @@ def saveNameFromLoadPath(fls, save_path, load_type='.csv', save_type='.hdf5'):
     """
 
     """
-    save_names = [
+    save_name = [
         save_path + os.path.splitext(os.path.basename(fl))[0] + save_type for fl in fls
     ]
-    return(save_names)
+    return(save_name)
 
 
 def readYaml(flnm):
@@ -238,7 +236,6 @@ def getFilesByDataGroup(folder, user_param, filetype):
 
     # get all file paths in the directory
     fl_list = glob.glob(folder + '*')
-
     fl_list = [os.path.basename(file) for file in fl_list]  # listcomprehension
 
     mosaic = []
@@ -255,7 +252,7 @@ def getFilesByDataGroup(folder, user_param, filetype):
             for e in eccentricity:
                 mosaic.append(s + delim + a + delim + e)
                 mos_fls.append([])
-                if filetype == '.csv':
+                if filetype == '.csv' or filetype == '.hdf5':
                     for c in conetype:  # only look for conetype specific data
                         # if this is coordinate data
                         cat_comb.append(s + delim + a + delim + e + delim
@@ -403,33 +400,33 @@ def getIndex(cat_vals, fl_strings):
     return index
 
 
-def getProcessesToRun(fl_names, save_names, save_path, proc_to_run, sav_cfg):
+def getProcessesToRun(save_name, save_path, proc_to_run, sav_cfg):
     """
-    Determine which mosaics will be run through which processes 
-    
+    Determine which mosaics will be run through which processes
+
     Mosaics are selected to be run on all processes if there is not already an .hdf5 in the save folder
     that describes this mosaic.  If there is an .hdf5 for this file, mosaics are only selected to be run
-    on requested processes that are not already present in the file.  
-    
+    on requested processes that are not already present in the file.
+
     Modifications that will make this mroe useful down the line:
         - Add a name to the savefl_config keys file that clarifies this is the single_mosaic_processes save file, 
           and make the check for whether the savefile exists check for this
         - Add a git-commit-hash key to each process in the save file so that when processes are checked in found 
           save files, the data can be flagged to be re run if it is found but was not run on the current version
-    
+
     Parameters
     ----------
     fl_names : list of str
         mosaic .csv filenames, path not included
-    save_names: list of str
-        single_mosaic_process .hdf5 filenames, path included.  
+    save_name: list of str
+        single_mosaic_process .hdf5 filenames, path included.
         corresponds to fl_names
     proc_to_run: list of str
         processes requested by the user
     sav_cfg : dict
         map organizing single_mosaic_processes, read in from configuration file
     
-    
+
     Returns
     -------
     processes : dict of list of int
@@ -437,21 +434,21 @@ def getProcessesToRun(fl_names, save_names, save_path, proc_to_run, sav_cfg):
                               2) processes requested by user in the input "data_to_run"
         lists returned for each key/process are int indices corresponding to data files in the list "flnames" 
         that need to be run through that process  
-    
+
     Raises
     ------
     
-    
+
     """
 
     # look for files associated with each data file in the save folder
     # If no data file is found, add it to the list to collect all data for
-    folder_hdf5s = glob.glob(save_path + '*.hdf5') # get all .hdf5 files in the save path
-    collect_all = util.indsNotInList(save_names,folder_hdf5s)
-    
+    folder_hdf5s = glob.glob(save_path + '*.hdf5')  # get all .hdf5 files in the save path
+    collect_all = util.indsNotInList(save_name, folder_hdf5s)
+
     # initialize map between categories and files to be run on them
-    processes = {} 
-    
+    processes = {}
+
     # for each category of processes, identify files that will be run through 
     for proc in proc_to_run:
         # make sure the category is valid
@@ -460,19 +457,39 @@ def getProcessesToRun(fl_names, save_names, save_path, proc_to_run, sav_cfg):
         else:
             # select only files missing data for the requested category
             collect_this = []
-            # YO SIERRA COME BACK AND TURN THIS INTO LIST COMPREHENSION + CONTEXT MANAGER
-            for ind,fl in enumerate(save_names):
+            for ind, fl in enumerate(save_name):
                 if ind not in collect_all:
-                    temp = h5py.File(save_names[ind], 'r')
-                    for p in sav_cfg[proc]:
-                        if p not in temp.keys():
+                    with h5py.File(save_name[ind], 'r') as temp:
+                        if proc not in temp.keys():
                             collect_this.append(ind)
-                    temp.close()
-            # YO SIERRA YO YO
+                        else:
+                            for v in sav_cfg[proc]['variables']:
+                                if v not in temp[proc].keys():
+                                    collect_this.append(ind)
+
             # get a sorted list of files missing entirely and files missing data from the requested category
-            collect_this = np.union1d(collect_all,collect_this).astype(int)
+            collect_this = np.union1d(collect_all, collect_this).astype(int)
         # indicate the indices of the files that were selected for the category    
         processes[proc] = collect_this
         
     return processes
 
+
+def printSaveFile(sav_fl):
+    print(sav_fl)
+    if os.path.exists(sav_fl):
+        with h5py.File(sav_fl, 'r') as file:
+            for key in file.keys():
+                key_div = '***************************************'
+                print(key_div + key + key_div)
+                for var in file[key]:
+                    print(var)
+                    if isinstance(file[key][var][()], np.bytes_):
+                        data = bytes(file[key][var][()]).decode("utf8")
+                    else:
+                        data = file[key][var][()]
+                        
+                    print(data)
+                    print('')
+    else:
+        print('printSaveFile cannot print "' + sav_fl + '" because it does not exist')

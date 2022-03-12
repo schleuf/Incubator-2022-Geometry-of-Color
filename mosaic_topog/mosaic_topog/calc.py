@@ -29,7 +29,7 @@ def annulusArea(annulus_edge):
                                 - np.power(edge, 2)))
 
     annulus_area = np.array(annulus_area)
-    
+
     return annulus_area
 
 
@@ -78,15 +78,15 @@ def distHist(dists, bin_width):
     dists = np.delete(dists, np.where(dists == -1))
 
     # calculate bin stuff
-    bin_edges = np.arange(1, int(max(dists) + bin_width), bin_width)
+    # bin_edges = np.arange(0, np.ceil(max(dists) + bin_width), bin_width)
+    num_bins = int(np.ceil((max(dists) + bin_width)/bin_width))
 
-    # get histogram
-    hist = np.histogram(dists, bins=bin_edges)[0]
+    hist, bin_edges = np.histogram(dists, bins=num_bins)
 
     return hist, bin_edges
 
 
-def MonteCarlo(num_coords, num_mc, mc_type, xlim, ylim):
+def monteCarlo(num_coord, num_mc, mc_type, xlim, ylim):
     """
         generate array of monte carlo shuffled points distributed uniformly
         within a 2D range
@@ -110,13 +110,13 @@ def MonteCarlo(num_coords, num_mc, mc_type, xlim, ylim):
             1st column x, 2nd column y.
     """
     # [0] = cone index, [1] = (x,y), [2] = Monte Carlo trial
-    mc_coords = np.zeros([num_coords, 2, num_mc])
+    mc_coords = np.zeros([num_mc, num_coord, 2])
 
     # randomly sample coordinates from a uniform distribution of the space
-    mc_coords[:, 0, :] = np.random.uniform(low=xlim[0], high=xlim[1],
-                                           size=(num_coords, num_mc))
-    mc_coords[:, 1, :] = np.random.uniform(low=ylim[0], high=ylim[1],
-                                           size=(num_coords, num_mc))
+    for mc in np.arange(0, num_mc):
+        mc_coords[mc, :, 0] = np.random.uniform(low=xlim[0], high=xlim[1],
+                                                size=(num_coord))
+        mc_coords[mc, :, 1] = np.random.uniform(low=ylim[0], high=ylim[1],
+                                                size=(num_coord))
 
     return(mc_coords)
-    
