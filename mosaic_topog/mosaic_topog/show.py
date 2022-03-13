@@ -105,9 +105,9 @@ def quad_fig(size):
     initialize 2x2 figure.  input: size = [x,y] in inches
     """
 
-    fig, ((ax, ax1),(ax2, ax3)) = plt.subplots(2,2)
+    fig, ((ax, ax1),(ax2, ax3)) = plt.subplots(2, 2)
     axes = [ax,ax1,ax2,ax3]
-    fig.set_size_inches(size[0],size[1])
+    fig.set_size_inches(size[0], size[1])
     fig.tight_layout()
 
     return axes,fig
@@ -148,6 +148,7 @@ def scatt(coords, id, plot_col='w', bckg_col='k', z_dim=0, **kwargs):
                s=10,
                facecolors=plot_col,
                edgecolors='none')
+               
     ax.set_aspect('equal')
 
     return ax
@@ -176,7 +177,7 @@ def histo(hist_data, bin_edges, id, x_dim=1, plot_col='w',
     ax : AxesSubplot
 
     """
-    ax = plotKwargs(kwargs,id)
+    ax = plotKwargs(kwargs, id)
 
     # plot histogram of intercone distances for each mosaic
     if len(hist_data.shape) == 1:

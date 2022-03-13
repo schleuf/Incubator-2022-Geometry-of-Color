@@ -74,4 +74,6 @@ norm_by_MCU_mean:
     - hist
     - MCU_mean
     - MCU_std
+    - MCL_mean
+    - MCL_std
     - bin_edge

@@ -15,30 +15,39 @@ def norm_by_MCU_mean_process(param, sav_cfg):
 
     sav_fl = param['sav_fl']
     with h5py.File(sav_fl, 'r') as file:
+        bin_width = file['input_data']['bin_width'][()]
         hist = file['intracone_dist']['hist'][()]
+        bin_edge = file['intracone_dist']['bin_edge'][()]
+        MCL_mean = file['monteCarlo_coneLocked_intracone_dist']['mean_hist'][()]
+        MCL_std = file['monteCarlo_coneLocked_intracone_dist']['std_hist'][()]
         MCU_mean = file['monteCarlo_uniform_intracone_dist']['mean_hist'][()]
         MCU_std = file['monteCarlo_uniform_intracone_dist']['std_hist'][()]
 
     if not np.isnan(hist).any():
-        if hist.shape[0] > MCU_mean.shape[0]:
-            num_pad = hist.shape[0] - MCU_mean.shape[0]
+        max_num_bins = np.max([hist.shape[0], MCL_mean.shape[0], MCU_mean.shape[0]])
+
+        if hist.shape[0] < max_num_bins:
+            num_pad = max_num_bins - hist.shape[0]
+            hist = np.append(hist, np.zeros(num_pad))
+
+        if MCL_mean.shape[0] < max_num_bins:
+            num_pad = max_num_bins - MCL_mean.shape[0]
+            MCL_mean = np.append(MCL_mean, np.zeros(num_pad))
+            MCL_std = np.append(MCL_std, np.zeros(num_pad))
+
+        if MCU_mean.shape[0] < max_num_bins:
+            num_pad = max_num_bins - MCU_mean.shape[0]
             MCU_mean = np.append(MCU_mean, np.zeros(num_pad))
             MCU_std = np.append(MCU_std, np.zeros(num_pad))
-            bin_edge_source = 'intracone_dist'
-        elif hist.shape[0] < MCU_mean.shape[0]:
-            num_pad = MCU_mean.shape[0] - hist.shape[0]
-            hist = np.append(hist, np.zeros(num_pad))
-            bin_edge_source = 'monteCarlo_uniform_intracone_dist'
-        else:
-            bin_edge_source = 'intracone_dist'
 
-        with h5py.File(sav_fl, 'r') as file:
-            bin_edge = file[bin_edge_source]['bin_edge'][()]
+        while bin_edge.shape[0] <= max_num_bins:
+            bin_edge = np.append(bin_edge, max(bin_edge)+bin_width)
 
         hist = hist / MCU_mean
+        MCL_mean = MCL_mean / MCU_mean
+        MCL_std = MCL_std / MCU_mean
         MCU_std = MCU_std / MCU_mean
         MCU_mean = MCU_mean / MCU_mean
-
         data_to_set = util.mapStringToLocal(proc_vars, locals())
 
     else:
@@ -319,6 +328,24 @@ def runSingleMosaicProcess(user_param, sav_cfg):
                 globals()[sav_cfg[proc]['process']](param, sav_cfg)
 
 
+# def viewMosaics(save_name, mosaic, index, selection = [:]):
+
+#     for mos in mosaic:
+#         for sav_fl in save_name[selection]:
+
+
+#         all_fl = 
+#         coord = {}
+#         cone_type = {}
+#         id = mosaic + ', ' + cone_type 
+#         img = 
+#         color = 
+
+
+#         with h5py.File()
+#         plotOnROI(img, coord, cone_type, id, color, **kwargs)
+
+
 def viewIntraconeDistHists(save_names):
     for fl in save_names:
         # get intracone distance histogram data and plotting parameters from the save file
@@ -357,20 +384,22 @@ def viewMonteCarlo(save_name, mc_type, mc):
             conetype_color = bytes(file['input_data']['conetype_color'][()]).decode("utf8")
             num_mc = file['input_data']['num_mc'][()]
             coord = file['monteCarlo_'+mc_type]['coord'][()]
-
         if not np.isnan(coord[0]).any():
-            num_cone = coord.shape[0]
+            num_cone = coord.shape[1]
             for m in mc:
                 id_str = 'monteCarlo_' + mc_type + '_(' + str(m+1) + '//' + str(num_mc) + ')_' + mosaic + '_(' + str(num_cone) + ' cones)'
                 xlab = coord_unit
                 ylab = coord_unit
-                show.scatt(coord[m], id_str, plot_col=conetype_color, xlabel=xlab, ylabel=ylab,)
+                this_coord = np.zeros([num_cone,2])
+                this_coord[:,:] = coord[m, :, :]
+
+                show.scatt(this_coord, id_str, plot_col=conetype_color, xlabel=xlab, ylabel=ylab,)
 
         else:
             print('no monteCarlo for "' + fl + '," skipping')
 
 
-def viewMonteCarloStats(save_name, mc_type):
+def viewMonteCarloStats(save_name, mc_type, scale_std=1):
     for fl in save_name:
         # get intracone distance histogram data and plotting parameters from the save file
         with h5py.File(fl, 'r') as file:  # context manager
@@ -393,7 +422,7 @@ def viewMonteCarloStats(save_name, mc_type):
             tit = 'MCU intracone distance (' + str(num_cone) + " cones, " + str(num_mc) + " MCUs)"
             x = bin_edge[1:]/2
 
-            show.shadyStats(x, mean_hist, std_hist, id_str,
+            show.shadyStats(x, mean_hist, std_hist, id_str, scale_std=scale_std,
                             plot_col=conetype_color, title=tit, xlabel=xlab,
                             ylabel=ylab)
         # saving images
@@ -405,7 +434,7 @@ def viewMonteCarloStats(save_name, mc_type):
         #   mpi is one approach
 
 
-def viewMCUnormed(save_name):
+def viewMCUnormed(save_name, scale_std=1):
     for fl in save_name:
         # get intracone distance histogram data and plotting parameters from the save file
         with h5py.File(fl, 'r') as file:  # context manager
@@ -420,6 +449,8 @@ def viewMCUnormed(save_name):
             hist = file['norm_by_MCU_mean']['hist'][()]
             MCU_mean = file['norm_by_MCU_mean']['MCU_mean'][()]
             MCU_std = file['norm_by_MCU_mean']['MCU_std'][()]
+            MCL_mean = file['norm_by_MCU_mean']['MCL_mean'][()]
+            MCL_std = file['norm_by_MCU_mean']['MCL_std'][()]
 
         num_cone = coord.shape[0]
         id_str = mosaic + '_' + conetype
@@ -431,9 +462,11 @@ def viewMCUnormed(save_name):
             tit = 'intracone dists normed by MCU (' + str(num_cone) + " cones, " + str(num_mc) + " MCs)"
             x = bin_edge[1:]/2
 
-            ax = show.shadyStats(x, MCU_mean, MCU_std, id_str,
-                                 plot_col=conetype_color, title=tit,
-                                 xlabel=xlab, ylabel=ylab)
+            ax = show.shadyStats(x, MCU_mean, MCU_std, id_str, scale_std=scale_std,
+                                 plot_col='dimgray')
+
+            ax = show.shadyStats(x, MCL_mean, MCL_std, id_str, ax=ax, scale_std=scale_std,
+                                 plot_col=conetype_color)
    
             show.line(x, hist, ax=ax, plot_col='w', id=id_str,
                       xlabel=xlab, ylabel=ylab, title=tit)
