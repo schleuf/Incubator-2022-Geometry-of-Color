@@ -77,3 +77,5 @@ norm_by_MCU_mean:
     - MCL_mean
     - MCL_std
     - bin_edge
+    - all_cone_mean_nearest
+    - all_cone_std_nearest
