@@ -22,7 +22,7 @@ def norm_by_MCU_mean_process(param, sav_cfg):
         MCL_std = file['monteCarlo_coneLocked_intracone_dist']['std_hist'][()]
         MCU_mean = file['monteCarlo_uniform_intracone_dist']['mean_hist'][()]
         MCU_std = file['monteCarlo_uniform_intracone_dist']['std_hist'][()]
-        all_coord = file['MonteCarlo_coneLocked']['all_coord'][()]
+        all_coord = file['monteCarlo_coneLocked']['all_coord'][()]
 
     if not np.isnan(hist).any():
         max_num_bins = np.max([hist.shape[0], MCL_mean.shape[0], MCU_mean.shape[0]])
@@ -386,13 +386,15 @@ def viewIntraconeDistHists(save_names, save_things=False, save_path=''):
             x = bin_edge[1:]/2
 
             # view histogram
+            
             ax = show.line(x, hist, id, plot_col=conetype_color, title=tit, xlabel=xlab, ylabel=ylab)
 
-            ax.draw()
+            ax.figure
 
             if save_things:
-                ax.savefig(save_path + id + '.png')
-
+                savnm = save_path + id + '.png'
+                plt.savefig(savnm)
+            
         else:
             print(id + ' contains < 2 cones, skipping... ')
 
@@ -418,10 +420,11 @@ def viewMonteCarlo(save_name, mc_type, mc, save_things=False, save_path=''):
 
                 ax = show.scatt(this_coord, id_str, plot_col=conetype_color, xlabel=xlab, ylabel=ylab)
 
-                ax.draw()
+            ax.figure
 
-                if save_things:
-                    ax.savefig(save_path + id_str + '.png')
+            if save_things:
+                savnm = save_path + mosaic + '_' + conetype + '.png'
+                plt.savefig(savnm)
 
         else:
             print('no monteCarlo for "' + fl + '," skipping')
@@ -454,10 +457,11 @@ def viewMonteCarloStats(save_name, mc_type, scale_std=1, save_things=False, save
                             plot_col=conetype_color, title=tit, xlabel=xlab,
                             ylabel=ylab)
 
-            ax.draw()
+            ax.figure
 
             if save_things:
-                ax.savefig(save_path + id_str + '.png')
+                savnm = save_path + id_str + '.png'
+                plt.savefig(savnm)
 
             
         # saving images
@@ -469,7 +473,7 @@ def viewMonteCarloStats(save_name, mc_type, scale_std=1, save_things=False, save
         #   mpi is one approach
 
 
-def viewMCUnormed(save_name, scale_std=1, save_things=False, save_path=''):
+def viewMCUnormed(save_name, scale_std=1, showNearestCone=False, save_things=False, save_path=''):
     for fl in save_name:
         # get intracone distance histogram data and plotting parameters from the save file
         with h5py.File(fl, 'r') as file:  # context manager
@@ -498,25 +502,40 @@ def viewMCUnormed(save_name, scale_std=1, save_things=False, save_path=''):
             tit = 'intracone dists normed by MCU (' + str(num_cone) + " cones, " + str(num_mc) + " MCs)"
             x = bin_edge[1:]/2
 
+            print(bin_edge[0])
+
             half_cone_rad = all_cone_mean_nearest / 2
-            cone_rad_x = np.arange(half_cone_rad, max(bin_edge), step=all_cone_mean_nearest)
+            cone_rad_x = np.arange(half_cone_rad, half_cone_rad + (5 * all_cone_mean_nearest + 1), step=all_cone_mean_nearest)
+            lin_extent = 1.5
 
-            for lin in cone_rad_x:
-                if 'ax' not in locals():
-                    ax = show.line([lin, lin], [-10, 10], id='cone-dist', plot_col='olive')
-                else:
-                    ax = show.line([lin, lin], [-10, 10], id='cone-dist', ax=ax, plot_col='olive')
+            if showNearestCone:
+                for lin in cone_rad_x:
+                    if lin == cone_rad_x[0]:
+                        ax = show.line([lin, lin], [-1 * lin_extent, lin_extent], id='cone-dist', plot_col='olive')
+                    else:
+                        ax = show.line([lin, lin], [-1 * lin_extent, lin_extent], id='cone-dist', ax=ax, plot_col='olive')
 
-            ax = show.shadyStats(x, MCU_mean, MCU_std, id_str, scale_std=scale_std,
-                                 ax=ax, plot_col='dimgray')
+                ax = show.shadyStats(x, MCU_mean, MCU_std, id_str, scale_std=scale_std,
+                                    ax=ax, plot_col='dimgray')
+            else: 
+                ax = show.shadyStats(x, MCU_mean, MCU_std, id_str, scale_std=scale_std,
+                                    plot_col='dimgray')
 
             ax = show.shadyStats(x, MCL_mean, MCL_std, id_str, ax=ax, scale_std=scale_std,
                                  plot_col=conetype_color)
 
             ax = show.line(x, hist, ax=ax, plot_col='w', id=id_str,
                       xlabel=xlab, ylabel=ylab, title=tit)
+            
 
-            ax.draw()
+            if showNearestCone:
+                plt.xlim([0, half_cone_rad + 5 * all_cone_mean_nearest + 1])
+                plt.ylim([-0, lin_extent])
+
+            ax.figure
 
             if save_things:
-                ax.savefig(save_path + id_str + '.png')
+                savnm = save_path + id_str + '.png'
+                plt.savefig(savnm)
+        else:
+            print('no')

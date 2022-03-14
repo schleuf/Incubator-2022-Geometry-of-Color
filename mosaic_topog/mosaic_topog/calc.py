@@ -80,8 +80,9 @@ def distHist(dists, bin_width):
     # calculate bin stuff
     # bin_edges = np.arange(0, np.ceil(max(dists) + bin_width), bin_width)
     num_bins = int(np.ceil((max(dists))/bin_width))
+    bins = np.arange(0, num_bins * bin_width, step = bin_width)
 
-    hist, bin_edges = np.histogram(dists, bins=num_bins)
+    hist, bin_edges = np.histogram(dists, bins=bins)
 
     return hist, bin_edges
 
