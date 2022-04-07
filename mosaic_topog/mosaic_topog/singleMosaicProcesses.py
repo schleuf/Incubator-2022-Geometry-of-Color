@@ -301,7 +301,8 @@ def mandatoryProcesses(user_param, sav_cfg):
     for ind in fls:
         param = unpackThisParam(user_param, ind)
         if not os.path.exists(param['sav_fl']):
-            print('created file: ' + param['sav_fl'])
+            with h5py.File(param['sav_fl'], 'w') as file:
+                print('created file: ' + param['sav_fl'])
         for proc in mand:
             globals()[sav_cfg[proc]['process']](param, sav_cfg)
 
@@ -494,7 +495,7 @@ def viewMCUnormed(save_name, scale_std=1, showNearestCone=False, save_things=Fal
         num_cone = coord.shape[0]
         id_str = mosaic + '_' + conetype
         if not np.isnan(hist).any():
-            print(fl)
+
             # set up inputs to plot
             xlab = 'distance, ' + coord_unit
             ylab = 'bin count (binsize = ' + str(bin_width)
