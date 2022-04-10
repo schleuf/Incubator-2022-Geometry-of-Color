@@ -7,7 +7,11 @@ order_optional_proc:
   - monteCarlo_uniform_intracone_dist
   - monteCarlo_coneLocked
   - monteCarlo_coneLocked_intracone_dist
+  - spacified
+  - spacified_intracone_dist
   - norm_by_MCU_mean
+  - spacified
+  - spacified_intracone_dist
 # Processes
 meta:
   process: meta_process
@@ -27,6 +31,8 @@ input_data:
     - bin_width
     - dist_area_norm
     - num_mc
+    - num_sp
+
 intracone_dist:
   process: intracone_dist_process
   variables:
@@ -52,6 +58,22 @@ monteCarlo_uniform_intracone_dist:
     - annulus_area
     - mean_hist
     - std_hist
+spacified:
+  process: spacified_process
+  variables:
+    - all_coord
+    - coord
+spacified_intracone_dist:
+  process: spacified_intracone_dist_process
+  variables:
+    - dist
+    - mean_nearest
+    - std_nearest
+    - hist
+    - bin_edge
+    - annulus_area
+    - mean_hist
+    - std_hist
 monteCarlo_coneLocked:
   process: monteCarlo_coneLocked_process
   variables:
@@ -60,6 +82,22 @@ monteCarlo_coneLocked:
 monteCarlo_coneLocked_intracone_dist:
   process: monteCarlo_coneLocked_intracone_dist_process
   variables: 
+    - dist
+    - mean_nearest
+    - std_nearest
+    - hist
+    - bin_edge
+    - annulus_area
+    - mean_hist
+    - std_hist
+spacified:
+  process: spacified_process
+  variables:
+    - all_coord
+    - coord
+spacified_intracone_dist:
+  process: spacified_intracone_dist_process
+  variables:
     - dist
     - mean_nearest
     - std_nearest

@@ -1,4 +1,5 @@
 from cmath import nan
+from this import d
 import numpy as np
 import matplotlib.pyplot as plt
 import h5py
@@ -25,6 +26,7 @@ def norm_by_MCU_mean_process(param, sav_cfg):
         all_coord = file['monteCarlo_coneLocked']['all_coord'][()]
 
     if not np.isnan(hist).any():
+        print(sav_fl)
         max_num_bins = np.max([hist.shape[0], MCL_mean.shape[0], MCU_mean.shape[0]])
 
         if hist.shape[0] < max_num_bins:
@@ -67,7 +69,6 @@ def norm_by_MCU_mean_process(param, sav_cfg):
         MCU_std = MCU_std / MCU_mean
         MCU_mean = MCU_mean / MCU_mean
         data_to_set = util.mapStringToLocal(proc_vars, locals())
-
     else:
         data_to_set = util.mapStringToNan(proc_vars)
 
@@ -168,6 +169,31 @@ def monteCarlo_uniform_intracone_dist_process(param, sav_cfg):
     monteCarlo_intracone_dist_common(param, sav_cfg, 'uniform')
 
 
+def spacified_process(param, sav_cfg):
+    """
+    """
+    # get any needed info from the save file
+    sav_fl = param['sav_fl']
+    with h5py.File(sav_fl, 'r') as file:
+        real_coord = file['input_data']['cone_coord'][()]
+        num_sp = file['input_data']['num_sp'][()]
+        img = file['input_data']['cone_img'][()]
+
+    proc = 'spacified'
+    proc_vars = sav_cfg[proc]['variables']
+    if len(real_coord.shape) == 2 and real_coord.shape[1] == 2:
+        num_coord = real_coord.shape[0]
+        # look for all cone mosaic for this data
+        mosaic = param['mosaic']
+        save_path = os.path.dirname(sav_fl)
+        all_coord_fl = save_path + '\\' + mosaic + '_all.hdf5'
+        # try:
+        with h5py.File(all_coord_fl, 'r') as file:
+            all_coord = file['input_data']['cone_coord'][()]
+        coord = calc.spacified(num_coord, all_coord, num_sp)
+        data_to_set = util.mapStringToLocal(proc_vars, locals())
+    
+
 def monteCarlo_process(param, sav_cfg, mc_type):
     # get any needed info from the save file
     sav_fl = param['sav_fl']
@@ -175,8 +201,6 @@ def monteCarlo_process(param, sav_cfg, mc_type):
         real_coord = file['input_data']['cone_coord'][()]
         num_mc = file['input_data']['num_mc'][()]
         img = file['input_data']['cone_img'][()]
-        bin_width = file['input_data']['bin_width'][()]
-        dist_area_norm = file['input_data']['dist_area_norm']
 
     proc = 'monteCarlo_' + mc_type
     proc_vars = sav_cfg[proc]['variables']
@@ -323,6 +347,7 @@ def unpackThisParam(user_param, ind):
     param['dist_area_norm'] = user_param['dist_area_norm']
     param['conetype_color'] = user_param['conetype_color'][index['conetype'][ind]]
     param['num_mc'] = user_param['num_mc']
+    param['num_sp'] = user_param['num_sp']
 
     return param
 
@@ -398,10 +423,40 @@ def viewIntraconeDistHists(save_names, save_things=False, save_path=''):
         else:
             print(id + ' contains < 2 cones, skipping... ')
 
+def viewSpacified(save_name, sp, save_things=False, save_path=''):
+    for fl in save_name:
+        # get spacified coordinate data and plotting parameters from the save file
+        with h5py.File(fl, 'r') as file:  # context manager
+            mosaic = bytes(file['meta']['mosaic'][()]).decode("utf8")
+            conetype = bytes(file['meta']['conetype'][()]).decode("utf8")
+            coord_unit = bytes(file['input_data']['coord_unit'][()]).decode("utf8")
+            conetype_color = bytes(file['input_data']['conetype_color'][()]).decode("utf8")
+            num_sp = file['input_data']['num_sp'][()]
+            coord = file['spacified']['coord'][()]
+        if not np.isnan(coord[0]).any():
+            num_cone = coord.shape[1]
+            for s in sp:
+                id_str = 'spacified' + '_(' + str(s+1) + '//' + str(num_sp) + ')_' + mosaic + '_(' + str(num_cone) + ' cones)'
+                xlab = coord_unit
+                ylab = coord_unit
+                this_coord = np.zeros([num_cone,2])
+                this_coord[:,:] = coord[s, :, :]
+
+                ax = show.scatt(this_coord, id_str, plot_col=conetype_color, xlabel=xlab, ylabel=ylab)
+
+            ax.figure
+
+            if save_things:
+                savnm = save_path + mosaic + '_' + conetype + '.png'
+                plt.savefig(savnm)
+
+        else:
+            print('no spacified for "' + fl + '," skipping')
+
 
 def viewMonteCarlo(save_name, mc_type, mc, save_things=False, save_path=''):
     for fl in save_name:
-        # get intracone distance histogram data and plotting parameters from the save file
+        # get monte carlo coordinate data and plotting parameters from the save file
         with h5py.File(fl, 'r') as file:  # context manager
             mosaic = bytes(file['meta']['mosaic'][()]).decode("utf8")
             conetype = bytes(file['meta']['conetype'][()]).decode("utf8")
@@ -494,15 +549,13 @@ def viewMCUnormed(save_name, scale_std=1, showNearestCone=False, save_things=Fal
 
         num_cone = coord.shape[0]
         id_str = mosaic + '_' + conetype
-        if not np.isnan(hist).any():
-
+        print(fl)
+        if not (hist.shape[0] == 1 and np.isnan(hist[0])):
             # set up inputs to plot
             xlab = 'distance, ' + coord_unit
             ylab = 'bin count (binsize = ' + str(bin_width)
             tit = 'intracone dists normed by MCU (' + str(num_cone) + " cones, " + str(num_mc) + " MCs)"
             x = bin_edge[1:]/2
-
-            print(bin_edge[0])
 
             half_cone_rad = all_cone_mean_nearest / 2
             cone_rad_x = np.arange(half_cone_rad, half_cone_rad + (5 * all_cone_mean_nearest + 1), step=all_cone_mean_nearest)

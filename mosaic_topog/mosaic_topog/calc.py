@@ -1,6 +1,6 @@
+from cmath import nan
 import numpy as np
 from scipy import spatial
-import mosaic_topog.show as show
 
 # Functions
 # ---------
@@ -85,6 +85,68 @@ def distHist(dists, bin_width):
     hist, bin_edges = np.histogram(dists, bins=bins)
 
     return hist, bin_edges
+
+
+def spacified(num_coord, all_coord, num_sp):
+    """
+    """
+    if num_coord > 0:
+        sp_coord = np.empty([num_coord,2,num_sp], dtype = float)
+        seed_inds = []
+
+        # get matrix of intercone distances
+        dists = dist_matrices(all_coord)
+        print(dists.shape)
+
+        for sp in np.arange(0,num_sp): # looop through mosaics to make
+        
+
+            temp_inds = np.arange(0,all_coord.shape[0])
+            #set first cone
+            seedable_inds = temp_inds[np.nonzero(np.isin(temp_inds,seed_inds) == False)]
+            coord = np.ones([num_coord,2]) * -1
+            seed_ind = seedable_inds[np.random.randint(0, high = len(seedable_inds), size = 1)]
+            coord[0,:] = all_coord[seed_ind][0]
+            seed_inds.append(seed_ind)
+            np.delete(temp_inds,seed_ind) 
+
+            if num_coord > 1:
+                for c in np.arange(1, num_coord):
+                    if c == 1: # set 2nd cone as far as possible from the 1st cone
+                        furthest_cone = np.argmax(dists[seed_ind,:])
+                        print(furthest_cone)
+                        print(np.argmax(dists[seed_ind,:]))
+                        coord[1, :] = all_coord[furthest_cone][0]
+                        np.delete(temp_inds,np.nonzero(temp_inds==furthest_cone))
+
+                    else: # set each additional cone at the location that minimizes the std of nearest neighbor distance
+                        spaciest_cone = -1
+                        min_std = dists[seed_ind,furthest_cone]
+                        
+                        for t in np.arange(0,all_coord.shape[0]):
+                            # test adding each cone to the list, finding the std of the list of nearest neighbor distances
+                            #  when the cone is added.  select the cone that minimizes the std of nearest neighbor distance. 
+                            temp_sp = np.empty([c,2], dtype=float)
+                            temp_sp[0:c-1,:] = coord[0:c-1,:]
+                            temp_sp[c-1,:] = all_coord[t,:][0]
+                            temp_dists = dist_matrices(temp_sp)
+                            print(temp_dists)
+                            temp_dists[np.nonzero(temp_dists == -1)] = nan
+                            min_dists = np.amin(temp_dists,axis=0)
+                            std_min_dists = np.std(min_dists)
+
+                            if std_min_dists < min_std:
+                                min_std = std_min_dists
+                                spaciest_cone = t
+
+                        coord[c,:] = all_coord[t,:]
+                        np.delete(temp_inds,np.nonzero(temp_inds==t))
+
+            sp_coord[:,:,sp] = coord
+    else:
+        sp_coord = nan           
+
+    return sp_coord
 
 
 def monteCarlo_uniform(num_coord, num_mc, xlim, ylim):
