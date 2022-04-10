@@ -423,6 +423,36 @@ def viewIntraconeDistHists(save_names, save_things=False, save_path=''):
         else:
             print(id + ' contains < 2 cones, skipping... ')
 
+def viewSpacified(save_name, sp, save_things=False, save_path=''):
+    for fl in save_name:
+        # get spacified coordinate data and plotting parameters from the save file
+        with h5py.File(fl, 'r') as file:  # context manager
+            mosaic = bytes(file['meta']['mosaic'][()]).decode("utf8")
+            conetype = bytes(file['meta']['conetype'][()]).decode("utf8")
+            coord_unit = bytes(file['input_data']['coord_unit'][()]).decode("utf8")
+            conetype_color = bytes(file['input_data']['conetype_color'][()]).decode("utf8")
+            num_sp = file['input_data']['num_sp'][()]
+            coord = file['spacified']['coord'][()]
+        if not np.isnan(coord[0]).any():
+            num_cone = coord.shape[1]
+            for s in sp:
+                id_str = 'spacified' + '_(' + str(s+1) + '//' + str(num_sp) + ')_' + mosaic + '_(' + str(num_cone) + ' cones)'
+                xlab = coord_unit
+                ylab = coord_unit
+                this_coord = np.zeros([num_cone,2])
+                this_coord[:,:] = coord[s, :, :]
+
+                ax = show.scatt(this_coord, id_str, plot_col=conetype_color, xlabel=xlab, ylabel=ylab)
+
+            ax.figure
+
+            if save_things:
+                savnm = save_path + mosaic + '_' + conetype + '.png'
+                plt.savefig(savnm)
+
+        else:
+            print('no spacified for "' + fl + '," skipping')
+
 
 def viewSpacified(save_name, sp, save_things=False, save_path=''):
     for fl in save_name:
