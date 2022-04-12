@@ -83,7 +83,7 @@ def intracone_dist_common(coord, bin_width, dist_area_norm):
     """
     # get intracone distances
     dist = calc.dist_matrices(coord)
-
+    #print(dist.shape)
     # get avg and std of nearest cone distance in the mosaic
     nearest_dist = []
     for cone in np.arange(0, dist.shape[0]):
@@ -99,6 +99,7 @@ def intracone_dist_common(coord, bin_width, dist_area_norm):
     std_nearest = np.std(np.array(nearest_dist))
 
     hist, bin_edge = calc.distHist(dist, bin_width)
+    #print(hist.shape)
 
     annulus_area = calc.annulusArea(bin_edge)
 
@@ -116,7 +117,7 @@ def monteCarlo_intracone_dist_common(param, sav_cfg, mc_type):
     sav_fl = param['sav_fl']
     with h5py.File(sav_fl, 'r') as file:
         coord = file['monteCarlo_' + mc_type]['coord'][()]
-        num_mc = file['input_data']['bin_width'][()]
+        num_mc = file['input_data']['num_mc'][()]
         bin_width = file['input_data']['bin_width'][()]
         dist_area_norm = file['input_data']['dist_area_norm'][()]
 
@@ -126,12 +127,14 @@ def monteCarlo_intracone_dist_common(param, sav_cfg, mc_type):
     if len(coord[0].shape) == 2 and coord[0].shape[1] == 2:
 
         dist = np.zeros((num_mc, coord[0].shape[0], coord[0].shape[0]))
+        print(dist.shape)
         nearest_dist = np.zeros(num_mc)
         mean_nearest = np.zeros(num_mc)
         std_nearest = np.zeros(num_mc)
         hist = np.empty(num_mc, dtype=np.ndarray)
         max_hist_bin = 0
         for mc in np.arange(0, num_mc):
+            print(mc)
             this_coord = coord[mc, :, :]
             dist[mc, :, :], mean_nearest[mc], std_nearest[mc], hist[mc], bin_edge, annulus_area = intracone_dist_common(this_coord, bin_width, dist_area_norm)
             if hist[mc].shape[0] > max_hist_bin:
