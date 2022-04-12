@@ -10,8 +10,6 @@ order_optional_proc:
   - spacified
   - spacified_intracone_dist
   - norm_by_MCU_mean
-  - spacified
-  - spacified_intracone_dist
 # Processes
 meta:
   process: meta_process

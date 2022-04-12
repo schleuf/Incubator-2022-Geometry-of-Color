@@ -266,9 +266,13 @@ def getFilesByDataGroup(folder, user_param, filetype):
                     fl_count = fl_count + 1
                 mos_count = mos_count + 1
 
+    print(cat_comb)
+
     # search for if those files exist.  if they don't, remove them from my list
     pop_fls = util.indsNotInList(cat_comb, fl_list)
     cat_comb = util.removeListInds(cat_comb, pop_fls)
+
+    print(cat_comb)
 
     # if any of the mosaics we looked for have no files associated with them, remove them from the mosaics list
     pop_mos = []
@@ -288,6 +292,7 @@ def getFilesByDataGroup(folder, user_param, filetype):
     cat_names = ['subject', 'angle', 'eccentricity', 'conetype', 'mosaic']
     cat_str = [subj_str, ang_str, ecc_str, end_str, cat_comb]
 
+    print(cat_str)
     # get category vectors to output
     cat_index = getIndexes(categories, cat_str, cat_names)
 
@@ -333,8 +338,10 @@ def getFileSubstrings(fl_list):
     end_str = []
 
     for fl in fl_list:
+        print(fl_list)
         flnm = os.path.basename(fl)
         flnames_all.append(flnm)
+        print(flnames_all)
         flsplit = flnm.split('_')
         subj_str.append(flsplit[0])
         ang_str.append(flsplit[1])
@@ -393,6 +400,12 @@ def getIndex(cat_vals, fl_strings):
     index[:] = -1
 
     for ind, c in enumerate(cat_vals):
+        print(c)
+        print(type(c))
+        print(fl_strings)
+        print(type(fl_strings))
+        print(np.char.find(np.asarray(fl_strings), 'h'))
+        
         directory.append(np.nonzero(np.char.find(np.asarray(fl_strings),
                                     c) > -1)[0])
         index[directory[ind]] = int(ind)
