@@ -501,10 +501,7 @@ def printSaveFile(sav_fl):
                         data = bytes(file[key][var][()]).decode("utf8")
                     else:
                         data = file[key][var][()]
-                    try:
-                        print(data.shape)
-                    except:
-                        print('shapeless')
+                        
                     print(data)
                     print('')
     else:
