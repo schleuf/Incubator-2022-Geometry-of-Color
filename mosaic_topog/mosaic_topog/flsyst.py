@@ -266,10 +266,12 @@ def getFilesByDataGroup(folder, user_param, filetype):
                     fl_count = fl_count + 1
                 mos_count = mos_count + 1
 
-    print(cat_comb)
-
     # search for if those files exist.  if they don't, remove them from my list
+    print('goo')
+    print(cat_comb)
+    print(fl_list)
     pop_fls = util.indsNotInList(cat_comb, fl_list)
+    print(pop_fls)
     cat_comb = util.removeListInds(cat_comb, pop_fls)
 
     print(cat_comb)
@@ -292,7 +294,9 @@ def getFilesByDataGroup(folder, user_param, filetype):
     cat_names = ['subject', 'angle', 'eccentricity', 'conetype', 'mosaic']
     cat_str = [subj_str, ang_str, ecc_str, end_str, cat_comb]
 
+    print('beep')
     print(cat_str)
+
     # get category vectors to output
     cat_index = getIndexes(categories, cat_str, cat_names)
 
@@ -368,7 +372,8 @@ def getIndexes(categories, cat_str, cat_names):
     cat_index : dict of np.array
 
     """
-
+    print('yippee')
+    print(categories)
     cat_index = {}
 
     for ind, cat_name in enumerate(cat_names):
