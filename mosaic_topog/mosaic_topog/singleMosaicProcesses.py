@@ -15,6 +15,9 @@ def norm_by_MCU_mean_process(param, sav_cfg):
     proc_vars = sav_cfg[proc]['variables']
 
     sav_fl = param['sav_fl']
+
+    print(sav_fl)
+
     with h5py.File(sav_fl, 'r') as file:
         bin_width = file['input_data']['bin_width'][()]
         hist = file['intracone_dist']['hist'][()]
@@ -63,11 +66,11 @@ def norm_by_MCU_mean_process(param, sav_cfg):
         all_cone_mean_nearest = np.mean(np.array(nearest_dist))
         all_cone_std_nearest = np.std(np.array(nearest_dist))
 
-        hist = hist / MCU_mean
-        MCL_mean = MCL_mean / MCU_mean
-        MCL_std = MCL_std / MCU_mean
-        MCU_std = MCU_std / MCU_mean
-        MCU_mean = MCU_mean / MCU_mean
+        hist = (hist / MCU_mean) - 1
+        MCL_mean = (MCL_mean / MCU_mean) - 1
+        MCL_std = (MCL_std / MCU_mean) - 1
+        MCU_std = (MCU_std / MCU_mean) - 1
+        MCU_mean = (MCU_mean / MCU_mean) - 1
         data_to_set = util.mapStringToLocal(proc_vars, locals())
     else:
         data_to_set = util.mapStringToNan(proc_vars)
@@ -120,7 +123,7 @@ def monteCarlo_intracone_dist_common(param, sav_cfg, mc_type):
         bin_width = file['input_data']['bin_width'][()]
         dist_area_norm = file['input_data']['dist_area_norm'][()]
 
-    proc = 'monteCarlo_'+mc_type+'_intracone_dist'
+    proc = 'monteCarlo_' + mc_type + '_intracone_dist'
     proc_vars = sav_cfg[proc]['variables']
 
     if len(coord[0].shape) == 2 and coord[0].shape[1] == 2:
@@ -192,7 +195,8 @@ def spacified_process(param, sav_cfg):
             all_coord = file['input_data']['cone_coord'][()]
         coord = calc.spacified(num_coord, all_coord, num_sp)
         data_to_set = util.mapStringToLocal(proc_vars, locals())
-    
+        
+    flsyst.setProcessVarsFromDict(param, sav_cfg, proc, data_to_set)
 
 def monteCarlo_process(param, sav_cfg, mc_type):
     # get any needed info from the save file
@@ -592,21 +596,22 @@ def viewMCUnormed(save_name, scale_std=1, showNearestCone=False, save_things=Fal
             cone_rad_x = np.arange(half_cone_rad, half_cone_rad + (5 * all_cone_mean_nearest + 1), step=all_cone_mean_nearest)
             lin_extent = 1.5
 
-            if showNearestCone:
-                for lin in cone_rad_x:
-                    if lin == cone_rad_x[0]:
-                        ax = show.line([lin, lin], [-1 * lin_extent, lin_extent], id='cone-dist', plot_col='olive')
-                    else:
-                        ax = show.line([lin, lin], [-1 * lin_extent, lin_extent], id='cone-dist', ax=ax, plot_col='olive')
+ #           if showNearestCone:
+ #               for lin in cone_rad_x:
+ #                   if lin == cone_rad_x[0]:
+ #                       ax = show.line([lin, lin], [-1 * lin_extent, lin_extent], id='cone-dist', plot_col='olive')
+ #                   else:
+ #                       ax = show.line([lin, lin], [-1 * lin_extent, lin_extent], id='cone-dist', ax=ax, plot_col='olive')
 
-                ax = show.shadyStats(x, MCU_mean, MCU_std, id_str, scale_std=scale_std,
-                                    ax=ax, plot_col='dimgray')
-            else: 
-                ax = show.shadyStats(x, MCU_mean, MCU_std, id_str, scale_std=scale_std,
-                                    plot_col='dimgray')
+ #               ax = show.shadyStats(x, MCU_mean, MCU_std, id_str, scale_std=scale_std,
+ #                                   ax=ax, plot_col='dimgray')
+ #            else: 
+            fig, ax = plt.subplots(1, 1, figsize = [10,10])
+            ax = show.line(x, MCU_mean, ax = ax, id = id_str, plot_col='darkgray')
+            plt.grid()
 
-            ax = show.shadyStats(x, MCL_mean, MCL_std, id_str, ax=ax, scale_std=scale_std,
-                                 plot_col=conetype_color)
+            ax = show.shadyStats(x, MCL_mean, MCL_std, id_str, ax = ax, scale_std=scale_std,
+                                 plot_col='lightskyblue')
 
             ax = show.line(x, hist, ax=ax, plot_col='w', id=id_str,
                       xlabel=xlab, ylabel=ylab, title=tit)
@@ -614,7 +619,7 @@ def viewMCUnormed(save_name, scale_std=1, showNearestCone=False, save_things=Fal
 
             if showNearestCone:
                 plt.xlim([0, half_cone_rad + 5 * all_cone_mean_nearest + 1])
-                plt.ylim([-0, lin_extent])
+                plt.ylim([-0,2]) #plt.ylim([-0, lin_extent])
 
             ax.figure
 

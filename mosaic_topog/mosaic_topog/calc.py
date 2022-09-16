@@ -1,6 +1,7 @@
 from cmath import nan
 import numpy as np
 from scipy import spatial
+import mosaic_topog.show as show
 
 # Functions
 # ---------
@@ -86,7 +87,6 @@ def distHist(dists, bin_width):
 
     return hist, bin_edges
 
-
 def spacified(num_coord, all_coord, num_sp):
     """
     """
@@ -95,7 +95,7 @@ def spacified(num_coord, all_coord, num_sp):
         seed_inds = []
 
         # get matrix of intercone distances
-        dists = dist_matrices(all_coord)[0]
+        dists = dist_matrices(all_coord)
 
         for sp in np.arange(0, num_sp):  # looop through mosaics to make
         
@@ -112,16 +112,14 @@ def spacified(num_coord, all_coord, num_sp):
             if num_coord > 1:
                 for c in np.arange(1, num_coord):
                     if c == 1:  # set 2nd cone as far as possible from the 1st cone
-                        print(dists)
-                        print(dists.shape)
+
                         furthest_cone = np.argmax(dists[seed_ind])
                         coord[1] = all_coord[furthest_cone]
                         np.delete(temp_inds, np.nonzero(temp_inds == furthest_cone))
 
                     else:  # set each additional cone at the location that minimizes the std of nearest neighbor distance
                         spaciest_cone = -1
-                        min_std = dists[seed_ind, furthest_cone]
-                        
+                        min_std = dists[seed_ind, furthest_cone]                      
                         for t in temp_inds:
                             # test adding each cone to the list, finding the std of the list of nearest neighbor distances
                             #  when the cone is added.  select the cone that minimizes the std of nearest neighbor distance. 
@@ -130,23 +128,19 @@ def spacified(num_coord, all_coord, num_sp):
                             temp_sp[c] = all_coord[t]
                             temp_dists = dist_matrices(temp_sp)[0]
                             temp_dists[np.nonzero(temp_dists == -1)] = nan
-                            print(dists)
                             min_dists = np.amin(temp_dists, axis=0)
-                            print(min_dists)
                             std_min_dists = np.std(min_dists)
-                            print(std_min_dists)
-
                             if std_min_dists < min_std:
                                 min_std = std_min_dists
                                 spaciest_cone = t
-
                         coord[c, :] = all_coord[t, :]
                         np.delete(temp_inds, np.nonzero(temp_inds == t))
 
             sp_coord[:, :, sp] = coord
-    else:
-        sp_coord = nan           
 
+    else:
+        sp_coord = nan
+         
     return sp_coord
 
 

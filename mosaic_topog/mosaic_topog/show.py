@@ -217,7 +217,7 @@ def line(x, y, id, plot_col='w', bckg_col='k', linestyle='-', marker="", markers
     """
     ax = plotKwargs(kwargs, id)
     ax.set_facecolor(bckg_col)
-    ax.plot(x, y, color=plot_col, linestyle=linestyle, marker=marker, markersize=markersize)
+    ax.plot(x, y, color=plot_col, linestyle=linestyle, linewidth = 6, marker=marker, markersize=markersize)
 
     return ax
 
@@ -254,7 +254,7 @@ def shadyStats(x, mean, std, id, scale_std=1, plot_col='w',
 
     ax = plotKwargs(kwargs, id)
     ax.set_facecolor(bckg_col)
-    ax.plot(x, mean, color=plot_col)
-    ax.fill_between(x, err_low, err_high, color=plot_col, alpha=.5)
+    ax.plot(x, mean, color=plot_col, linewidth = 6)
+    ax.fill_between(x, err_low, err_high, color=plot_col, alpha=.7)
 
     return ax

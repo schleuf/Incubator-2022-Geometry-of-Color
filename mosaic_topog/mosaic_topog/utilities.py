@@ -45,6 +45,9 @@ def indsNotInList(check_list, ref_list):
 
     """
     pop_inds = []
+    print('yikes')
+    print(len(check_list))
+    print(len(ref_list))
     for ind, name in enumerate(check_list):
         if name not in ref_list:
             pop_inds.append(ind)

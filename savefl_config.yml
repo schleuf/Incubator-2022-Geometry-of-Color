@@ -88,22 +88,6 @@ monteCarlo_coneLocked_intracone_dist:
     - annulus_area
     - mean_hist
     - std_hist
-spacified:
-  process: spacified_process
-  variables:
-    - all_coord
-    - coord
-spacified_intracone_dist:
-  process: spacified_intracone_dist_process
-  variables:
-    - dist
-    - mean_nearest
-    - std_nearest
-    - hist
-    - bin_edge
-    - annulus_area
-    - mean_hist
-    - std_hist
 norm_by_MCU_mean:
   process: norm_by_MCU_mean_process
   variables:

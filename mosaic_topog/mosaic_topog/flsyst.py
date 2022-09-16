@@ -266,6 +266,13 @@ def getFilesByDataGroup(folder, user_param, filetype):
                     fl_count = fl_count + 1
                 mos_count = mos_count + 1
 
+   
+    print(cat_comb)
+    
+    print('gee whiz')
+    print(len(cat_comb))
+    print(len(fl_list))
+
     # search for if those files exist.  if they don't, remove them from my list
     print('goo')
     print(cat_comb)
@@ -506,7 +513,10 @@ def printSaveFile(sav_fl):
                         data = bytes(file[key][var][()]).decode("utf8")
                     else:
                         data = file[key][var][()]
-                        
+                    try:
+                        print(data.shape)
+                    except:
+                        print('shapeless')    
                     print(data)
                     print('')
     else:
