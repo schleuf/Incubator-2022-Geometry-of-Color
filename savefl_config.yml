@@ -61,6 +61,8 @@ spacified:
   variables:
     - all_coord
     - coord
+    - num_mosaics_made
+    - cones_spacified_per_mosaic
 spacified_intracone_dist:
   process: spacified_intracone_dist_process
   variables:

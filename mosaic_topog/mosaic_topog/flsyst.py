@@ -266,22 +266,9 @@ def getFilesByDataGroup(folder, user_param, filetype):
                     fl_count = fl_count + 1
                 mos_count = mos_count + 1
 
-   
-    print(cat_comb)
-    
-    print('gee whiz')
-    print(len(cat_comb))
-    print(len(fl_list))
-
     # search for if those files exist.  if they don't, remove them from my list
-    print('goo')
-    print(cat_comb)
-    print(fl_list)
     pop_fls = util.indsNotInList(cat_comb, fl_list)
-    print(pop_fls)
     cat_comb = util.removeListInds(cat_comb, pop_fls)
-
-    print(cat_comb)
 
     # if any of the mosaics we looked for have no files associated with them, remove them from the mosaics list
     pop_mos = []
@@ -301,14 +288,8 @@ def getFilesByDataGroup(folder, user_param, filetype):
     cat_names = ['subject', 'angle', 'eccentricity', 'conetype', 'mosaic']
     cat_str = [subj_str, ang_str, ecc_str, end_str, cat_comb]
 
-    print('beep')
-    print(cat_str)
-
     # get category vectors to output
     cat_index = getIndexes(categories, cat_str, cat_names)
-
-    print('found ' + str(len(cat_comb)) + ' files')
-    print('')
 
     for ind, fl in enumerate(cat_comb):
         cat_comb[ind] = folder + fl
@@ -349,10 +330,8 @@ def getFileSubstrings(fl_list):
     end_str = []
 
     for fl in fl_list:
-        print(fl_list)
         flnm = os.path.basename(fl)
         flnames_all.append(flnm)
-        print(flnames_all)
         flsplit = flnm.split('_')
         subj_str.append(flsplit[0])
         ang_str.append(flsplit[1])

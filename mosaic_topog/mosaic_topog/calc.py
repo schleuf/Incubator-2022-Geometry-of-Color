@@ -87,57 +87,77 @@ def distHist(dists, bin_width):
 
     return hist, bin_edges
 
+
+def setFirstAndSecondSpacifiedCone(coord, seed_ind, dists):
+    set_cones = [seed_ind]
+    set_coord = np.ones([2, 2]) * -1
+    set_coord[0, :] = coord[seed_ind, :]
+
+    furthest_cone = np.argmax(dists[seed_ind, :])
+    set_cones.append(furthest_cone)
+    set_coord[1, :] = coord[furthest_cone, :]
+    
+    return [set_cones, set_coord]
+
+
+def removeVal(vals, val2remove):
+    vals_removed = vals
+    for val in val2remove:
+        vals_removed = np.delete(vals_removed, np.nonzero(vals_removed == val))
+    return vals_removed
+
+
+def setThirdOnwardSpacifiedCone_slower(coord, avail, set_cones, set_coord, next_cone_ind, dists):
+    dists = np.where(dists > 0, dists, np.inf)
+    # create a 2D array where each row is the current set of cone indices making up the
+    # spacified mosaic followed by a hypothetical next cone-placement, with a row for 
+    # every cone that is available to be set
+    v1 = np.tile(np.array(set_cones), (avail.shape[0], 1))
+    v2 = np.expand_dims(avail, 1)
+    hyp_sp_sets = np.hstack((v1, v2))
+    
+    # identify the cone that, when added to the currently set spacified cones, minimizes 
+    # the std of cone nearest neighbors
+    nearest_neighbor_stds = []
+    for hyp_set in hyp_sp_sets: 
+        hyp_dists = dists[hyp_set, :][:, hyp_set]
+        nearest_neighbor_stds.append(np.std(np.amin(hyp_dists, axis=0)))
+    spaciest_cone = avail[np.argmin(np.array(nearest_neighbor_stds))]
+    
+    # set the next cone in the spacified mosaic data
+    set_cones.append(spaciest_cone)
+    set_coord[next_cone_ind][:] = coord[spaciest_cone][:]
+    avail = removeVal(avail,[spaciest_cone])
+
+    return [set_cones, set_coord, avail]
+
+
 def spacified(num_coord, all_coord, num_sp):
     """
+    asdf
     """
-    if num_coord > 0:
+    if num_coord > 1 and all_coord.shape[0] >= num_coord:
+        
         sp_coord = np.empty([num_coord, 2, num_sp], dtype=float)
-        seed_inds = []
 
         # get matrix of intercone distances
         dists = dist_matrices(all_coord)
 
         for sp in np.arange(0, num_sp):  # looop through mosaics to make
-        
-            temp_inds = np.arange(0, all_coord.shape[0])
+            avail_cones = np.arange(0, all_coord.shape[0])
 
-            # set first cone
-            seedable_inds = temp_inds[np.nonzero(np.isin(temp_inds, seed_inds) == False)]
-            coord = np.ones([num_coord, 2]) * -1
-            seed_ind = seedable_inds[np.random.randint(0, high=len(seedable_inds), size=1)]
-            coord[0] = all_coord[seed_ind][0]
-            seed_inds.append(seed_ind)
-            np.delete(temp_inds, seed_ind)
+            set_coord = np.ones([num_coord, 2]) * -1
 
-            if num_coord > 1:
-                for c in np.arange(1, num_coord):
-                    if c == 1:  # set 2nd cone as far as possible from the 1st cone
+            seed_ind = sp
 
-                        furthest_cone = np.argmax(dists[seed_ind])
-                        coord[1] = all_coord[furthest_cone]
-                        np.delete(temp_inds, np.nonzero(temp_inds == furthest_cone))
+            [set_cones, set_coord[0:2, :]] = setFirstAndSecondSpacifiedCone(all_coord, seed_ind, dists)
 
-                    else:  # set each additional cone at the location that minimizes the std of nearest neighbor distance
-                        spaciest_cone = -1
-                        min_std = dists[seed_ind, furthest_cone]                      
-                        for t in temp_inds:
-                            # test adding each cone to the list, finding the std of the list of nearest neighbor distances
-                            #  when the cone is added.  select the cone that minimizes the std of nearest neighbor distance. 
-                            temp_sp = np.ones([c+1, 2])*-1
-                            temp_sp[0:c] = coord[0:c][:]
-                            temp_sp[c] = all_coord[t]
-                            temp_dists = dist_matrices(temp_sp)[0]
-                            temp_dists[np.nonzero(temp_dists == -1)] = nan
-                            min_dists = np.amin(temp_dists, axis=0)
-                            std_min_dists = np.std(min_dists)
-                            if std_min_dists < min_std:
-                                min_std = std_min_dists
-                                spaciest_cone = t
-                        coord[c, :] = all_coord[t, :]
-                        np.delete(temp_inds, np.nonzero(temp_inds == t))
+            avail_cones = removeVal(avail_cones, set_cones)
 
-            sp_coord[:, :, sp] = coord
-
+            for a in np.arange(0, num_coord):
+                [set_cones, set_coord, avail_cones] = setThirdOnwardSpacifiedCone_slower(all_coord, avail_cones, set_cones, set_coord, a, dists)
+            print(set_coord)
+            sp_coord[:, :, sp] = set_coord
     else:
         sp_coord = nan
          
