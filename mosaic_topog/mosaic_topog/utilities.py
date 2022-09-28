@@ -16,7 +16,7 @@ import numpy as np
 #
 
 
-def mapStringToLocal(proc_vars,local, data_to_set={}):
+def mapStringToLocal(proc_vars, local, data_to_set={}):
     for var in proc_vars:
         data_to_set[var] = local[var]
     return data_to_set
@@ -45,9 +45,6 @@ def indsNotInList(check_list, ref_list):
 
     """
     pop_inds = []
-    print('yikes')
-    print(len(check_list))
-    print(len(ref_list))
     for ind, name in enumerate(check_list):
         if name not in ref_list:
             pop_inds.append(ind)

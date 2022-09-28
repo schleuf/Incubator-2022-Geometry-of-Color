@@ -1,6 +1,4 @@
 import matplotlib.pyplot as plt
-import mosaic_topog.utilities as util
-
 
 def getAx(kwargs):
     """

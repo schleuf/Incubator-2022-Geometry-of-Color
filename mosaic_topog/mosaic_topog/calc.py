@@ -1,7 +1,6 @@
 from cmath import nan
 import numpy as np
 from scipy import spatial
-import mosaic_topog.show as show
 
 # Functions
 # ---------

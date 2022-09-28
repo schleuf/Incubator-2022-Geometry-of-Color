@@ -344,7 +344,7 @@ def getFileSubstrings(fl_list):
 def getIndexes(categories, cat_str, cat_names):
     """
     Retrieves file index vectors for all the input categories and
-    stores them in a dictionary
+    stores them in a dictionar
 
     (support function of getConeData)
 
@@ -358,8 +358,6 @@ def getIndexes(categories, cat_str, cat_names):
     cat_index : dict of np.array
 
     """
-    print('yippee')
-    print(categories)
     cat_index = {}
 
     for ind, cat_name in enumerate(cat_names):
@@ -391,12 +389,6 @@ def getIndex(cat_vals, fl_strings):
     index[:] = -1
 
     for ind, c in enumerate(cat_vals):
-        print(c)
-        print(type(c))
-        print(fl_strings)
-        print(type(fl_strings))
-        print(np.char.find(np.asarray(fl_strings), 'h'))
-        
         directory.append(np.nonzero(np.char.find(np.asarray(fl_strings),
                                     c) > -1)[0])
         index[directory[ind]] = int(ind)

@@ -1,9 +1,8 @@
-from cmath import nan
-from this import d
 import numpy as np
 import matplotlib.pyplot as plt
 import h5py
 import os
+
 import mosaic_topog.flsyst as flsyst
 import mosaic_topog.calc as calc
 import mosaic_topog.show as show
@@ -119,9 +118,19 @@ def monteCarlo_intracone_dist_common(param, sav_cfg, mc_type):
     sav_fl = param['sav_fl']
     with h5py.File(sav_fl, 'r') as file:
         coord = file['monteCarlo_' + mc_type]['coord'][()]
-        num_mc = file['input_data']['bin_width'][()]
+        num_mc = file['input_data']['num_mc'][()]
         bin_width = file['input_data']['bin_width'][()]
         dist_area_norm = file['input_data']['dist_area_norm'][()]
+
+        print('')
+        print('')
+        print('checking shiz out')
+        print(param)
+        print(mc_type)
+        print(num_mc)
+        print(param['num_mc'])
+        print('')
+        print('')
 
     proc = 'monteCarlo_' + mc_type + '_intracone_dist'
     proc_vars = sav_cfg[proc]['variables']
@@ -163,12 +172,16 @@ def monteCarlo_intracone_dist_common(param, sav_cfg, mc_type):
 def monteCarlo_coneLocked_intracone_dist_process(param, sav_cfg):
     """
     """
+    print(param['num_mc'])
+    print('???????????????????')
     monteCarlo_intracone_dist_common(param, sav_cfg, 'coneLocked')
 
 
 def monteCarlo_uniform_intracone_dist_process(param, sav_cfg):
     """
     """
+    print(param['num_mc'])
+    print('.___________________.')
     monteCarlo_intracone_dist_common(param, sav_cfg, 'uniform')
 
 
@@ -196,16 +209,13 @@ def spacified_process(param, sav_cfg):
 
     
         coord = calc.spacified(num_coord, all_coord, num_sp)
-        print('')
-        print('whats getting returned')
-        print(coord.shape)
-        #print(coord)
-        print('')
+
         num_mosaics_made = num_coord
         cones_spacified_per_mosaic = num_sp
         data_to_set = util.mapStringToLocal(proc_vars, locals())
         
     flsyst.setProcessVarsFromDict(param, sav_cfg, proc, data_to_set)
+
 
 def monteCarlo_process(param, sav_cfg, mc_type):
     # get any needed info from the save file
@@ -296,6 +306,7 @@ def input_data_process(param, sav_cfg):
     proc = 'input_data'
     proc_vars = sav_cfg[proc]['variables']
     data_to_set = {}
+    print(param['num_mc'])
     for var in proc_vars:
         if var == 'cone_img':
             data_to_set[var] = plt.imread(param['img_fl'])
@@ -375,12 +386,18 @@ def runSingleMosaicProcess(user_param, sav_cfg):
     processes = user_param['processes']
 
     for proc in sav_cfg['order_optional_proc']:
+        print(proc)
         if proc not in sav_cfg.keys():
             print('process "' + proc + '" listed under optional processes is not found in the configuration file, skipping...')
         elif proc in processes.keys():
             print('Running process "' + proc + '" on ' + str(len(processes[proc])) + ' mosaic coordinate files...')
             for ind in processes[proc]:
                 param = unpackThisParam(user_param, ind)
+                if proc == 'monteCarlo_coneLocked_intracone_dist':
+                    print(param.keys())
+                    print(param['num_mc'])
+                    print('!!!!!!!!!!!!!!!')
+                    print(globals()[sav_cfg[proc]['process']])
                 globals()[sav_cfg[proc]['process']](param, sav_cfg)
 
 
@@ -437,8 +454,6 @@ def viewIntraconeDistHists(save_names, save_things=False, save_path=''):
             print(id + ' contains < 2 cones, skipping... ')
 
 
-
-
 def viewSpacified(save_name, sp, save_things=False, save_path=''):
     for fl in save_name:
         # get spacified coordinate data and plotting parameters from the save file
@@ -487,8 +502,8 @@ def viewMonteCarlo(save_name, mc_type, mc, save_things=False, save_path=''):
                 id_str = 'monteCarlo_' + mc_type + '_(' + str(m+1) + '//' + str(num_mc) + ')_' + mosaic + '_(' + str(num_cone) + ' cones)'
                 xlab = coord_unit
                 ylab = coord_unit
-                this_coord = np.zeros([num_cone,2])
-                this_coord[:,:] = coord[m, :, :]
+                this_coord = np.zeros([num_cone, 2])
+                this_coord[:, :] = coord[m, :, :]
 
                 ax = show.scatt(this_coord, id_str, plot_col=conetype_color, xlabel=xlab, ylabel=ylab)
 
@@ -601,7 +616,7 @@ def viewMCUnormed(save_name, scale_std=1, showNearestCone=False, save_things=Fal
 
             if showNearestCone:
                 plt.xlim([0, half_cone_rad + 5 * all_cone_mean_nearest + 1])
-                plt.ylim([-0,2]) #plt.ylim([-0, lin_extent])
+                plt.ylim([-2,2]) #plt.ylim([-0, lin_extent])
 
             ax.figure
 
