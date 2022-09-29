@@ -15,8 +15,6 @@ def norm_by_MCU_mean_process(param, sav_cfg):
 
     sav_fl = param['sav_fl']
 
-    print(sav_fl)
-
     with h5py.File(sav_fl, 'r') as file:
         bin_width = file['input_data']['bin_width'][()]
         hist = file['intracone_dist']['hist'][()]
@@ -28,7 +26,6 @@ def norm_by_MCU_mean_process(param, sav_cfg):
         all_coord = file['monteCarlo_coneLocked']['all_coord'][()]
 
     if not np.isnan(hist).any():
-        print(sav_fl)
         max_num_bins = np.max([hist.shape[0], MCL_mean.shape[0], MCU_mean.shape[0]])
 
         if hist.shape[0] < max_num_bins:
