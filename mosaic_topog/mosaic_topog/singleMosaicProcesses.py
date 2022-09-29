@@ -122,16 +122,6 @@ def monteCarlo_intracone_dist_common(param, sav_cfg, mc_type):
         bin_width = file['input_data']['bin_width'][()]
         dist_area_norm = file['input_data']['dist_area_norm'][()]
 
-        print('')
-        print('')
-        print('checking shiz out')
-        print(param)
-        print(mc_type)
-        print(num_mc)
-        print(param['num_mc'])
-        print('')
-        print('')
-
     proc = 'monteCarlo_' + mc_type + '_intracone_dist'
     proc_vars = sav_cfg[proc]['variables']
 
@@ -149,17 +139,23 @@ def monteCarlo_intracone_dist_common(param, sav_cfg, mc_type):
             if hist[mc].shape[0] > max_hist_bin:
                 max_hist_bin = hist[mc].shape[0]
 
+        # this is just to convert the returned histograms into a rectangular array
+        # (this can't be done in advance because of...slight variability in the number of bins returned? why?)
         hist_mat = np.zeros([num_mc, max_hist_bin])
         for mc in np.arange(0, num_mc):
-            hist_mat[mc, 0:hist[mc].shape[0]] = hist[mc]
+            hist_mat[mc, 0:hist[mc].shape[mc]] = hist[0]
+
+        print(hist_mat)
 
         hist = hist_mat
 
         while len(bin_edge) < max_hist_bin + 1:
             bin_edge = np.append(bin_edge, np.max(bin_edge)+bin_width)
 
-        mean_hist = np.mean(hist_mat, 0)
-        std_hist = np.std(hist_mat, 0)
+        mean_hist = np.mean(hist_mat, axis=0)
+        std_hist = np.std(hist_mat, axis=0)
+
+        show.shadyStats(np.arange(0, max_hist_bin), mean_hist, std_hist, 'mc='+str(mc), scale_std=2)
 
         data_to_set = util.mapStringToLocal(proc_vars, locals())
         
@@ -172,16 +168,12 @@ def monteCarlo_intracone_dist_common(param, sav_cfg, mc_type):
 def monteCarlo_coneLocked_intracone_dist_process(param, sav_cfg):
     """
     """
-    print(param['num_mc'])
-    print('???????????????????')
     monteCarlo_intracone_dist_common(param, sav_cfg, 'coneLocked')
 
 
 def monteCarlo_uniform_intracone_dist_process(param, sav_cfg):
     """
     """
-    print(param['num_mc'])
-    print('.___________________.')
     monteCarlo_intracone_dist_common(param, sav_cfg, 'uniform')
 
 
@@ -228,6 +220,7 @@ def monteCarlo_process(param, sav_cfg, mc_type):
     proc = 'monteCarlo_' + mc_type
     proc_vars = sav_cfg[proc]['variables']
 
+    # check for expected dimensions of the coordinate variable
     if len(real_coord.shape) == 2 and real_coord.shape[1] == 2:
         data_to_set = {}
         num_coord = real_coord.shape[0]
@@ -496,8 +489,12 @@ def viewMonteCarlo(save_name, mc_type, mc, save_things=False, save_path=''):
             conetype_color = bytes(file['input_data']['conetype_color'][()]).decode("utf8")
             num_mc = file['input_data']['num_mc'][()]
             coord = file['monteCarlo_'+mc_type]['coord'][()]
+           
         if not np.isnan(coord[0]).any():
             num_cone = coord.shape[1]
+            print(num_mc)
+            print(num_cone)
+            print(coord.shape)
             for m in mc:
                 id_str = 'monteCarlo_' + mc_type + '_(' + str(m+1) + '//' + str(num_mc) + ')_' + mosaic + '_(' + str(num_cone) + ' cones)'
                 xlab = coord_unit

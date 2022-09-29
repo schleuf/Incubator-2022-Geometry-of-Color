@@ -106,7 +106,7 @@ def removeVal(vals, val2remove):
     return vals_removed
 
 
-def setThirdOnwardSpacifiedCone_slower(coord, avail, set_cones, set_coord, next_cone_ind, dists):
+def setThirdOnwardSpacifiedCone(coord, avail, set_cones, set_coord, next_cone_ind, dists):
     dists = np.where(dists > 0, dists, np.inf)
     # create a 2D array where each row is the current set of cone indices making up the
     # spacified mosaic followed by a hypothetical next cone-placement, with a row for 
@@ -154,8 +154,7 @@ def spacified(num_coord, all_coord, num_sp):
             avail_cones = removeVal(avail_cones, set_cones)
 
             for a in np.arange(0, num_coord):
-                [set_cones, set_coord, avail_cones] = setThirdOnwardSpacifiedCone_slower(all_coord, avail_cones, set_cones, set_coord, a, dists)
-            print(set_coord)
+                [set_cones, set_coord, avail_cones] = setThirdOnwardSpacifiedCone(all_coord, avail_cones, set_cones, set_coord, a, dists)
             sp_coord[:, :, sp] = set_coord
     else:
         sp_coord = nan
