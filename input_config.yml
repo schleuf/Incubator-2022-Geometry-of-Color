@@ -1,0 +1,59 @@
+# MosTop Inputs: analysis & simulation settings
+
+# Paths
+# -----
+# load and save folder. all coordinate and image data must be in the load folder ()
+# if there is already analyses for a mosaic that you want to add analyses to, it must 
+# be located in the save file the same name as the coordinate file but with the save file-type
+data_path:
+  - 'C:\\Users\\schle\Documents\\GitHub\\Incubator-2022-Geometry-of-Color\\CSV data all OCT locs Jan 2022\\'
+save_path:
+  - 'C:\\Users\\schle\Documents\\MosTop Outputs\\'
+
+# settings that define the files that will be searched for in the load folder above.
+# processes indicated below will be run on all such files found. 
+subject:
+  - ['AO001R']  #['AO001R', 'AO008R']
+angle:
+  - ['temporal']  #['temporal', 'nasal', 'superior', 'inferior']
+eccentricity:
+  - ['1.5']  #['1.5','3.5', '4', '4.5', '10']
+conetype:
+  - ['S'] #['all','L','M','S','unclassed']
+conetype_color:
+  - ['b'] #['y','r','g','b','w']
+coord_unit:
+  - 'pixels' # units of the coordinate data loaded in - any string you want
+
+# Run settings
+# ------------
+# select single-mosaic processes to run. list in a....dictionary? why is it a dictionary? ***
+# options: 'basic stats', 'intracone_dists', 'monteCarlo_Uniform', 'monteCarlo_coneLocked
+proc_to_run:
+  - {
+     'intracone_dist', 
+     'monteCarlo_uniform', 
+     'monteCarlo_uniform_intracone_dist', 
+     'monteCarlo_coneLocked',
+     'monteCarlo_coneLocked_intracone_dist',
+     'norm_by_MCU_mean',
+     'spacified'}
+
+# indicate whether all processes requested will be run on all mosaics found fitting the inputs above,
+# or processes will only be run for a file if that process' outputs are not present in an identified save file
+data_to_run:
+  - 'all' # 'all', absent_only
+
+# Process-specific Settings
+# -------------------------
+# intracone distance settings
+dist_area_norm:
+  - False # bool
+
+# monteCarlo_uniform and monteCarlo-coneLocked settings
+num_mc:
+  - 10 # number of monte carlo mosaics to generate
+
+#spacified seetings
+num_sp:
+  - 1
