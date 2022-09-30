@@ -16,6 +16,21 @@ import numpy as np
 #
 
 
+def vector_zeroPad(vector_to_pad, num_preceding, num_following):
+    if not (len(vector_to_pad.shape) == 1
+            or ((len(vector_to_pad.shape) == 2)
+            and (vector_to_pad.shape[0] == 1
+                 or vector_to_pad[1] == 1))):
+        raise Exception('calc.vector_zeroPad received a vector to be padded of inappropriate size')
+
+    prefix = np.zeros([num_preceding, ])
+    suffix = np.zeros([num_following, ])
+
+    padded_vector = np.append(np.append(prefix, vector_to_pad), suffix)
+
+    return padded_vector
+
+
 def mapStringToLocal(proc_vars, local, data_to_set={}):
     for var in proc_vars:
         data_to_set[var] = local[var]

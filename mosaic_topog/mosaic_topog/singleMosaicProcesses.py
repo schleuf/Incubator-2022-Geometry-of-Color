@@ -8,8 +8,7 @@ import mosaic_topog.calc as calc
 import mosaic_topog.show as show
 import mosaic_topog.utilities as util
 
-
-def norm_by_MCU_mean_process(param, sav_cfg):
+def two_point_correlation_process(param, sav_cfg):
     proc = 'norm_by_MCU_mean'
     proc_vars = sav_cfg[proc]['variables']
 
@@ -27,20 +26,27 @@ def norm_by_MCU_mean_process(param, sav_cfg):
 
     if not np.isnan(hist).any():
         max_num_bins = np.max([hist.shape[0], MCL_mean.shape[0], MCU_mean.shape[0]])
+        
+        hist = util.vector_zeroPad(hist, 0, max_num_bins - hist.shape[0])
+        MCL_mean = util.vector_zeroPad(MCL_mean, 0, max_num_bins - MCL_mean.shape[0])
+        MCL_std = util.vector_zeroPad(MCL_std, 0, max_num_bins - MCL_std.shape[0])
+        MCU_mean = util.vector_zeroPad(MCU_mean, 0, max_num_bins - MCU_mean.shape[0])
+        MCU_std = util.vector_zeroPad(MCU_std, 0, max_num_bins - MCU_std.shape[0])
+        # ***attempting to replace this block with util.vector_zeroPad
+        #
+        # if hist.shape[0] < max_num_bins:
+        #     num_pad = max_num_bins - hist.shape[0]
+        #     hist = np.append(hist, np.zeros(num_pad))
 
-        if hist.shape[0] < max_num_bins:
-            num_pad = max_num_bins - hist.shape[0]
-            hist = np.append(hist, np.zeros(num_pad))
+        # if MCL_mean.shape[0] < max_num_bins:
+        #     num_pad = max_num_bins - MCL_mean.shape[0]
+        #     MCL_mean = np.append(MCL_mean, np.zeros(num_pad))
+        #     MCL_std = np.append(MCL_std, np.zeros(num_pad))
 
-        if MCL_mean.shape[0] < max_num_bins:
-            num_pad = max_num_bins - MCL_mean.shape[0]
-            MCL_mean = np.append(MCL_mean, np.zeros(num_pad))
-            MCL_std = np.append(MCL_std, np.zeros(num_pad))
-
-        if MCU_mean.shape[0] < max_num_bins:
-            num_pad = max_num_bins - MCU_mean.shape[0]
-            MCU_mean = np.append(MCU_mean, np.zeros(num_pad))
-            MCU_std = np.append(MCU_std, np.zeros(num_pad))
+        # if MCU_mean.shape[0] < max_num_bins:
+        #     num_pad = max_num_bins - MCU_mean.shape[0]
+        #     MCU_mean = np.append(MCU_mean, np.zeros(num_pad))
+        #     MCU_std = np.append(MCU_std, np.zeros(num_pad))
 
         while bin_edge.shape[0] <= max_num_bins:
             bin_edge = np.append(bin_edge, max(bin_edge)+bin_width)
@@ -61,12 +67,13 @@ def norm_by_MCU_mean_process(param, sav_cfg):
 
         all_cone_mean_nearest = np.mean(np.array(nearest_dist))
         all_cone_std_nearest = np.std(np.array(nearest_dist))
+            
+        hist = calc.corr(hist, MCU_mean)
+        MCL_mean = calc.corr(MCL_mean, MCU_mean)
+        MCL_std = calc.corr(MCL_std, MCU_mean)
+        MCU_std = calc.corr(MCU_std, MCU_mean)
+        MCU_mean = calc.corr(MCU_mean, MCU_mean)
 
-        hist = (hist / MCU_mean) - 1
-        MCL_mean = (MCL_mean / MCU_mean) - 1
-        MCL_std = (MCL_std / MCU_mean) - 1
-        MCU_std = (MCU_std / MCU_mean) - 1
-        MCU_mean = (MCU_mean / MCU_mean) - 1
         data_to_set = util.mapStringToLocal(proc_vars, locals())
     else:
         data_to_set = util.mapStringToNan(proc_vars)
@@ -140,7 +147,7 @@ def monteCarlo_intracone_dist_common(param, sav_cfg, mc_type):
         # (this can't be done in advance because of...slight variability in the number of bins returned? why?)
         hist_mat = np.zeros([num_mc, max_hist_bin])
         for mc in np.arange(0, num_mc):
-            hist_mat[mc, 0:hist[mc].shape[mc]] = hist[0]
+            hist_mat[mc, 0:hist[mc].shape[0]] = hist[mc]
 
         print(hist_mat)
 

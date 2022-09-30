@@ -7,6 +7,10 @@ from scipy import spatial
 # dist_matrices
 # Monte_Carlo_uniform
 
+ 
+def corr(test_vector, ref_vector):
+    return test_vector / ref_vector - 1
+
 
 def annulusArea(annulus_edge):
     """
