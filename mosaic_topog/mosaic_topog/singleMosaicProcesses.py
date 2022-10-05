@@ -8,14 +8,20 @@ import mosaic_topog.calc as calc
 import mosaic_topog.show as show
 import mosaic_topog.utilities as util
 
+
 def two_point_correlation_process(param, sav_cfg):
-    proc = 'norm_by_MCU_mean'
+    proc = 'two_point_correlation'
     proc_vars = sav_cfg[proc]['variables']
+    
+    print('')
+    print('2PC TIME')
+    print(param)
+    print('')
 
     sav_fl = param['sav_fl']
+    bin_width = param['bin_width']
 
     with h5py.File(sav_fl, 'r') as file:
-        bin_width = file['input_data']['bin_width'][()]
         hist = file['intracone_dist']['hist'][()]
         bin_edge = file['intracone_dist']['bin_edge'][()]
         MCL_mean = file['monteCarlo_coneLocked_intracone_dist']['mean_hist'][()]
@@ -149,8 +155,6 @@ def monteCarlo_intracone_dist_common(param, sav_cfg, mc_type):
         for mc in np.arange(0, num_mc):
             hist_mat[mc, 0:hist[mc].shape[0]] = hist[mc]
 
-        print(hist_mat)
-
         hist = hist_mat
 
         while len(bin_edge) < max_hist_bin + 1:
@@ -167,19 +171,6 @@ def monteCarlo_intracone_dist_common(param, sav_cfg, mc_type):
         data_to_set = util.mapStringToNan(proc_vars)
 
     flsyst.setProcessVarsFromDict(param, sav_cfg, proc, data_to_set)
-
-
-def monteCarlo_coneLocked_intracone_dist_process(param, sav_cfg):
-    """
-    """
-    monteCarlo_intracone_dist_common(param, sav_cfg, 'coneLocked')
-
-
-def monteCarlo_uniform_intracone_dist_process(param, sav_cfg):
-    """
-    """
-    monteCarlo_intracone_dist_common(param, sav_cfg, 'uniform')
-
 
 def spacified_process(param, sav_cfg):
     """
@@ -254,10 +245,26 @@ def monteCarlo_process(param, sav_cfg, mc_type):
 
 
 def monteCarlo_uniform_process(param, sav_cfg):
+    """
+    Inputs
+    ------
+    
+    just a directory to the function for monteCarlo
+    processes that takes uniform and coneLocked as
+    options
+    """
     monteCarlo_process(param, sav_cfg, 'uniform')
 
 
 def monteCarlo_coneLocked_process(param, sav_cfg):
+    """
+    Inputs
+    ------
+    
+    just a directory to the function for monteCarlo
+    processes that takes uniform and coneLocked as
+    options
+    """
     monteCarlo_process(param, sav_cfg, 'coneLocked')
 
 
@@ -298,7 +305,11 @@ def intracone_dist_process(param, sav_cfg):
 
 def input_data_process(param, sav_cfg):
     """
+    Inputs
+    ------
 
+    Outputs
+    -------
     """
     proc = 'input_data'
     proc_vars = sav_cfg[proc]['variables']
@@ -316,6 +327,11 @@ def input_data_process(param, sav_cfg):
 
 def meta_process(param, sav_cfg):
     """
+    Inputs
+    ------
+
+    Outputs
+    -------
 
     """
     proc = 'meta'
@@ -327,13 +343,19 @@ def meta_process(param, sav_cfg):
     flsyst.setProcessVarsFromDict(param, sav_cfg, proc, data_to_set)
 
 
-def mandatoryProcesses(user_param, sav_cfg):
+def defaultProcesses(user_param, sav_cfg):
     """
+    Inputs
+    ------
 
+    Outputs
+    -------
     """
     # identify mandatory processes
-    # should consider making this a list in the yaml rather than a property of the individual files
-    mand = sav_cfg['mandatory_proc']
+    # should consider making this a list in the yaml rather than 
+    # a property of the individual files
+
+    mand = sav_cfg['default_proc']
 
     # get all files to check
     fls = []
@@ -379,47 +401,23 @@ def runSingleMosaicProcess(user_param, sav_cfg):
     """
 
     """
-    mandatoryProcesses(user_param, sav_cfg)
+    defaultProcesses(user_param, sav_cfg)
     processes = user_param['processes']
 
-    for proc in sav_cfg['order_optional_proc']:
-        print(proc)
-        if proc not in sav_cfg.keys():
-            print('process "' + proc + '" listed under optional processes is not found in the configuration file, skipping...')
-        elif proc in processes.keys():
-            print('Running process "' + proc + '" on ' + str(len(processes[proc])) + ' mosaic coordinate files...')
-            for ind in processes[proc]:
+    for layer in sav_cfg['process_hierarchy']:
+        if layer not in sav_cfg.keys():
+            print('process "' + layer + '" listed under optional processes is not found in the configuration file, skipping...')
+        elif layer in processes.keys():
+            print('Running process "' + layer + '" on ' + str(len(processes[layer])) + ' mosaic coordinate files...')
+            for ind in processes[layer]:
                 param = unpackThisParam(user_param, ind)
-                if proc == 'monteCarlo_coneLocked_intracone_dist':
-                    print(param.keys())
-                    print(param['num_mc'])
-                    print('!!!!!!!!!!!!!!!')
-                    print(globals()[sav_cfg[proc]['process']])
-                globals()[sav_cfg[proc]['process']](param, sav_cfg)
-
-
-# def viewMosaics(save_name, mosaic, index, selection = [:]):
-
-#     for mos in mosaic:
-#         for sav_fl in save_name[selection]:
-
-
-#         all_fl = 
-#         coord = {}
-#         cone_type = {}
-#         id = mosaic + ', ' + cone_type 
-#         img = 
-#         color = 
-
-
-#         with h5py.File()
-#         plotOnROI(img, coord, cone_type, id, color, **kwargs)
+                globals()[sav_cfg[layer]['process']](param, sav_cfg)
 
 
 def viewIntraconeDistHists(save_names, save_things=False, save_path=''):
     for fl in save_names:
         # get intracone distance histogram data and plotting parameters from the save file
-        with h5py.File(fl, 'r') as file:  # context manager
+        with h5py.File(fl, 'r') as file:  # context manager 
             coord = file['input_data']['cone_coord'][()]
             hist = file['intracone_dist']['hist'][()]
             bin_edge = file['intracone_dist']['bin_edge'][()]

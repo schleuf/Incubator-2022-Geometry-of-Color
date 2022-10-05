@@ -33,16 +33,17 @@ img_fltype:
 # ------------
 # select single-mosaic processes to run. list in a....dictionary? why is it a dictionary? ***
 # options: 'basic stats', 'intracone_dists', 'monteCarlo_Uniform', 'monteCarlo_coneLocked
-proc_to_run:
-  - {
-     'intracone_dist', 
+sim_to_gen:
+  - { 
      'monteCarlo_uniform', 
-     'monteCarlo_uniform_intracone_dist', 
      'monteCarlo_coneLocked',
-     'monteCarlo_coneLocked_intracone_dist',
-     'norm_by_MCU_mean',
      'spacified'}
 
+analyses_to_run:
+  - {
+     'intracone_dist', 
+     'two_point_correlation'}
+ 
 # indicate whether all processes requested will be run on all mosaics found fitting the inputs above,
 # or processes will only be run for a file if that process' outputs are not present in an identified save file
 data_to_run:
@@ -50,7 +51,6 @@ data_to_run:
 
 # Process-specific Settings
 # -------------------------
-histogram_settings: 
 bin_width:
   - 10
 

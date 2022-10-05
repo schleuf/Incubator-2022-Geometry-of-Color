@@ -1,16 +1,24 @@
-mandatory_proc:
+
+# Simulation & Analysis Hierarchy
+#  0) Rund default analyses on input data
+#  1) Run primary analyses on input data
+#  2) Generate simulated versions of input data
+#  3) Run primary analyses on simulated versions
+#  4) for as many additional tiers of analysis exist, 
+#       run them!
+
+process_hierarchy:
+  - default_inputs
+  - gen_sim
+  - primary_analyses
+  - additional_analyses
+
+default:
+  process: default_processes
   - meta
   - input_data
-order_optional_proc:
-  - intracone_dist
-  - monteCarlo_uniform
-  - monteCarlo_uniform_intracone_dist
-  - monteCarlo_coneLocked
-  - monteCarlo_coneLocked_intracone_dist
-  - spacified
-  - spacified_intracone_dist
-  - two_point_correlation
-# Processes
+
+# Hidden Processes
 meta:
   process: meta_process
   variables:
@@ -19,87 +27,82 @@ meta:
     - angle
     - eccentricity
     - conetype
+
 input_data: 
   process: input_data_process
   variables: 
+    - data_path
+    - save_path
     - cone_img
     - cone_coord
     - coord_unit
     - conetype_color
+    - sim_to_gen
+    - analyses_to_run
     - bin_width
     - dist_area_norm
     - num_mc
     - num_sp
 
-intracone_dist:
-  process: intracone_dist_process
-  variables:
-    - dist
-    - mean_nearest
-    - std_nearest
-    - hist
-    - bin_edge
-    - annulus_area
-monteCarlo_uniform:
+gen_sim: 
+- process: gen_sim_process
+-
+
+primary_analyses: # hidden process
+- process: primary_analyses_process
+-
+
+additional_analyses: # hidden process
+- process: additional_analyses_process
+-
+
+# Simulation Processes
+
+monteCarlo_uniform: 
   process: monteCarlo_uniform_process
+  process_type: simulation
   variables:
     - coord
-monteCarlo_uniform_intracone_dist:
-  process: monteCarlo_uniform_intracone_dist_process
-  dependency:
-  variables:
-    - dist
-    - mean_nearest
-    - std_nearest
-    - hist
-    - bin_edge
-    - annulus_area
-    - mean_hist
-    - std_hist
-spacified:
-  process: spacified_process
-  variables:
-    - all_coord
-    - coord
-    - num_mosaics_made
-    - cones_spacified_per_mosaic
-spacified_intracone_dist:
-  process: spacified_intracone_dist_process
-  variables:
-    - dist
-    - mean_nearest
-    - std_nearest
-    - hist
-    - bin_edge
-    - annulus_area
-    - mean_hist
-    - std_hist
+
 monteCarlo_coneLocked:
   process: monteCarlo_coneLocked_process
   variables:
     - all_coord
     - coord
-monteCarlo_coneLocked_intracone_dist:
-  process: monteCarlo_coneLocked_intracone_dist_process
-  variables: 
+
+spacified:
+  process: spacified_process
+  process_type: simulation
+  variables:
+    - all_coord
+    - coord
+    - num_mosaics_made
+    - cones_spacified_per_mosaic
+
+# Primary Analysis Processes
+intracone_dist:
+  process: intracone_dist_process
+  process_type: analysis
+  analysis_tier: 1
+  variables:
     - dist
     - mean_nearest
     - std_nearest
     - hist
     - bin_edge
     - annulus_area
-    - mean_hist
-    - std_hist
+
+# Secondary Analysis Processes
+
 two_point_correlation:
   process: two_point_correlation_process
+  process_type: analysis
+  analysis_tier: 2
+  dependencies:
+    - intracone_dist
   variables:
-    # - hist
     - corr_by
     - to_be_corred
-    # - MCU_mean
-    # - MCU_std
-    # - MCL_mean
-    # - MCL_std
     - bin_edge
     - all_cone_mean_nearest
     - all_cone_std_nearest
