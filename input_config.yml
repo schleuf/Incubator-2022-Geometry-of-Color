@@ -6,9 +6,9 @@
 # if there is already analyses for a mosaic that you want to add analyses to, it must 
 # be located in the save file the same name as the coordinate file but with the save file-type
 data_path:
-  - 'C:\\Users\\schle\Documents\\GitHub\\Incubator-2022-Geometry-of-Color\\CSV data all OCT locs Jan 2022\\'
+  - 'C:\Users\schle\Documents\GitHub\Incubator-2022-Geometry-of-Color\CSV data all OCT locs Jan 2022\'
 save_path:
-  - 'C:\\Users\\schle\Documents\\MosTop Outputs\\'
+  - 'C:\Users\schle\Documents\MosTop Outputs\'
 
 # settings that define the files that will be searched for in the load folder above.
 # processes indicated below will be run on all such files found. 
@@ -24,6 +24,10 @@ conetype_color:
   - ['b'] #['y','r','g','b','w']
 coord_unit:
   - 'pixels' # units of the coordinate data loaded in - any string you want
+coord_fltype:
+  - '.csv'
+img_fltype:
+  - '.png'
 
 # Run settings
 # ------------
@@ -46,6 +50,10 @@ data_to_run:
 
 # Process-specific Settings
 # -------------------------
+histogram_settings: 
+bin_width:
+  - 10
+
 # intracone distance settings
 dist_area_norm:
   - False # bool
@@ -54,6 +62,6 @@ dist_area_norm:
 num_mc:
   - 10 # number of monte carlo mosaics to generate
 
-#spacified seetings
+#spacified settings
 num_sp:
   - 1

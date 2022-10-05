@@ -32,10 +32,22 @@ def vector_zeroPad(vector_to_pad, num_preceding, num_following):
 
 
 def mapStringToLocal(proc_vars, local, data_to_set={}):
+    """
+    set dictonary keys/value pairs based on a list of strings corresponding to local variables 
+
+    Parameters
+    ----------
+    proc_vars : 
+    local : 
+    data_to_set :
+
+    Returns
+    -------
+    data_to_set : 
+    """
     for var in proc_vars:
         data_to_set[var] = local[var]
     return data_to_set
-
 
 def mapStringToNan(string, data_to_set={}):
     for s in string:

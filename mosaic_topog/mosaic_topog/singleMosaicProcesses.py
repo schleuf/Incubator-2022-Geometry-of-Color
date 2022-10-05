@@ -303,10 +303,10 @@ def input_data_process(param, sav_cfg):
     proc = 'input_data'
     proc_vars = sav_cfg[proc]['variables']
     data_to_set = {}
-    print(param['num_mc'])
     for var in proc_vars:
         if var == 'cone_img':
             data_to_set[var] = plt.imread(param['img_fl'])
+            
         elif var == 'cone_coord':
             data_to_set[var] = (np.loadtxt(param['coord_fl'], delimiter=','))
         else:
@@ -359,16 +359,16 @@ def unpackThisParam(user_param, ind):
     param['img_fl'] = user_param['img_fl_name'][index['mosaic'][ind]]
     param['sav_fl'] = user_param['save_name'][ind]
     param['mosaic'] = user_param['mosaic'][index['mosaic'][ind]]
-    param['subject'] = user_param['subject'][index['subject'][ind]]
-    param['angle'] = user_param['angle'][index['angle'][ind]]
-    param['eccentricity'] = user_param['eccentricity'][index['eccentricity'][ind]]
-    param['conetype'] = user_param['conetype'][index['conetype'][ind]]
-    param['coord_unit'] = user_param['coord_unit']
-    param['bin_width'] = user_param['bin_width']
-    param['dist_area_norm'] = user_param['dist_area_norm']
-    param['conetype_color'] = user_param['conetype_color'][index['conetype'][ind]]
-    param['num_mc'] = user_param['num_mc']
-    param['num_sp'] = user_param['num_sp']
+    param['subject'] = user_param['subject'][index['subject'][ind]][0]
+    param['angle'] = user_param['angle'][index['angle'][ind]][0]
+    param['eccentricity'] = user_param['eccentricity'][index['eccentricity'][ind]][0]
+    param['conetype'] = user_param['conetype'][index['conetype'][ind]][0]
+    param['coord_unit'] = user_param['coord_unit'][0]
+    param['bin_width'] = user_param['bin_width'][0]
+    param['dist_area_norm'] = user_param['dist_area_norm'][0]
+    param['conetype_color'] = user_param['conetype_color'][index['conetype'][ind]][0]
+    param['num_mc'] = user_param['num_mc'][0]
+    param['num_sp'] = user_param['num_sp'][0]
 
     return param
 

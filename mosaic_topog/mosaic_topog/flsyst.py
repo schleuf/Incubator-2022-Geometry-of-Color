@@ -184,7 +184,7 @@ def getConeData(fold_path, user_param, filetype):
     return data, mosaic, index, flnames_all
 
 
-def getFilesByDataGroup(folder, user_param, filetype):
+def getFilesByDataGroup(user_param, filetype):
     """
     Get cone data based on mosaic and datatype specifications
 
@@ -229,10 +229,11 @@ def getFilesByDataGroup(folder, user_param, filetype):
         mosaic in cat_comb
 
     """
-    subject = user_param['subject']
-    angle = user_param['angle']
-    eccentricity = user_param['eccentricity']
-    conetype = user_param['conetype']
+    folder = user_param['data_path'][0]
+    subject = user_param['subject'][0]
+    angle = user_param['angle'][0]
+    eccentricity = user_param['eccentricity'][0]
+    conetype = user_param['conetype'][0]
 
     # get all file paths in the directory
     fl_list = glob.glob(folder + '*')
