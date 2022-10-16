@@ -7,34 +7,51 @@ import yaml
 import h5py
 
 
-def setProcessByType(file, proc, var, data):
+def setProcessByType(file, proc, var, data, prefix=''):
     """
-    sets process in a read-in .hdf5 file open for writing or reading+writing
+    sets individual vars of a process in a read-in .hdf5 file open for writing or reading+writing
 
     """
+    proc_to_set = prefix + proc
 
     if isinstance(data, str):
-        file[proc][var] = np.string_(data)
+        file[proc_to_set][var] = np.string_(data)
     elif isinstance(data, float):
-        file[proc][var] = np.float_(data)
+        file[proc_to_set][var] = np.float_(data)
     elif isinstance(data, int):
-        file[proc][var] = np.int_(data)
-    elif isinstance(data, np.ndarray):
-        try:
-            file[proc][var] = data
-        except TypeError:
-            print('GAH')
-            file[proc][var] = np.float_(data.astype('float64'))
-            
+        file[proc_to_set][var] = np.int_(data)
     elif isinstance(data, bool):
-        file[proc][var] = np.bool_(data)
+        file[proc_to_set][var] = np.bool_(data)
+    elif isinstance(data, list):
+        try:
+            if isinstance(data[0], str):
+                data = [n.encode('ascii', 'ignore') for n in data]
+                file[proc_to_set][var] = np.array(data)
+            else:
+                file[proc_to_set][var] = np.ndarray(data)
+        except TypeError:
+            print('')
+            print(var)
+            print(data)
+            print('')
+            print('still not handling lists well in flsyst.setproc_to_setessByType, need to go fix')
+    elif isinstance(data, np.ndarray) or isinstance(data, np.int32):
+        try:
+            file[proc_to_set][var] = data
+        except TypeError:
+            print('GAH something weird about ndarrays in flsyst.setproc_to_setessByType')
+            file[proc_to_set][var] = np.float_(data.astype('float64'))   
     else:
-        print('data for "' + var + '" is type "' + str(type(data)) + '" and flsyst.setProcessByType() does not know what to do.')
-        print('something is wrong with the data being sent to process:'+proc+', variable:'+var+', OR')
-        print('a condition for this type needs to be addded to flsyst.setProcessByType().')
+        print('data for "' + var + '" is type "' + str(type(data)) + '" and flsyst.setproc_to_setessByType() does not know what to do.')
+        print('something is wrong with the data being sent to proc_to_setess:'+proc_to_set+', variable:'+var+', OR')
+        print('a condition for this type needs to be addded to flsyst.setproc_to_setessByType().')
 
 
-def setProcessVarsFromDict(param, sav_cfg, proc, data_to_set, spec='all'):
+def setProcessVarsFromDict(param, sav_cfg, proc, data_to_set, spec='all', prefix=''):
+    """
+    this is called by process functions to initiate the data-saving process
+    for that function after it has run
+    """
     sav_fl = param['sav_fl']
 
     with h5py.File(sav_fl, 'r+') as file:
@@ -56,9 +73,11 @@ def setProcessVarsFromDict(param, sav_cfg, proc, data_to_set, spec='all'):
         # process.  they will only be overwritten if the variable is
         # specified in spec
         # delete the process key in the save file if it already exists 
-        if proc in file.keys():
-            temp_vars = file[proc]
-            del file[proc]
+        proc_to_set = prefix + proc
+        
+        if proc_to_set in file.keys():
+            temp_vars = file[proc_to_set]
+            del file[proc_to_set]
         else:
             temp_vars = []
 
@@ -69,17 +88,19 @@ def setProcessVarsFromDict(param, sav_cfg, proc, data_to_set, spec='all'):
                 del temp_vars[var]
 
         # create process key in the save file
-        file.create_group(proc)
+        if (proc_to_set) in file.keys():
+            del file[proc_to_set]
+        file.create_group(proc_to_set)
 
         # set variables
         for var in proc_vars:
             if var in spec:
-                setProcessByType(file, proc, var, data_to_set[var])
+                setProcessByType(file, proc, var, data_to_set[var], prefix=prefix)
             elif var in temp_vars:
                 # sets variable to its pre-existing values if 'spec'
                 # doesn't equal "all" and the variable name is not
                 # contained in 'spec'
-                setProcessByType(file, proc, var, temp_vars[var])
+                setProcessByType(file, proc, var, temp_vars[var], prefix=prefix)
             else:
                 print('check for variables failed, go look for the bug earlier in this function')
 
@@ -98,10 +119,11 @@ def readYaml(flnm):
     # load in the config file that dictates the information that can be saved by mosaic_topog
     with open(flnm, "r") as stream:
         try:
-            sav_cfg = yaml.safe_load(stream)
+            cfg = yaml.safe_load(stream)
         except yaml.YAMLError as exc:
             print(exc)
-    return sav_cfg
+            print('bad day for config file: ' + flnm)
+    return cfg
 
 
 def getConeData(fold_path, user_param, filetype):
@@ -397,7 +419,29 @@ def getIndex(cat_vals, fl_strings):
     return index
 
 
-def getProcessesToRun(save_name, save_path, proc_to_run, sav_cfg):
+def checkFileForProcess(proc, sav_cfg, save_name, collect_all):
+    # make sure the category is valid
+    if proc not in sav_cfg.keys():
+        print('element "' + str(proc) + '" in variable "proc_to_run" is not a process specified in the configuration file. skipping.')
+    else:
+        
+        # select only files missing data for the requested category
+        collect_this = []
+        for ind, fl in enumerate(save_name):
+            if ind not in collect_all:
+                with h5py.File(save_name[ind], 'r') as temp:
+                    if proc not in temp.keys():
+                        collect_this.append(ind)
+                    else:
+                        for v in sav_cfg[proc]['variables']:
+                            if v not in temp[proc].keys():
+                                collect_this.append(ind)
+
+        # get a sorted list of files missing entirely and files missing data from the requested category
+        collect_this = np.union1d(collect_all, collect_this).astype(int)
+
+
+def getProcessesToRun(save_name, save_path, sim_to_gen, analyses_to_run, sav_cfg):
     """
     Determine which mosaics will be run through which processes
 
@@ -447,27 +491,11 @@ def getProcessesToRun(save_name, save_path, proc_to_run, sav_cfg):
     processes = {}
 
     # for each category of processes, identify files that will be run through 
-    for proc in proc_to_run:
-        # make sure the category is valid
-        if proc not in sav_cfg.keys():
-            print('element "' + str(proc) + '" in variable "proc_to_run" is not a process specified in the configuration file. skipping.')
-        else:
-            # select only files missing data for the requested category
-            collect_this = []
-            for ind, fl in enumerate(save_name):
-                if ind not in collect_all:
-                    with h5py.File(save_name[ind], 'r') as temp:
-                        if proc not in temp.keys():
-                            collect_this.append(ind)
-                        else:
-                            for v in sav_cfg[proc]['variables']:
-                                if v not in temp[proc].keys():
-                                    collect_this.append(ind)
+    for proc in sim_to_gen:
+        processes[proc] = checkFileForProcess(proc, sav_cfg, save_name, collect_all)
 
-            # get a sorted list of files missing entirely and files missing data from the requested category
-            collect_this = np.union1d(collect_all, collect_this).astype(int)
-        # indicate the indices of the files that were selected for the category    
-        processes[proc] = collect_this
+    for proc in analyses_to_run: 
+        processes[proc] = checkFileForProcess(proc, sav_cfg, save_name, collect_all)
         
     return processes
 
@@ -488,7 +516,7 @@ def printSaveFile(sav_fl):
                     try:
                         print(data.shape)
                     except:
-                        print('shapeless')    
+                        print('-')
                     print(data)
                     print('')
     else:

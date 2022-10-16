@@ -7,21 +7,42 @@
 #  4) for as many additional tiers of analysis exist, 
 #       run them!
 
+# Hierarchy processes
+
 process_hierarchy:
-  - default_inputs
+  process: process_hierarchy_proces
+  process_type: hierarchy
+  content: 
+  - default_processes
   - gen_sim
   - primary_analyses
-  - additional_analyses
+  - secondary_analyses
 
-default:
-  process: default_processes
-  - meta
+default_processes:
+  process: default_processes_process
+  process_type: hierarchy
+  content: 
+  - mosaic_meta
   - input_data
 
-# Hidden Processes
-meta:
-  process: meta_process
-  variables:
+gen_sim: 
+  process: gen_sim_process
+  process_type: hierarchy
+
+primary_analyses: # hidden process
+  process: primary_analyses_process
+  process_type: hierarchy
+
+secondary_analyses: # hidden process
+  process: secondary_analyses_process
+  process_type: hierarchy
+
+# Input processes
+
+mosaic_meta:
+  process: mosaic_meta_process
+  process_type: input
+  variables: 
     - mosaic
     - subject
     - angle
@@ -30,6 +51,7 @@ meta:
 
 input_data: 
   process: input_data_process
+  process_type: input
   variables: 
     - data_path
     - save_path
@@ -44,40 +66,29 @@ input_data:
     - num_mc
     - num_sp
 
-gen_sim: 
-- process: gen_sim_process
--
-
-primary_analyses: # hidden process
-- process: primary_analyses_process
--
-
-additional_analyses: # hidden process
-- process: additional_analyses_process
--
-
 # Simulation Processes
 
 monteCarlo_uniform: 
   process: monteCarlo_uniform_process
   process_type: simulation
   variables:
-    - coord
+  - all_coord
+  - coord
 
 monteCarlo_coneLocked:
   process: monteCarlo_coneLocked_process
+  process_type: simulation
   variables:
-    - all_coord
-    - coord
+  - all_coord
+  - coord
 
 spacified:
   process: spacified_process
   process_type: simulation
   variables:
-    - all_coord
-    - coord
-    - num_mosaics_made
-    - cones_spacified_per_mosaic
+  - coord
+  - num_mosaics_made
+  - cones_spacified_per_mosaic
 
 # Primary Analysis Processes
 intracone_dist:
@@ -85,12 +96,13 @@ intracone_dist:
   process_type: analysis
   analysis_tier: 1
   variables:
-    - dist
-    - mean_nearest
-    - std_nearest
-    - hist
-    - bin_edge
-    - annulus_area
+  - dist
+  - mean_nearest
+  - std_nearest
+  - hist_mean
+  - hist_std
+  - bin_edge
+  - annulus_area
 
 # Secondary Analysis Processes
 
@@ -99,10 +111,8 @@ two_point_correlation:
   process_type: analysis
   analysis_tier: 2
   dependencies:
-    - intracone_dist
+  - intracone_dist
   variables:
-    - corr_by
-    - to_be_corred
-    - bin_edge
-    - all_cone_mean_nearest
-    - all_cone_std_nearest
+  - all_cone_mean_nearest
+  - all_cone_std_nearest
+  - corred

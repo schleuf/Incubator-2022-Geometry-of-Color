@@ -19,9 +19,9 @@ angle:
 eccentricity:
   - ['1.5']  #['1.5','3.5', '4', '4.5', '10']
 conetype:
-  - ['S'] #['all','L','M','S','unclassed']
+  - ['all','S'] #['all','L','M','S','unclassed']
 conetype_color:
-  - ['b'] #['y','r','g','b','w']
+  - ['y', 'b'] #['y','r','g','b','w']
 coord_unit:
   - 'pixels' # units of the coordinate data loaded in - any string you want
 coord_fltype:
@@ -34,15 +34,13 @@ img_fltype:
 # select single-mosaic processes to run. list in a....dictionary? why is it a dictionary? ***
 # options: 'basic stats', 'intracone_dists', 'monteCarlo_Uniform', 'monteCarlo_coneLocked
 sim_to_gen:
-  - { 
-     'monteCarlo_uniform', 
+  - ['monteCarlo_uniform', 
      'monteCarlo_coneLocked',
-     'spacified'}
+     'spacified']
 
 analyses_to_run:
-  - {
-     'intracone_dist', 
-     'two_point_correlation'}
+  - ['intracone_dist', 
+     'two_point_correlation']
  
 # indicate whether all processes requested will be run on all mosaics found fitting the inputs above,
 # or processes will only be run for a file if that process' outputs are not present in an identified save file
@@ -51,17 +49,25 @@ data_to_run:
 
 # Process-specific Settings
 # -------------------------
-bin_width:
-  - 10
 
 # intracone distance settings
 dist_area_norm:
   - False # bool
+bin_width:
+  - 10
 
-# monteCarlo_uniform and monteCarlo-coneLocked settings
+# monteCarlo_uniform and monteCarlo_coneLocked settings
 num_mc:
-  - 10 # number of monte carlo mosaics to generate
+  - 1 # number of monte carlo mosaics to generate
 
 #spacified settings
 num_sp:
   - 1
+
+#two point correlation
+corr_by: 'monteCarlo_uniform'
+to_be_corr:
+- ['measured', 
+   'monteCarlo_uniform', 
+   'monteCarlo_coneLocked', 
+   'spacified']

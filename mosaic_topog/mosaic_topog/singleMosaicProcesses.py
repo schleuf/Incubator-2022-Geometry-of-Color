@@ -12,54 +12,45 @@ import mosaic_topog.utilities as util
 def two_point_correlation_process(param, sav_cfg):
     proc = 'two_point_correlation'
     proc_vars = sav_cfg[proc]['variables']
-    
-    print('')
-    print('2PC TIME')
-    print(param)
-    print('')
 
     sav_fl = param['sav_fl']
     bin_width = param['bin_width']
+    corr_by = param['corr_by']
+    to_be_corr = param['to_be_corr']
+
+    # pull the data that is requested for corr_by and to_be_corr
+    
+
+    maxbins = 0 
 
     with h5py.File(sav_fl, 'r') as file:
-        hist = file['intracone_dist']['hist'][()]
-        bin_edge = file['intracone_dist']['bin_edge'][()]
-        MCL_mean = file['monteCarlo_coneLocked_intracone_dist']['mean_hist'][()]
-        MCL_std = file['monteCarlo_coneLocked_intracone_dist']['std_hist'][()]
-        MCU_mean = file['monteCarlo_uniform_intracone_dist']['mean_hist'][()]
-        MCU_std = file['monteCarlo_uniform_intracone_dist']['std_hist'][()]
-        all_coord = file['monteCarlo_coneLocked']['all_coord'][()]
-
-    if not np.isnan(hist).any():
-        max_num_bins = np.max([hist.shape[0], MCL_mean.shape[0], MCU_mean.shape[0]])
+        corr_by_hist = file[corr_by + '_intracone_dist']['hist_mean'][()]
+        bin_edge = file[corr_by + '_intracone_dist']['bin_edge'][()]
         
-        hist = util.vector_zeroPad(hist, 0, max_num_bins - hist.shape[0])
-        MCL_mean = util.vector_zeroPad(MCL_mean, 0, max_num_bins - MCL_mean.shape[0])
-        MCL_std = util.vector_zeroPad(MCL_std, 0, max_num_bins - MCL_std.shape[0])
-        MCU_mean = util.vector_zeroPad(MCU_mean, 0, max_num_bins - MCU_mean.shape[0])
-        MCU_std = util.vector_zeroPad(MCU_std, 0, max_num_bins - MCU_std.shape[0])
-        # ***attempting to replace this block with util.vector_zeroPad
-        #
-        # if hist.shape[0] < max_num_bins:
-        #     num_pad = max_num_bins - hist.shape[0]
-        #     hist = np.append(hist, np.zeros(num_pad))
+        maxbins = np.amax([corr_by_hist.shape[0], maxbins])
 
-        # if MCL_mean.shape[0] < max_num_bins:
-        #     num_pad = max_num_bins - MCL_mean.shape[0]
-        #     MCL_mean = np.append(MCL_mean, np.zeros(num_pad))
-        #     MCL_std = np.append(MCL_std, np.zeros(num_pad))
+        to_be_corr_hists = []
+        for vect in to_be_corr:
+            proc_to_get = vect + '_intracone_dist'
+            try:
+                all_coord = file[vect]['all_coord'][()]
+            except:
+                print('no all_coord key found in ' + vect)
+            to_be_corr_hists.append([file[proc_to_get]['hist_mean'][()], file[proc_to_get]['hist_std'][()]])
+            maxbins = np.amax([file[proc_to_get]['hist_mean'][()].shape[0], maxbins])
 
-        # if MCU_mean.shape[0] < max_num_bins:
-        #     num_pad = max_num_bins - MCU_mean.shape[0]
-        #     MCU_mean = np.append(MCU_mean, np.zeros(num_pad))
-        #     MCU_std = np.append(MCU_std, np.zeros(num_pad))
+    corr_by_hist = util.vector_zeroPad(corr_by_hist, 0, maxbins - corr_by_hist.shape[0])
+    for ind1, to_be_corr in enumerate(to_be_corr_hists):
+        for ind2, vect in enumerate(to_be_corr):
+            to_be_corr_hists[ind1][ind2] = util.vector_zeroPad(to_be_corr_hists[ind1][ind2], 0, maxbins-to_be_corr_hists[ind1][ind2].shape[0])
 
-        while bin_edge.shape[0] <= max_num_bins:
+    if not np.isnan(corr_by_hist).any():
+        while bin_edge.shape[0] <= maxbins:
             bin_edge = np.append(bin_edge, max(bin_edge)+bin_width)
 
+        # Hey Sierra this section shouldn't need to be heeeere ***
         # get average nearest cone in the overall mosaic
         all_cone_dist = calc.dist_matrices(all_coord)
-
         # get avg and std of nearest cone distance in the mosaic
         nearest_dist = []
         for cone in np.arange(0, all_cone_dist.shape[0]):
@@ -73,13 +64,14 @@ def two_point_correlation_process(param, sav_cfg):
 
         all_cone_mean_nearest = np.mean(np.array(nearest_dist))
         all_cone_std_nearest = np.std(np.array(nearest_dist))
-            
-        hist = calc.corr(hist, MCU_mean)
-        MCL_mean = calc.corr(MCL_mean, MCU_mean)
-        MCL_std = calc.corr(MCL_std, MCU_mean)
-        MCU_std = calc.corr(MCU_std, MCU_mean)
-        MCU_mean = calc.corr(MCU_mean, MCU_mean)
 
+        corred = []
+        for to_be_corr_set in to_be_corr_hists:
+            corred_set = []
+            for vect in to_be_corr_set:
+                corred_set.append(calc.corr(vect, corr_by_hist))
+            corred.append(np.float64(corred_set))
+        corred = np.float64(corred)
         data_to_set = util.mapStringToLocal(proc_vars, locals())
     else:
         data_to_set = util.mapStringToNan(proc_vars)
@@ -123,54 +115,78 @@ def intracone_dist_common(coord, bin_width, dist_area_norm):
     return dist, mean_nearest, std_nearest, hist, bin_edge, annulus_area
 
 
-def monteCarlo_intracone_dist_common(param, sav_cfg, mc_type):
-    # get any needed info from the save file
-    sav_fl = param['sav_fl']
-    with h5py.File(sav_fl, 'r') as file:
-        coord = file['monteCarlo_' + mc_type]['coord'][()]
-        num_mc = file['input_data']['num_mc'][()]
-        bin_width = file['input_data']['bin_width'][()]
-        dist_area_norm = file['input_data']['dist_area_norm'][()]
+def intracone_dist_process(param, sav_cfg):
+    """
+    Inputs
+    ------
 
-    proc = 'monteCarlo_' + mc_type + '_intracone_dist'
+    Outputs
+    -------
+
+
+    """
+    proc = 'intracone_dist'
     proc_vars = sav_cfg[proc]['variables']
+    sav_fl = param['sav_fl']
+    bin_width = param['bin_width']
+    dist_area_norm = param['dist_area_norm']
+    sim_to_gen = param['sim_to_gen']
 
-    if len(coord[0].shape) == 2 and coord[0].shape[1] == 2:
+    # get any needed info from the save file
+    with h5py.File(sav_fl, 'r') as file:
+        all_coord = file['input_data']['cone_coord'][()]
+        coord = []
+        coord.append(np.reshape(all_coord, [1] + list(all_coord.shape)))
+        for sim in sim_to_gen:
+            coord.append(file[sim]['coord'][()])
+            #print(file[sim]['coord'][()])
 
-        dist = np.zeros((num_mc, coord[0].shape[0], coord[0].shape[0]))
-        nearest_dist = np.zeros(num_mc)
-        mean_nearest = np.zeros(num_mc)
-        std_nearest = np.zeros(num_mc)
-        hist = np.empty(num_mc, dtype=np.ndarray)
-        max_hist_bin = 0
-        for mc in np.arange(0, num_mc):
-            this_coord = coord[mc, :, :]
-            dist[mc, :, :], mean_nearest[mc], std_nearest[mc], hist[mc], bin_edge, annulus_area = intracone_dist_common(this_coord, bin_width, dist_area_norm)
-            if hist[mc].shape[0] > max_hist_bin:
-                max_hist_bin = hist[mc].shape[0]
+    for ind, point_data in enumerate(coord):
 
-        # this is just to convert the returned histograms into a rectangular array
-        # (this can't be done in advance because of...slight variability in the number of bins returned? why?)
-        hist_mat = np.zeros([num_mc, max_hist_bin])
-        for mc in np.arange(0, num_mc):
-            hist_mat[mc, 0:hist[mc].shape[0]] = hist[mc]
-
-        hist = hist_mat
-
-        while len(bin_edge) < max_hist_bin + 1:
-            bin_edge = np.append(bin_edge, np.max(bin_edge)+bin_width)
-
-        mean_hist = np.mean(hist_mat, axis=0)
-        std_hist = np.std(hist_mat, axis=0)
-
-        show.shadyStats(np.arange(0, max_hist_bin), mean_hist, std_hist, 'mc='+str(mc), scale_std=2)
-
-        data_to_set = util.mapStringToLocal(proc_vars, locals())
+        # to store the outputs of this process
+        data_to_set = {}
         
-    else:
-        data_to_set = util.mapStringToNan(proc_vars)
+        if ind == 0:
+            PD_string = 'measured' + '_'
+        else:
+            PD_string = sim_to_gen[ind-1] + '_'
 
-    flsyst.setProcessVarsFromDict(param, sav_cfg, proc, data_to_set)
+        # if this is a valid coordinate dataset for this process...
+        if len(point_data.shape) == 3:
+            num_mosaic = point_data.shape[0]
+            points_per_mos = point_data.shape[1]
+            dist = np.zeros((num_mosaic, points_per_mos, points_per_mos))
+            mean_nearest = np.zeros(num_mosaic)
+            std_nearest = np.zeros(num_mosaic)
+            hist = np.empty(num_mosaic, dtype=np.ndarray)
+            max_hist_bin = 0
+            for mos in np.arange(0, num_mosaic):
+                this_coord = point_data[mos, :, :]
+                dist[mos, :, :], mean_nearest[mos], std_nearest[mos], hist[mos], bin_edge, annulus_area = intracone_dist_common(this_coord.squeeze(), bin_width, dist_area_norm)
+                if hist[mos].shape[0] > max_hist_bin:
+                    max_hist_bin = hist[mos].shape[0] 
+
+            # this is just to convert the returned histograms into a rectangular array
+            # (this can't be done in advance because of...slight variability in the number of bins returned? why?)
+            hist_mat = np.zeros([num_mosaic, max_hist_bin])
+            for mc in np.arange(0, num_mosaic):
+                hist_mat[mc, 0:hist[mos].shape[0]] = hist[mos]
+
+            hist = hist_mat
+
+            while len(bin_edge) < max_hist_bin + 1:
+                bin_edge = np.append(bin_edge, np.max(bin_edge)+bin_width)
+
+            hist_mean = np.mean(hist_mat, axis=0)
+            hist_std = np.std(hist_mat, axis=0)
+
+            data_to_set = util.mapStringToLocal(proc_vars, locals())
+
+        else:  # otherwise set these values to NaNs
+            data_to_set = util.mapStringToNan(proc_vars)
+
+        flsyst.setProcessVarsFromDict(param, sav_cfg, proc, data_to_set, prefix=PD_string)
+
 
 def spacified_process(param, sav_cfg):
     """
@@ -178,27 +194,32 @@ def spacified_process(param, sav_cfg):
     # get any needed info from the save file
     sav_fl = param['sav_fl']
     with h5py.File(sav_fl, 'r') as file:
-        real_coord = file['input_data']['cone_coord'][()]
+        og_coord = file['input_data']['cone_coord'][()]
         num_sp = file['input_data']['num_sp'][()]
         img = file['input_data']['cone_img'][()]
 
     proc = 'spacified'
     proc_vars = sav_cfg[proc]['variables']
-    if len(real_coord.shape) == 2 and real_coord.shape[1] == 2:
-        num_coord = real_coord.shape[0]
+    if len(og_coord.shape) == 2 and og_coord.shape[1] == 2:
+        num_coord = og_coord.shape[0]
+
         # look for all cone mosaic for this data
         mosaic = param['mosaic']
         save_path = os.path.dirname(sav_fl)
         all_coord_fl = save_path + '\\' + mosaic + '_all.hdf5'
-        # try:
-        with h5py.File(all_coord_fl, 'r') as file:
-            all_coord = file['input_data']['cone_coord'][()]
+        try:
+            with h5py.File(all_coord_fl, 'r') as file:
+                all_coord = file['input_data']['cone_coord'][()]
+        except:
+            print('could not pull total cones coordinates from ' + all_coord_fl)
 
-    
-        coord = calc.spacified(num_coord, all_coord, num_sp)
+        if all_coord.shape[0] == og_coord.shape[0]:
+            coord = np.tile(all_coord, (num_sp, 1, 1))
+        else:
+            coord = calc.spacified(num_coord, all_coord, num_sp)
 
-        num_mosaics_made = num_coord
-        cones_spacified_per_mosaic = num_sp
+        num_mosaics_made = num_sp
+        cones_spacified_per_mosaic = num_coord
         data_to_set = util.mapStringToLocal(proc_vars, locals())
         
     flsyst.setProcessVarsFromDict(param, sav_cfg, proc, data_to_set)
@@ -208,7 +229,7 @@ def monteCarlo_process(param, sav_cfg, mc_type):
     # get any needed info from the save file
     sav_fl = param['sav_fl']
     with h5py.File(sav_fl, 'r') as file:
-        real_coord = file['input_data']['cone_coord'][()]
+        all_coord = file['input_data']['cone_coord'][()]
         num_mc = file['input_data']['num_mc'][()]
         img = file['input_data']['cone_img'][()]
 
@@ -216,9 +237,9 @@ def monteCarlo_process(param, sav_cfg, mc_type):
     proc_vars = sav_cfg[proc]['variables']
 
     # check for expected dimensions of the coordinate variable
-    if len(real_coord.shape) == 2 and real_coord.shape[1] == 2:
+    if len(all_coord.shape) == 2 and all_coord.shape[1] == 2:
         data_to_set = {}
-        num_coord = real_coord.shape[0]
+        num_coord = all_coord.shape[0]
         if mc_type == 'uniform':
             xlim = [0, img.shape[0]]
             ylim = [0, img.shape[1]]
@@ -268,7 +289,24 @@ def monteCarlo_coneLocked_process(param, sav_cfg):
     monteCarlo_process(param, sav_cfg, 'coneLocked')
 
 
-def intracone_dist_process(param, sav_cfg):
+def gen_sim_process(user_param, sav_cfg):
+    """
+    Inputs
+    ------
+
+    Outputs
+    -------
+    """
+    sim_to_gen = user_param['sim_to_gen'][0]
+    processes = user_param['processes']
+    for sim in sim_to_gen:
+        print('Generating simulation "' + sim + '" for ' + str(len(processes[sim])) + ' mosaic coordinate files...') 
+        for ind in processes[sim]:
+            param = unpackThisParam(user_param, ind)
+            globals()[sav_cfg[sim]['process']](param, sav_cfg)
+
+
+def primary_analyses_process(user_param, sav_cfg):
     """
     Inputs
     ------
@@ -276,31 +314,62 @@ def intracone_dist_process(param, sav_cfg):
     Outputs
     -------
 
-
     """
-    proc = 'intracone_dist'
-    proc_vars = sav_cfg[proc]['variables']
+    processes = user_param['processes']
+    tiers = getAnalysisTiers(sav_cfg)
 
-    sav_fl = param['sav_fl']
+    # perform on data
+    for proc in tiers[0]:
+        print('Running process "' + proc + '" on ' + str(len(processes[proc])) + ' mosaic coordinate files...') 
+        print('Running process "' + proc + '" on ' + str(len(processes[proc])*len(user_param['sim_to_gen'][0])) + ' simulated mosaic coordinate files...') 
 
-    # get any needed info from the save file
-    with h5py.File(sav_fl, 'r') as file:
-        coord = file['input_data']['cone_coord'][()]
-        bin_width = file['input_data']['bin_width'][()]
-        dist_area_norm = file['input_data']['dist_area_norm'][()]
+        for ind in processes[proc]:
+            param = unpackThisParam(user_param, ind)
+            globals()[sav_cfg[proc]['process']](param, sav_cfg)
+            for sim in user_param['sim_to_gen'][0]:
+                globals()[sav_cfg[sim]['process']](param, sav_cfg)
+               
 
-    # to store the outputs of this process
-    data_to_set = {}
+def secondary_analyses_process(user_param, sav_cfg):
+    """
+    Inputs
+    ------
 
-    # if this is a valid coordinate dataset for this process...
-    if len(coord.shape) == 2 and coord.shape[1] == 2:
-        dist, mean_nearest, std_nearest, hist, bin_edge, annulus_area = intracone_dist_common(coord, bin_width, dist_area_norm)
-        data_to_set = util.mapStringToLocal(proc_vars, locals())
+    Outputs
+    -------
+    """
+    processes = user_param['processes']
+    tiers = getAnalysisTiers(sav_cfg)
 
-    else:  # otherwise set these values to NaNs
-        data_to_set = util.mapStringToNan(proc_vars)
+    # perform on data
+    for proc in tiers[1]:
+        print('Running process "' + proc + '" on ' + str(len(processes[proc])) + ' mosaic coordinate files...') 
+        for ind in processes[proc]:
+            param = unpackThisParam(user_param, ind)
+            globals()[sav_cfg[proc]['process']](param, sav_cfg)
 
-    flsyst.setProcessVarsFromDict(param, sav_cfg, proc, data_to_set)
+
+def getAnalysisTiers(sav_cfg):
+    """
+    Inputs
+    ------
+
+    Outputs
+    -------
+    """
+    analysis_proc = []
+    analysis_tiers = []
+    for key in sav_cfg.keys():
+        if 'process_type' in sav_cfg[key]:
+            if sav_cfg[key]['process_type'] == 'analysis':
+                analysis_proc.append(key)
+                analysis_tiers.append(sav_cfg[key]['analysis_tier'])
+    max_tier = np.amax(analysis_tiers)
+    analyses_by_tier = []
+    for tier in np.arange(0, max_tier):
+        analyses_by_tier.append([np.array(analysis_proc)[np.nonzero(analysis_tiers == tier+1)[0]][0]])
+
+    return analyses_by_tier
 
 
 def input_data_process(param, sav_cfg):
@@ -322,10 +391,11 @@ def input_data_process(param, sav_cfg):
             data_to_set[var] = (np.loadtxt(param['coord_fl'], delimiter=','))
         else:
             data_to_set[var] = param[var]
+
     flsyst.setProcessVarsFromDict(param, sav_cfg, proc, data_to_set)
 
 
-def meta_process(param, sav_cfg):
+def mosaic_meta_process(param, sav_cfg):
     """
     Inputs
     ------
@@ -334,7 +404,7 @@ def meta_process(param, sav_cfg):
     -------
 
     """
-    proc = 'meta'
+    proc = 'mosaic_meta'
     proc_vars = sav_cfg[proc]['variables']
     data_to_set = {}
     for var in proc_vars:
@@ -343,7 +413,7 @@ def meta_process(param, sav_cfg):
     flsyst.setProcessVarsFromDict(param, sav_cfg, proc, data_to_set)
 
 
-def defaultProcesses(user_param, sav_cfg):
+def default_processes_process(user_param, sav_cfg):
     """
     Inputs
     ------
@@ -355,7 +425,7 @@ def defaultProcesses(user_param, sav_cfg):
     # should consider making this a list in the yaml rather than 
     # a property of the individual files
 
-    mand = sav_cfg['default_proc']
+    mand = sav_cfg['default_processes']['content']
 
     # get all files to check
     fls = []
@@ -375,8 +445,14 @@ def defaultProcesses(user_param, sav_cfg):
 
 
 def unpackThisParam(user_param, ind):
+    # this function is dumb
+    # make this less dumb
+
     index = user_param['coord_index']
     param = {}
+
+    # HEY SIERRA if you start getting errors here when you add more mosaics,
+    # eccentricities, something - note the difference in the way "conetype" and "conetype_color" are set
     param['coord_fl'] = user_param['coord_fl_name'][ind]
     param['img_fl'] = user_param['img_fl_name'][index['mosaic'][ind]]
     param['sav_fl'] = user_param['save_name'][ind]
@@ -384,13 +460,20 @@ def unpackThisParam(user_param, ind):
     param['subject'] = user_param['subject'][index['subject'][ind]][0]
     param['angle'] = user_param['angle'][index['angle'][ind]][0]
     param['eccentricity'] = user_param['eccentricity'][index['eccentricity'][ind]][0]
-    param['conetype'] = user_param['conetype'][index['conetype'][ind]][0]
+    param['conetype'] = user_param['conetype'][0][index['conetype'][ind]]
+    param['conetype_color'] = user_param['conetype_color'][0][index['conetype'][ind]]
+
     param['coord_unit'] = user_param['coord_unit'][0]
     param['bin_width'] = user_param['bin_width'][0]
     param['dist_area_norm'] = user_param['dist_area_norm'][0]
-    param['conetype_color'] = user_param['conetype_color'][index['conetype'][ind]][0]
     param['num_mc'] = user_param['num_mc'][0]
     param['num_sp'] = user_param['num_sp'][0]
+    param['data_path'] = user_param['data_path'][0]
+    param['save_path'] = user_param['save_path'][0]
+    param['sim_to_gen'] = user_param['sim_to_gen'][0]
+    param['analyses_to_run'] = user_param['analyses_to_run'][0]
+    param['corr_by'] = user_param['corr_by']
+    param['to_be_corr'] = user_param['to_be_corr'][0]
 
     return param
 
@@ -401,17 +484,11 @@ def runSingleMosaicProcess(user_param, sav_cfg):
     """
 
     """
-    defaultProcesses(user_param, sav_cfg)
-    processes = user_param['processes']
+    default_processes_process(user_param, sav_cfg)
 
-    for layer in sav_cfg['process_hierarchy']:
-        if layer not in sav_cfg.keys():
-            print('process "' + layer + '" listed under optional processes is not found in the configuration file, skipping...')
-        elif layer in processes.keys():
-            print('Running process "' + layer + '" on ' + str(len(processes[layer])) + ' mosaic coordinate files...')
-            for ind in processes[layer]:
-                param = unpackThisParam(user_param, ind)
-                globals()[sav_cfg[layer]['process']](param, sav_cfg)
+    # this needs to updated, needs to error if the layer doesn't exist
+    for layer in sav_cfg['process_hierarchy']['content']:
+        globals()[sav_cfg[layer]['process']](user_param, sav_cfg)
 
 
 def viewIntraconeDistHists(save_names, save_things=False, save_path=''):
@@ -453,21 +530,21 @@ def viewSpacified(save_name, sp, save_things=False, save_path=''):
     for fl in save_name:
         # get spacified coordinate data and plotting parameters from the save file
         with h5py.File(fl, 'r') as file:  # context manager
-            mosaic = bytes(file['meta']['mosaic'][()]).decode("utf8")
-            conetype = bytes(file['meta']['conetype'][()]).decode("utf8")
+            mosaic = bytes(file['mosaic_meta']['mosaic'][()]).decode("utf8")
+            conetype = bytes(file['mosaic_meta']['conetype'][()]).decode("utf8")
             coord_unit = bytes(file['input_data']['coord_unit'][()]).decode("utf8")
             conetype_color = bytes(file['input_data']['conetype_color'][()]).decode("utf8")
             num_sp = file['input_data']['num_sp'][()]
             coord = file['spacified']['coord'][()]
             print(coord.shape)
         if not np.isnan(coord[0]).any():
-            num_cone = coord.shape[0]
+            num_cone = coord.shape[1]
             for s in sp:
                 id_str = 'spacified' + '_(' + str(s+1) + '//' + str(num_sp) + ')_' + mosaic + '_(' + str(num_cone) + ' cones)'
                 xlab = coord_unit
                 ylab = coord_unit
                 this_coord = np.zeros([num_cone, 2])
-                this_coord[:, :] = coord[:, :, s]
+                this_coord[:, :] = coord[s, :, :]
 
                 ax = show.scatt(this_coord, id_str, plot_col=conetype_color, xlabel=xlab, ylabel=ylab)
 
@@ -580,7 +657,6 @@ def viewMCUnormed(save_name, scale_std=1, showNearestCone=False, save_things=Fal
 
         num_cone = coord.shape[0]
         id_str = mosaic + '_' + conetype
-        print(fl)
         if not (hist.shape[0] == 1 and np.isnan(hist[0])):
             # set up inputs to plot
             xlab = 'distance, ' + coord_unit

@@ -141,7 +141,7 @@ def spacified(num_coord, all_coord, num_sp):
     """
     if num_coord > 1 and all_coord.shape[0] >= num_coord:
         
-        sp_coord = np.empty([num_coord, 2, num_sp], dtype=float)
+        sp_coord = np.empty([num_sp, num_coord, 2], dtype=float)
 
         # get matrix of intercone distances
         dists = dist_matrices(all_coord)
@@ -159,7 +159,7 @@ def spacified(num_coord, all_coord, num_sp):
 
             for a in np.arange(0, num_coord):
                 [set_cones, set_coord, avail_cones] = setThirdOnwardSpacifiedCone(all_coord, avail_cones, set_cones, set_coord, a, dists)
-            sp_coord[:, :, sp] = set_coord
+            sp_coord[sp, :, :] = set_coord
     else:
         sp_coord = nan
          
