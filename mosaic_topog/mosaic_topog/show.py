@@ -221,7 +221,7 @@ def line(x, y, id, plot_col='w', bckg_col='k', linestyle='-', marker="", markers
 
 
 def shadyStats(x, mean, std, id, scale_std=1, plot_col='w',
-               bckg_col='k', **kwargs):
+               bckg_col='k', label = '', **kwargs):
     """
     plot the mean of function with the std shaded around it
 
@@ -252,7 +252,7 @@ def shadyStats(x, mean, std, id, scale_std=1, plot_col='w',
 
     ax = plotKwargs(kwargs, id)
     ax.set_facecolor(bckg_col)
-    ax.plot(x, mean, color=plot_col, linewidth = 6)
+    ax.plot(x, mean, color=plot_col, linewidth = 6, label = label)
     ax.fill_between(x, err_low, err_high, color=plot_col, alpha=.7)
 
     return ax

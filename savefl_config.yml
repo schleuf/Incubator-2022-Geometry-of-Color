@@ -65,6 +65,9 @@ input_data:
     - dist_area_norm
     - num_mc
     - num_sp
+    - corr_by
+    - to_be_corr
+    - to_be_corr_colors
 
 # Simulation Processes
 
@@ -116,3 +119,5 @@ two_point_correlation:
   - all_cone_mean_nearest
   - all_cone_std_nearest
   - corred
+  - maxbins
+  - bin_edge

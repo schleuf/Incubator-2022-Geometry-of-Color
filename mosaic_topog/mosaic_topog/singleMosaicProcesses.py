@@ -19,7 +19,6 @@ def two_point_correlation_process(param, sav_cfg):
     to_be_corr = param['to_be_corr']
 
     # pull the data that is requested for corr_by and to_be_corr
-    
 
     maxbins = 0 
 
@@ -68,8 +67,16 @@ def two_point_correlation_process(param, sav_cfg):
         corred = []
         for to_be_corr_set in to_be_corr_hists:
             corred_set = []
-            for vect in to_be_corr_set:
-                corred_set.append(calc.corr(vect, corr_by_hist))
+            for ind, vect in enumerate(to_be_corr_set):
+                if not all(x == 0 for x in vect):
+                    if ind == 0: #mean
+                        corred_set.append(calc.corr(vect, corr_by_hist))
+                    elif ind == 1: 
+                        corred_set.append(vect/corr_by_hist)
+                else: 
+                    temp = np.empty((len(vect)))
+                    temp[:] = np.NaN
+                    corred_set.append(temp)
             corred.append(np.float64(corred_set))
         corred = np.float64(corred)
         data_to_set = util.mapStringToLocal(proc_vars, locals())
@@ -139,7 +146,7 @@ def intracone_dist_process(param, sav_cfg):
         coord.append(np.reshape(all_coord, [1] + list(all_coord.shape)))
         for sim in sim_to_gen:
             coord.append(file[sim]['coord'][()])
-            #print(file[sim]['coord'][()])
+            # print(file[sim]['coord'][()])
 
     for ind, point_data in enumerate(coord):
 
@@ -166,11 +173,11 @@ def intracone_dist_process(param, sav_cfg):
                 if hist[mos].shape[0] > max_hist_bin:
                     max_hist_bin = hist[mos].shape[0] 
 
-            # this is just to convert the returned histograms into a rectangular array
+            # this isjust to convert the returned histograms into a rectangular array
             # (this can't be done in advance because of...slight variability in the number of bins returned? why?)
             hist_mat = np.zeros([num_mosaic, max_hist_bin])
-            for mc in np.arange(0, num_mosaic):
-                hist_mat[mc, 0:hist[mos].shape[0]] = hist[mos]
+            for mos in np.arange(0, num_mosaic):
+                hist_mat[mos, 0:hist[mos].shape[0]] = hist[mos]
 
             hist = hist_mat
 
@@ -231,6 +238,7 @@ def monteCarlo_process(param, sav_cfg, mc_type):
     with h5py.File(sav_fl, 'r') as file:
         all_coord = file['input_data']['cone_coord'][()]
         num_mc = file['input_data']['num_mc'][()]
+        print('num_mc: ' + str(num_mc))
         img = file['input_data']['cone_img'][()]
 
     proc = 'monteCarlo_' + mc_type
@@ -474,6 +482,7 @@ def unpackThisParam(user_param, ind):
     param['analyses_to_run'] = user_param['analyses_to_run'][0]
     param['corr_by'] = user_param['corr_by']
     param['to_be_corr'] = user_param['to_be_corr'][0]
+    param['to_be_corr_colors'] = user_param['to_be_corr_colors'][0]
 
     return param
 
@@ -491,15 +500,15 @@ def runSingleMosaicProcess(user_param, sav_cfg):
         globals()[sav_cfg[layer]['process']](user_param, sav_cfg)
 
 
-def viewIntraconeDistHists(save_names, save_things=False, save_path=''):
+def viewIntraconeDistHists(save_names, prefix, save_things=False, save_path=''):
     for fl in save_names:
         # get intracone distance histogram data and plotting parameters from the save file
         with h5py.File(fl, 'r') as file:  # context manager 
             coord = file['input_data']['cone_coord'][()]
-            hist = file['intracone_dist']['hist'][()]
-            bin_edge = file['intracone_dist']['bin_edge'][()]
-            mosaic = bytes(file['meta']['mosaic'][()]).decode("utf8")
-            conetype = bytes(file['meta']['conetype'][()]).decode("utf8")
+            hist = file[prefix + 'intracone_dist']['hist_mean'][()]
+            bin_edge = file[prefix + 'intracone_dist']['bin_edge'][()]
+            mosaic = bytes(file['mosaic_meta']['mosaic'][()]).decode("utf8")
+            conetype = bytes(file['mosaic_meta']['conetype'][()]).decode("utf8")
             coord_unit = bytes(file['input_data']['coord_unit'][()]).decode("utf8")
             conetype_color = bytes(file['input_data']['conetype_color'][()]).decode("utf8")
         num_cone = coord.shape[0]
@@ -562,8 +571,8 @@ def viewMonteCarlo(save_name, mc_type, mc, save_things=False, save_path=''):
     for fl in save_name:
         # get monte carlo coordinate data and plotting parameters from the save file
         with h5py.File(fl, 'r') as file:  # context manager
-            mosaic = bytes(file['meta']['mosaic'][()]).decode("utf8")
-            conetype = bytes(file['meta']['conetype'][()]).decode("utf8")
+            mosaic = bytes(file['mosaic_meta']['mosaic'][()]).decode("utf8")
+            conetype = bytes(file['mosaic_meta']['conetype'][()]).decode("utf8")
             coord_unit = bytes(file['input_data']['coord_unit'][()]).decode("utf8")
             conetype_color = bytes(file['input_data']['conetype_color'][()]).decode("utf8")
             num_mc = file['input_data']['num_mc'][()]
@@ -571,9 +580,6 @@ def viewMonteCarlo(save_name, mc_type, mc, save_things=False, save_path=''):
            
         if not np.isnan(coord[0]).any():
             num_cone = coord.shape[1]
-            print(num_mc)
-            print(num_cone)
-            print(coord.shape)
             for m in mc:
                 id_str = 'monteCarlo_' + mc_type + '_(' + str(m+1) + '//' + str(num_mc) + ')_' + mosaic + '_(' + str(num_cone) + ' cones)'
                 xlab = coord_unit
@@ -598,14 +604,14 @@ def viewMonteCarloStats(save_name, mc_type, scale_std=1, save_things=False, save
         # get intracone distance histogram data and plotting parameters from the save file
         with h5py.File(fl, 'r') as file:  # context manager
             coord = file['input_data']['cone_coord'][()]
-            mosaic = bytes(file['meta']['mosaic'][()]).decode("utf8")
-            conetype = bytes(file['meta']['conetype'][()]).decode("utf8")
+            mosaic = bytes(file['mosaic_meta']['mosaic'][()]).decode("utf8")
+            conetype = bytes(file['mosaic_meta']['conetype'][()]).decode("utf8")
             coord_unit = bytes(file['input_data']['coord_unit'][()]).decode("utf8")
             conetype_color = bytes(file['input_data']['conetype_color'][()]).decode("utf8")
             num_mc = file['input_data']['num_mc'][()]
             bin_edge = file['monteCarlo_' + mc_type + '_intracone_dist']['bin_edge'][()]
-            mean_hist = file['monteCarlo_' + mc_type + '_intracone_dist']['mean_hist'][()]
-            std_hist = file['monteCarlo_' + mc_type + '_intracone_dist']['std_hist'][()]
+            mean_hist = file['monteCarlo_' + mc_type + '_intracone_dist']['hist_mean'][()]
+            std_hist = file['monteCarlo_' + mc_type + '_intracone_dist']['hist_std'][()]
         num_cone = coord.shape[0]
         id_str = mosaic + '_' + conetype
         if not np.isnan(mean_hist[0]):
@@ -636,67 +642,81 @@ def viewMonteCarloStats(save_name, mc_type, scale_std=1, save_things=False, save
         #   mpi is one approach
 
 
-def viewMCUnormed(save_name, scale_std=1, showNearestCone=False, save_things=False, save_path=''):
+def view2PC(save_name, scale_std=1, showNearestCone=False, save_things=False, save_path=''):
     for fl in save_name:
         # get intracone distance histogram data and plotting parameters from the save file
         with h5py.File(fl, 'r') as file:  # context manager
             coord = file['input_data']['cone_coord'][()]
-            mosaic = bytes(file['meta']['mosaic'][()]).decode("utf8")
-            conetype = bytes(file['meta']['conetype'][()]).decode("utf8")
+            mosaic = bytes(file['mosaic_meta']['mosaic'][()]).decode("utf8")
+            conetype = bytes(file['mosaic_meta']['conetype'][()]).decode("utf8")
             coord_unit = bytes(file['input_data']['coord_unit'][()]).decode("utf8")
             conetype_color = bytes(file['input_data']['conetype_color'][()]).decode("utf8")
             num_mc = file['input_data']['num_mc'][()]
             bin_width = file['input_data']['bin_width'][()]
-            bin_edge = file['norm_by_MCU_mean']['bin_edge'][()]
-            hist = file['norm_by_MCU_mean']['hist'][()]
-            MCU_mean = file['norm_by_MCU_mean']['MCU_mean'][()]
-            MCU_std = file['norm_by_MCU_mean']['MCU_std'][()]
-            MCL_mean = file['norm_by_MCU_mean']['MCL_mean'][()]
-            MCL_std = file['norm_by_MCU_mean']['MCL_std'][()]
-            all_cone_mean_nearest = file['norm_by_MCU_mean']['all_cone_mean_nearest'][()]
+            bin_edge = file['two_point_correlation']['bin_edge'][()]
+            corred = file['two_point_correlation']['corred'][()]
+            all_cone_mean_nearest = file['two_point_correlation']['all_cone_mean_nearest'][()]
+            to_be_corr_colors = [bytes(n).decode('utf8') for n in file['input_data']['to_be_corr_colors'][()]]
+            to_be_corr = [bytes(n).decode('utf8') for n in file['input_data']['to_be_corr'][()]]
 
+            print(to_be_corr_colors)
+            print(to_be_corr)
+
+        # *** shouldn't need to get this this way, save it in meta data
         num_cone = coord.shape[0]
         id_str = mosaic + '_' + conetype
-        if not (hist.shape[0] == 1 and np.isnan(hist[0])):
-            # set up inputs to plot
-            xlab = 'distance, ' + coord_unit
-            ylab = 'bin count (binsize = ' + str(bin_width)
-            tit = 'intracone dists normed by MCU (' + str(num_cone) + " cones, " + str(num_mc) + " MCs)"
-            x = bin_edge[1:]/2
 
-            half_cone_rad = all_cone_mean_nearest / 2
-            cone_rad_x = np.arange(half_cone_rad, half_cone_rad + (5 * all_cone_mean_nearest + 1), step=all_cone_mean_nearest)
-            lin_extent = 1.5
+        fig, ax = plt.subplots(1, 1, figsize = [10,10])
 
- #           if showNearestCone:
- #               for lin in cone_rad_x:
- #                   if lin == cone_rad_x[0]:
- #                       ax = show.line([lin, lin], [-1 * lin_extent, lin_extent], id='cone-dist', plot_col='olive')
- #                   else:
- #                       ax = show.line([lin, lin], [-1 * lin_extent, lin_extent], id='cone-dist', ax=ax, plot_col='olive')
+        for ind, corr_set in enumerate(corred):
+            if not np.isnan(corr_set[0].all()):
+                if corr_set[0].shape[0] > 1:
+                    hist_mean = corr_set[0]
+                    print('')
+                    print('beep')
+                    print(hist_mean)
+                    hist_std = corr_set[1]
+                    print(hist_std)
+                    print('')
+                    plot_label = to_be_corr[ind]
+                    plot_col = to_be_corr_colors[ind]
 
- #               ax = show.shadyStats(x, MCU_mean, MCU_std, id_str, scale_std=scale_std,
- #                                   ax=ax, plot_col='dimgray')
- #            else: 
-            fig, ax = plt.subplots(1, 1, figsize = [10,10])
-            ax = show.line(x, MCU_mean, ax = ax, id = id_str, plot_col='darkgray')
-            plt.grid()
+                    print(plot_col)
+                    # set up inputs to plot
+                    xlab = 'distance, ' + coord_unit
+                    ylab = 'bin count (binsize = ' + str(bin_width)
 
-            ax = show.shadyStats(x, MCL_mean, MCL_std, id_str, ax = ax, scale_std=scale_std,
-                                 plot_col='lightskyblue')
+                    # *** SS fix this to pull the string from inputs
+                    tit = 'intracone dists normed by MCU (' + str(num_cone) + " cones, " + str(num_mc) + " MCs)"
+                    x = bin_edge[1:]/2
 
-            ax = show.line(x, hist, ax=ax, plot_col='w', id=id_str,
-                      xlabel=xlab, ylabel=ylab, title=tit)
-            
+                    half_cone_rad = all_cone_mean_nearest / 2
+                    cone_rad_x = np.arange(half_cone_rad, half_cone_rad + (5 * all_cone_mean_nearest + 1), step=all_cone_mean_nearest)
+                    lin_extent = 1.5
 
-            if showNearestCone:
-                plt.xlim([0, half_cone_rad + 5 * all_cone_mean_nearest + 1])
-                plt.ylim([-2,2]) #plt.ylim([-0, lin_extent])
+        #           if showNearestCone:
+        #               for lin in cone_rad_x:
+        #                   if lin == cone_rad_x[0]:
+        #                       ax = show.line([lin, lin], [-1 * lin_extent, lin_extent], id='cone-dist', plot_col='olive')
+        #                   else:
+        #                       ax = show.line([lin, lin], [-1 * lin_extent, lin_extent], id='cone-dist', ax=ax, plot_col='olive')
 
-            ax.figure
+        #               ax = show.shadyStats(x, MCU_mean, MCU_std, id_str, scale_std=scale_std,
+        #                                   ax=ax, plot_col='dimgray')
+        #            else:        
 
-            if save_things:
-                savnm = save_path + id_str + '.png'
-                plt.savefig(savnm)
-        else:
-            print('no')
+                    ax = show.shadyStats(x, hist_mean, hist_std, id_str, ax = ax, scale_std=scale_std,
+                                        plot_col = plot_col, label = plot_label)
+
+                    if showNearestCone:
+                        plt.xlim([0, half_cone_rad + 5 * all_cone_mean_nearest + 1])
+                        plt.ylim([-2,2]) #plt.ylim([-0, lin_extent])
+
+                    ax.figure
+                    ax.legend()
+
+                    if save_things:
+                        savnm = save_path + id_str + '.png'
+                        plt.savefig(savnm)
+            else:
+                print('no')

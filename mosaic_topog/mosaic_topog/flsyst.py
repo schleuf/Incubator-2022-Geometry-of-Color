@@ -25,7 +25,7 @@ def setProcessByType(file, proc, var, data, prefix=''):
     elif isinstance(data, list):
         try:
             if isinstance(data[0], str):
-                data = [n.encode('ascii', 'ignore') for n in data]
+                data = [n.encode('utf8', 'ignore') for n in data]
                 file[proc_to_set][var] = np.array(data)
             else:
                 file[proc_to_set][var] = np.ndarray(data)

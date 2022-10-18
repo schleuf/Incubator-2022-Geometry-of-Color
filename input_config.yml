@@ -58,11 +58,11 @@ bin_width:
 
 # monteCarlo_uniform and monteCarlo_coneLocked settings
 num_mc:
-  - 1 # number of monte carlo mosaics to generate
+  - 10 # number of monte carlo mosaics to generate
 
 #spacified settings
 num_sp:
-  - 1
+  - 10
 
 #two point correlation
 corr_by: 'monteCarlo_uniform'
@@ -71,3 +71,9 @@ to_be_corr:
    'monteCarlo_uniform', 
    'monteCarlo_coneLocked', 
    'spacified']
+to_be_corr_colors:
+- ['white',
+   'rebeccapurple',
+   'royalblue',
+   'darkorange',
+   'firebrick']
