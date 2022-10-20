@@ -130,7 +130,7 @@ def setThirdOnwardSpacifiedCone(coord, avail, set_cones, set_coord, next_cone_in
     # set the next cone in the spacified mosaic data
     set_cones.append(spaciest_cone)
     set_coord[next_cone_ind][:] = coord[spaciest_cone][:]
-    avail = removeVal(avail,[spaciest_cone])
+    avail = removeVal(avail, [spaciest_cone])
 
     return [set_cones, set_coord, avail]
 

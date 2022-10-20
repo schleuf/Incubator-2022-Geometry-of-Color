@@ -140,6 +140,7 @@ def intracone_dist_process(param, sav_cfg):
     sim_to_gen = param['sim_to_gen']
 
     # get any needed info from the save file
+    # this handling of the different types of point-data shouldn't be within the intracone
     with h5py.File(sav_fl, 'r') as file:
         all_coord = file['input_data']['cone_coord'][()]
         coord = []
@@ -161,6 +162,7 @@ def intracone_dist_process(param, sav_cfg):
         # if this is a valid coordinate dataset for this process...
         if len(point_data.shape) == 3:
             num_mosaic = point_data.shape[0]
+            print('num_mosaic: ' + str(num_mosaic))
             points_per_mos = point_data.shape[1]
             dist = np.zeros((num_mosaic, points_per_mos, points_per_mos))
             mean_nearest = np.zeros(num_mosaic)
@@ -171,7 +173,9 @@ def intracone_dist_process(param, sav_cfg):
                 this_coord = point_data[mos, :, :]
                 dist[mos, :, :], mean_nearest[mos], std_nearest[mos], hist[mos], bin_edge, annulus_area = intracone_dist_common(this_coord.squeeze(), bin_width, dist_area_norm)
                 if hist[mos].shape[0] > max_hist_bin:
-                    max_hist_bin = hist[mos].shape[0] 
+                    max_hist_bin = hist[mos].shape[0]
+
+            print('max_hist_bin: ' + str(max_hist_bin))
 
             # this isjust to convert the returned histograms into a rectangular array
             # (this can't be done in advance because of...slight variability in the number of bins returned? why?)
@@ -186,7 +190,8 @@ def intracone_dist_process(param, sav_cfg):
 
             hist_mean = np.mean(hist_mat, axis=0)
             hist_std = np.std(hist_mat, axis=0)
-
+            print('size hist_mean: ' + str(print(hist_mean.shape)))
+            print('size bin_edge: ' + str(print(bin_edge.shape)))
             data_to_set = util.mapStringToLocal(proc_vars, locals())
 
         else:  # otherwise set these values to NaNs
@@ -238,7 +243,6 @@ def monteCarlo_process(param, sav_cfg, mc_type):
     with h5py.File(sav_fl, 'r') as file:
         all_coord = file['input_data']['cone_coord'][()]
         num_mc = file['input_data']['num_mc'][()]
-        print('num_mc: ' + str(num_mc))
         img = file['input_data']['cone_img'][()]
 
     proc = 'monteCarlo_' + mc_type
@@ -329,14 +333,14 @@ def primary_analyses_process(user_param, sav_cfg):
     # perform on data
     for proc in tiers[0]:
         print('Running process "' + proc + '" on ' + str(len(processes[proc])) + ' mosaic coordinate files...') 
-        print('Running process "' + proc + '" on ' + str(len(processes[proc])*len(user_param['sim_to_gen'][0])) + ' simulated mosaic coordinate files...') 
+        print('Running process "' + proc + '" on ' + str(user_param['num_mc'][0] * len(user_param['sim_to_gen'][0])) + ' simulated mosaic coordinate files...') 
 
         for ind in processes[proc]:
             param = unpackThisParam(user_param, ind)
             globals()[sav_cfg[proc]['process']](param, sav_cfg)
             for sim in user_param['sim_to_gen'][0]:
                 globals()[sav_cfg[sim]['process']](param, sav_cfg)
-               
+
 
 def secondary_analyses_process(user_param, sav_cfg):
     """
@@ -577,7 +581,7 @@ def viewMonteCarlo(save_name, mc_type, mc, save_things=False, save_path=''):
             conetype_color = bytes(file['input_data']['conetype_color'][()]).decode("utf8")
             num_mc = file['input_data']['num_mc'][()]
             coord = file['monteCarlo_'+mc_type]['coord'][()]
-           
+        print('mc coord shape: '+ str(coord.shape))
         if not np.isnan(coord[0]).any():
             num_cone = coord.shape[1]
             for m in mc:
@@ -672,12 +676,7 @@ def view2PC(save_name, scale_std=1, showNearestCone=False, save_things=False, sa
             if not np.isnan(corr_set[0].all()):
                 if corr_set[0].shape[0] > 1:
                     hist_mean = corr_set[0]
-                    print('')
-                    print('beep')
-                    print(hist_mean)
                     hist_std = corr_set[1]
-                    print(hist_std)
-                    print('')
                     plot_label = to_be_corr[ind]
                     plot_col = to_be_corr_colors[ind]
 
