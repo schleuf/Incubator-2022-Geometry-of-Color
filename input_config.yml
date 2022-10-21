@@ -8,7 +8,7 @@
 data_path:
   - 'C:\Users\schle\Documents\GitHub\Incubator-2022-Geometry-of-Color\CSV data all OCT locs Jan 2022\'
 save_path:
-  - 'C:\Users\schle\Documents\MosTop Outputs\100 mc 1019\'
+  - 'C:\Users\schle\Documents\MosTop Outputs\numSp=1_numNeighbors=1_nearest_neighbors_summed\'
 
 # settings that define the files that will be searched for in the load folder above.
 # processes indicated below will be run on all such files found. 
@@ -34,12 +34,11 @@ img_fltype:
 # select single-mosaic processes to run. list in a....dictionary? why is it a dictionary? ***
 # options: 'basic stats', 'intracone_dists', 'monteCarlo_Uniform', 'monteCarlo_coneLocked
 sim_to_gen:
-  - ['monteCarlo_uniform', 
-     'monteCarlo_coneLocked',
-     'spacified']
+  - ['monteCarlo_uniform',
+     'coneLocked_spacify_by_nearest_neighbors']
 
 analyses_to_run:
-  - ['intracone_dist', 
+  - ['intracone_dist',
      'two_point_correlation']
  
 # indicate whether all processes requested will be run on all mosaics found fitting the inputs above,
@@ -58,21 +57,21 @@ bin_width:
 
 # monteCarlo_uniform and monteCarlo_coneLocked settings
 num_mc:
-  - 5 # number of monte carlo mosaics to generate
+  - 10 # number of monte carlo mosaics to generate
 
 #spacified settings
 num_sp:
-  - 5
+  - 10
+
+#spacify_by_nearest_neighbors settings
+num_neighbors_to_average: 1
+std_of_blank_of_nearest_neighbor_distances: 'sum' # 'sum' or 'average'
 
 #two point correlation
 corr_by: 'monteCarlo_uniform'
 to_be_corr:
 - ['measured', 
-   'monteCarlo_uniform', 
-   'monteCarlo_coneLocked', 
-   'spacified']
-to_be_corr_colors:
+   'coneLocked_spacify_by_nearest_neighbors']
+to_be_corr_colors: # white, rebeccapurple, royalblue, darkorange, firebrick
 - ['white',
-   'rebeccapurple',
-   'royalblue',
    'darkorange']

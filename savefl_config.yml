@@ -85,13 +85,11 @@ monteCarlo_coneLocked:
   - all_coord
   - coord
 
-spacified:
-  process: spacified_process
+coneLocked_spacify_by_nearest_neighbors:
+  process: coneLocked_spacify_by_nearest_neighbors_process
   process_type: simulation
   variables:
   - coord
-  - num_mosaics_made
-  - cones_spacified_per_mosaic
 
 # Primary Analysis Processes
 intracone_dist:

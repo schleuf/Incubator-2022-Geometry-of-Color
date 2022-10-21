@@ -25,6 +25,7 @@ def two_point_correlation_process(param, sav_cfg):
     with h5py.File(sav_fl, 'r') as file:
         corr_by_hist = file[corr_by + '_intracone_dist']['hist_mean'][()]
         bin_edge = file[corr_by + '_intracone_dist']['bin_edge'][()]
+        all_coord = file['input_data']['cone_coord'][()]
         
         maxbins = np.amax([corr_by_hist.shape[0], maxbins])
 
@@ -190,8 +191,7 @@ def intracone_dist_process(param, sav_cfg):
 
             hist_mean = np.mean(hist_mat, axis=0)
             hist_std = np.std(hist_mat, axis=0)
-            print('size hist_mean: ' + str(print(hist_mean.shape)))
-            print('size bin_edge: ' + str(print(bin_edge.shape)))
+
             data_to_set = util.mapStringToLocal(proc_vars, locals())
 
         else:  # otherwise set these values to NaNs
@@ -200,17 +200,21 @@ def intracone_dist_process(param, sav_cfg):
         flsyst.setProcessVarsFromDict(param, sav_cfg, proc, data_to_set, prefix=PD_string)
 
 
-def spacified_process(param, sav_cfg):
+def coneLocked_spacify_by_nearest_neighbors_process(param, sav_cfg):
     """
     """
     # get any needed info from the save file
     sav_fl = param['sav_fl']
+    print(sav_fl)
+    num_neighbors_to_average = param['num_neighbors_to_average']
+    print('neighbors im gonna average: ' + str(num_neighbors_to_average))
     with h5py.File(sav_fl, 'r') as file:
         og_coord = file['input_data']['cone_coord'][()]
         num_sp = file['input_data']['num_sp'][()]
         img = file['input_data']['cone_img'][()]
+        all_coord = file['input_data']['cone_coord'][()]
 
-    proc = 'spacified'
+    proc = 'coneLocked_spacify_by_nearest_neighbors'
     proc_vars = sav_cfg[proc]['variables']
     if len(og_coord.shape) == 2 and og_coord.shape[1] == 2:
         num_coord = og_coord.shape[0]
@@ -226,9 +230,10 @@ def spacified_process(param, sav_cfg):
             print('could not pull total cones coordinates from ' + all_coord_fl)
 
         if all_coord.shape[0] == og_coord.shape[0]:
+            print('skipped unnecessary expensive spacifying of all_coord data')
             coord = np.tile(all_coord, (num_sp, 1, 1))
         else:
-            coord = calc.spacified(num_coord, all_coord, num_sp)
+            coord = calc.spacifyByNearestNeighbors(num_coord, all_coord, num_sp, num_neighbors_to_average)
 
         num_mosaics_made = num_sp
         cones_spacified_per_mosaic = num_coord
@@ -332,14 +337,17 @@ def primary_analyses_process(user_param, sav_cfg):
 
     # perform on data
     for proc in tiers[0]:
-        print('Running process "' + proc + '" on ' + str(len(processes[proc])) + ' mosaic coordinate files...') 
-        print('Running process "' + proc + '" on ' + str(user_param['num_mc'][0] * len(user_param['sim_to_gen'][0])) + ' simulated mosaic coordinate files...') 
+        if proc in user_param['analyses_to_run'][0]:
+            print('Running process "' + proc + '" on ' + str(len(processes[proc])) + ' mosaic coordinate files...') 
+            print('Running process "' + proc + '" on ' + str(user_param['num_mc'][0] * len(user_param['sim_to_gen'][0])) + ' simulated mosaic coordinate files...') 
 
-        for ind in processes[proc]:
-            param = unpackThisParam(user_param, ind)
-            globals()[sav_cfg[proc]['process']](param, sav_cfg)
-            for sim in user_param['sim_to_gen'][0]:
-                globals()[sav_cfg[sim]['process']](param, sav_cfg)
+            for ind in processes[proc]:
+                param = unpackThisParam(user_param, ind)
+                globals()[sav_cfg[proc]['process']](param, sav_cfg)
+                for sim in user_param['sim_to_gen'][0]:
+                    globals()[sav_cfg[sim]['process']](param, sav_cfg)
+        else:
+            print('didnt run ' + proc)
 
 
 def secondary_analyses_process(user_param, sav_cfg):
@@ -355,10 +363,11 @@ def secondary_analyses_process(user_param, sav_cfg):
 
     # perform on data
     for proc in tiers[1]:
-        print('Running process "' + proc + '" on ' + str(len(processes[proc])) + ' mosaic coordinate files...') 
-        for ind in processes[proc]:
-            param = unpackThisParam(user_param, ind)
-            globals()[sav_cfg[proc]['process']](param, sav_cfg)
+        if proc in user_param['analyses_to_run'][0]:
+            print('Running process "' + proc + '" on ' + str(len(processes[proc])) + ' mosaic coordinate files...') 
+            for ind in processes[proc]:
+                param = unpackThisParam(user_param, ind)
+                globals()[sav_cfg[proc]['process']](param, sav_cfg)
 
 
 def getAnalysisTiers(sav_cfg):
@@ -469,9 +478,9 @@ def unpackThisParam(user_param, ind):
     param['img_fl'] = user_param['img_fl_name'][index['mosaic'][ind]]
     param['sav_fl'] = user_param['save_name'][ind]
     param['mosaic'] = user_param['mosaic'][index['mosaic'][ind]]
-    param['subject'] = user_param['subject'][index['subject'][ind]][0]
-    param['angle'] = user_param['angle'][index['angle'][ind]][0]
-    param['eccentricity'] = user_param['eccentricity'][index['eccentricity'][ind]][0]
+    param['subject'] = user_param['subject'][0][index['subject'][ind]]
+    param['angle'] = user_param['angle'][0][index['angle'][ind]]
+    param['eccentricity'] = user_param['eccentricity'][0][index['eccentricity'][ind]]
     param['conetype'] = user_param['conetype'][0][index['conetype'][ind]]
     param['conetype_color'] = user_param['conetype_color'][0][index['conetype'][ind]]
 
@@ -487,6 +496,7 @@ def unpackThisParam(user_param, ind):
     param['corr_by'] = user_param['corr_by']
     param['to_be_corr'] = user_param['to_be_corr'][0]
     param['to_be_corr_colors'] = user_param['to_be_corr_colors'][0]
+    param['num_neighbors_to_average'] = user_param['num_neighbors_to_average']
 
     return param
 
@@ -548,7 +558,7 @@ def viewSpacified(save_name, sp, save_things=False, save_path=''):
             coord_unit = bytes(file['input_data']['coord_unit'][()]).decode("utf8")
             conetype_color = bytes(file['input_data']['conetype_color'][()]).decode("utf8")
             num_sp = file['input_data']['num_sp'][()]
-            coord = file['spacified']['coord'][()]
+            coord = file['coneLocked_spacify_by_nearest_neighbors']['coord'][()]
             print(coord.shape)
         if not np.isnan(coord[0]).any():
             num_cone = coord.shape[1]

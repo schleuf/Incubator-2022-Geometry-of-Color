@@ -110,9 +110,9 @@ def removeVal(vals, val2remove):
     return vals_removed
 
 
-def setThirdOnwardSpacifiedCone(coord, avail, set_cones, set_coord, next_cone_ind, dists):
+def setThirdOnwardSpacifiedCone(coord, avail, set_cones, set_coord, next_cone_ind, dists, num_neighbors_to_average, std_of_blank_of_nearest_neighbor_distances):
     dists = np.where(dists > 0, dists, np.inf)
-    # create a 2D array where each row is the current set of cone indices making up the
+    # creatgooge a 2D array where each row is the current set of cone indices making up the
     # spacified mosaic followed by a hypothetical next cone-placement, with a row for 
     # every cone that is available to be set
     v1 = np.tile(np.array(set_cones), (avail.shape[0], 1))
@@ -124,41 +124,68 @@ def setThirdOnwardSpacifiedCone(coord, avail, set_cones, set_coord, next_cone_in
     nearest_neighbor_stds = []
     for hyp_set in hyp_sp_sets: 
         hyp_dists = dists[hyp_set, :][:, hyp_set]
-        nearest_neighbor_stds.append(np.std(np.amin(hyp_dists, axis=0)))
+        sorted_neighbor_indices = np.argsort(hyp_dists, axis=1)
+        num_averaged = np.min([num_neighbors_to_average, hyp_dists.shape[0]])
+        distances_to_average = np.empty((hyp_dists.shape[0], num_averaged))
+        distances_to_average[:] = np.nan
+
+        inds_to_grab = sorted_neighbor_indices[:,0:num_averaged]
+
+        for ind,hyp_set in enumerate(hyp_dists):
+            distances_to_average[ind,:] = hyp_dists[ind, inds_to_grab[ind,:]]
+
+        if std_of_blank_of_nearest_neighbor_distances == 'sum':
+            distances_summed = np.sum(distances_to_average, axis = 1)
+        elif std_of_blank_of_nearest_neighbor_distances == 'average':
+            distances_averaged = np.mean(distances_to_average, axis = 1)
+        else:
+            print('improper entry for std_of_blank_of_nearest_neighbor_distances, must be sum or average')
+        
+        nearest_neighbor_stds.append(np.std(distances_averaged, axis=0))
+
     spaciest_cone = avail[np.argmin(np.array(nearest_neighbor_stds))]
     
     # set the next cone in the spacified mosaic data
     set_cones.append(spaciest_cone)
     set_coord[next_cone_ind][:] = coord[spaciest_cone][:]
-    avail = removeVal(avail, [spaciest_cone])
+    avail = removeVal(avail,[spaciest_cone])
 
     return [set_cones, set_coord, avail]
 
 
-def spacified(num_coord, all_coord, num_sp):
+def spacifyByNearestNeighbors(num_coord, all_coord, num_sp='all', num_neighbors_to_average=1, std_of_blank_of_nearest_neighbor_distances='average'):
     """
     asdf
     """
     if num_coord > 1 and all_coord.shape[0] >= num_coord:
         
-        sp_coord = np.empty([num_sp, num_coord, 2], dtype=float)
+        if num_sp == 'all':
+            num2gen = all_coord.shape[0]
+        else:
+            num2gen = num_sp
+
+        sp_coord = np.empty([num2gen, num_coord, 2], dtype=float)
 
         # get matrix of intercone distances
         dists = dist_matrices(all_coord)
 
+        #randomize seed list
+        seed_inds = np.arange(0, all_coord.shape[0])
+        np.random.shuffle(seed_inds)
+        
         for sp in np.arange(0, num_sp):  # looop through mosaics to make
             avail_cones = np.arange(0, all_coord.shape[0])
 
             set_coord = np.ones([num_coord, 2]) * -1
 
-            seed_ind = sp
+            seed_ind = seed_inds[sp]
 
             [set_cones, set_coord[0:2, :]] = setFirstAndSecondSpacifiedCone(all_coord, seed_ind, dists)
 
             avail_cones = removeVal(avail_cones, set_cones)
 
             for a in np.arange(0, num_coord):
-                [set_cones, set_coord, avail_cones] = setThirdOnwardSpacifiedCone(all_coord, avail_cones, set_cones, set_coord, a, dists)
+                [set_cones, set_coord, avail_cones] = setThirdOnwardSpacifiedCone(all_coord, avail_cones, set_cones, set_coord, a, dists, num_neighbors_to_average, std_of_blank_of_nearest_neighbor_distances)
             sp_coord[sp, :, :] = set_coord
     else:
         sp_coord = nan
