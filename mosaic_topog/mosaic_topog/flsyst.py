@@ -6,6 +6,17 @@ import mosaic_topog.utilities as util
 import yaml
 import h5py
 
+def getAllConeCoord(sav_fl, mosaic):
+     # look for all cone mosaic for this data
+    save_path = os.path.dirname(sav_fl)
+    all_coord_fl = save_path + '\\' + mosaic + '_all.hdf5'
+    try:
+        with h5py.File(all_coord_fl, 'r') as file:
+            all_coord = file['input_data']['cone_coord'][()]
+    except:
+        print('could not pull total cones coordinates from ' + all_coord_fl)
+    
+    return all_coord
 
 def setProcessByType(file, proc, var, data, prefix=''):
     """

@@ -135,14 +135,16 @@ def setThirdOnwardSpacifiedCone(coord, avail, set_cones, set_coord, next_cone_in
             distances_to_average[ind,:] = hyp_dists[ind, inds_to_grab[ind,:]]
 
         if std_of_blank_of_nearest_neighbor_distances == 'sum':
-            distances_summed = np.sum(distances_to_average, axis = 1)
+            
+            nearest_neighbor_metric = np.sum(distances_to_average, axis = 1)
+            
         elif std_of_blank_of_nearest_neighbor_distances == 'average':
-            distances_averaged = np.mean(distances_to_average, axis = 1)
+            nearest_neighbor_metric = np.mean(distances_to_average, axis = 1)
         else:
             print('improper entry for std_of_blank_of_nearest_neighbor_distances, must be sum or average')
         
-        nearest_neighbor_stds.append(np.std(distances_averaged, axis=0))
-
+        nearest_neighbor_stds.append(np.std(nearest_neighbor_metric, axis=0))
+    print(std_of_blank_of_nearest_neighbor_distances)
     spaciest_cone = avail[np.argmin(np.array(nearest_neighbor_stds))]
     
     # set the next cone in the spacified mosaic data

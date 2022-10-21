@@ -68,6 +68,8 @@ input_data:
     - corr_by
     - to_be_corr
     - to_be_corr_colors
+    - num_neighbors_to_average
+    - std_of_blank_of_nearest_neighbor_distances
 
 # Simulation Processes
 
@@ -92,6 +94,16 @@ coneLocked_spacify_by_nearest_neighbors:
   - coord
 
 # Primary Analysis Processes
+basic_stats:
+  process: basic_stats_process
+  process_type: analysis
+  analysis_tier: 1
+  variables:
+    - num_cones
+    - img_area
+    - density
+    - hex_radius_of_this_density
+
 intracone_dist:
   process: intracone_dist_process
   process_type: analysis

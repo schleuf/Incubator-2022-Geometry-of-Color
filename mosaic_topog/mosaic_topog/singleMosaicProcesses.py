@@ -163,7 +163,6 @@ def intracone_dist_process(param, sav_cfg):
         # if this is a valid coordinate dataset for this process...
         if len(point_data.shape) == 3:
             num_mosaic = point_data.shape[0]
-            print('num_mosaic: ' + str(num_mosaic))
             points_per_mos = point_data.shape[1]
             dist = np.zeros((num_mosaic, points_per_mos, points_per_mos))
             mean_nearest = np.zeros(num_mosaic)
@@ -175,8 +174,6 @@ def intracone_dist_process(param, sav_cfg):
                 dist[mos, :, :], mean_nearest[mos], std_nearest[mos], hist[mos], bin_edge, annulus_area = intracone_dist_common(this_coord.squeeze(), bin_width, dist_area_norm)
                 if hist[mos].shape[0] > max_hist_bin:
                     max_hist_bin = hist[mos].shape[0]
-
-            print('max_hist_bin: ' + str(max_hist_bin))
 
             # this isjust to convert the returned histograms into a rectangular array
             # (this can't be done in advance because of...slight variability in the number of bins returned? why?)
@@ -199,41 +196,45 @@ def intracone_dist_process(param, sav_cfg):
 
         flsyst.setProcessVarsFromDict(param, sav_cfg, proc, data_to_set, prefix=PD_string)
 
+def basic_stats_process(param, sav_cfg):
+    proc = 'basic_stats'
+    proc_vars = sav_cfg[proc]['variables']
+    sav_fl = param['sav_fl']
+    with h5py.File(sav_fl, 'r') as file:
+        coord = file['input_data']['cone_coord'][()]
+        img = file['input_data']['cone_img'][()]
+    num_cones = coord.shape[0]
+    img_area = img.shape[0] * img.shape[1]
+    density = num_cones/img_area
+    hex_radius_of_this_density = np.sqrt(np.sqrt(4/3)/density)
+
+    data_to_set = util.mapStringToLocal(proc_vars, locals())
+    flsyst.setProcessVarsFromDict(param, sav_cfg, proc, data_to_set)
 
 def coneLocked_spacify_by_nearest_neighbors_process(param, sav_cfg):
     """
     """
     # get any needed info from the save file
     sav_fl = param['sav_fl']
-    print(sav_fl)
     num_neighbors_to_average = param['num_neighbors_to_average']
-    print('neighbors im gonna average: ' + str(num_neighbors_to_average))
+    std_of_blank_of_nearest_neighbor_distances = param['std_of_blank_of_nearest_neighbor_distances']
     with h5py.File(sav_fl, 'r') as file:
         og_coord = file['input_data']['cone_coord'][()]
         num_sp = file['input_data']['num_sp'][()]
         img = file['input_data']['cone_img'][()]
-        all_coord = file['input_data']['cone_coord'][()]
 
     proc = 'coneLocked_spacify_by_nearest_neighbors'
     proc_vars = sav_cfg[proc]['variables']
     if len(og_coord.shape) == 2 and og_coord.shape[1] == 2:
         num_coord = og_coord.shape[0]
 
-        # look for all cone mosaic for this data
-        mosaic = param['mosaic']
-        save_path = os.path.dirname(sav_fl)
-        all_coord_fl = save_path + '\\' + mosaic + '_all.hdf5'
-        try:
-            with h5py.File(all_coord_fl, 'r') as file:
-                all_coord = file['input_data']['cone_coord'][()]
-        except:
-            print('could not pull total cones coordinates from ' + all_coord_fl)
+        all_coord = flsyst.getAllConeCoord(sav_fl, param['mosaic'])
 
         if all_coord.shape[0] == og_coord.shape[0]:
             print('skipped unnecessary expensive spacifying of all_coord data')
             coord = np.tile(all_coord, (num_sp, 1, 1))
         else:
-            coord = calc.spacifyByNearestNeighbors(num_coord, all_coord, num_sp, num_neighbors_to_average)
+            coord = calc.spacifyByNearestNeighbors(num_coord, all_coord, num_sp, num_neighbors_to_average, std_of_blank_of_nearest_neighbor_distances)
 
         num_mosaics_made = num_sp
         cones_spacified_per_mosaic = num_coord
@@ -389,7 +390,6 @@ def getAnalysisTiers(sav_cfg):
     analyses_by_tier = []
     for tier in np.arange(0, max_tier):
         analyses_by_tier.append([np.array(analysis_proc)[np.nonzero(analysis_tiers == tier+1)[0]][0]])
-
     return analyses_by_tier
 
 
@@ -497,6 +497,7 @@ def unpackThisParam(user_param, ind):
     param['to_be_corr'] = user_param['to_be_corr'][0]
     param['to_be_corr_colors'] = user_param['to_be_corr_colors'][0]
     param['num_neighbors_to_average'] = user_param['num_neighbors_to_average']
+    param['std_of_blank_of_nearest_neighbor_distances'] = user_param['std_of_blank_of_nearest_neighbor_distances']
 
     return param
 
