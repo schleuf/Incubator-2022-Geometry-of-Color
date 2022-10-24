@@ -21,9 +21,6 @@ process_hierarchy:
 default_processes:
   process: default_processes_process
   process_type: hierarchy
-  content: 
-  - mosaic_meta
-  - input_data
 
 gen_sim: 
   process: gen_sim_process
@@ -41,7 +38,7 @@ secondary_analyses: # hidden process
 
 mosaic_meta:
   process: mosaic_meta_process
-  process_type: input
+  process_type: default
   variables: 
     - mosaic
     - subject
@@ -51,7 +48,7 @@ mosaic_meta:
 
 input_data: 
   process: input_data_process
-  process_type: input
+  process_type: default
   variables: 
     - data_path
     - save_path
@@ -71,7 +68,24 @@ input_data:
     - num_neighbors_to_average
     - std_of_blank_of_nearest_neighbor_distances
 
+basic_stats:
+  process: basic_stats_process
+  process_type: default
+  variables:
+    - num_cones
+    - img_area
+    - cone_density
+    - hex_radius_of_this_density
+
 # Simulation Processes
+# # example of a key entry for a simulation process
+# simname:
+#   process: simname_process # literally just the simulation's name followed by '_process'
+#   process_type: simulation # flag that helps the process hierarchy find and implement the simulation 
+#   variables: # any outputs of this process that need to be saved
+#   - output_from_this_process_i_want_to_save
+#   - another_output
+#   - and_another_one
 
 monteCarlo_uniform: 
   process: monteCarlo_uniform_process
@@ -93,16 +107,19 @@ coneLocked_spacify_by_nearest_neighbors:
   variables:
   - coord
 
-# Primary Analysis Processes
-basic_stats:
-  process: basic_stats_process
-  process_type: analysis
-  analysis_tier: 1
+hexgrid_by_density: 
+  process: hexgrid_by_density_process
+  process_type: simulation
   variables:
-    - num_cones
-    - img_area
-    - density
-    - hex_radius_of_this_density
+  - coord
+  - num_cones_placed
+  - cone_density
+  - jitter_x
+  - jitter_y
+
+
+
+# Primary Analysis Processes
 
 intracone_dist:
   process: intracone_dist_process

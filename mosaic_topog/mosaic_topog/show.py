@@ -111,7 +111,7 @@ def quad_fig(size):
     return axes,fig
 
 
-def scatt(coords, id, plot_col='w', bckg_col='k', z_dim=0, **kwargs):
+def scatt(coords, id, plot_col='w', bckg_col='k', z_dim=0, mosaic_data=True, marker='.', label=None, **kwargs):
     """
     2D scatter plot
 
@@ -133,7 +133,11 @@ def scatt(coords, id, plot_col='w', bckg_col='k', z_dim=0, **kwargs):
     # Handle any other
     ax = plotKwargs(kwargs, id)
 
-    if len(coords.shape) == 2:  # 2D COORDINATE ARRAY
+    if len(coords.shape) == 1:
+        scatter_x = coords[0]
+        scatter_y = coords[1]
+
+    elif len(coords.shape) == 2:  # 2D COORDINATE ARRAY
         scatter_x = coords[:, 0]
         scatter_y = coords[:, 1]
 
@@ -143,11 +147,15 @@ def scatt(coords, id, plot_col='w', bckg_col='k', z_dim=0, **kwargs):
 
     ax.set_facecolor(bckg_col)
     ax.scatter(x=scatter_x, y=scatter_y,
-               s=10,
+               s=30,
                facecolors=plot_col,
+               marker=marker,
                edgecolors='none')
-               
-    ax.set_aspect('equal')
+    ax.get_xaxis().set_visible(True)
+    ax.get_yaxis().set_visible(True)
+
+    if mosaic_data:
+        ax.set_aspect('equal')
 
     return ax
 
@@ -191,7 +199,7 @@ def histo(hist_data, bin_edges, id, x_dim=1, plot_col='w',
     return ax
 
 
-def line(x, y, id, plot_col='w', bckg_col='k', linestyle='-', marker="", markersize=1, **kwargs):
+def line(x, y, id, plot_col='w', bckg_col='k', linestyle='-', marker="", markersize=1, linewidth=1, **kwargs):
     """
     Plot a line
 
@@ -215,7 +223,7 @@ def line(x, y, id, plot_col='w', bckg_col='k', linestyle='-', marker="", markers
     """
     ax = plotKwargs(kwargs, id)
     ax.set_facecolor(bckg_col)
-    ax.plot(x, y, color=plot_col, linestyle=linestyle, linewidth = 6, marker=marker, markersize=markersize)
+    ax.plot(x, y, color=plot_col, linestyle=linestyle, linewidth = linewidth, marker=marker, markersize=markersize)
 
     return ax
 

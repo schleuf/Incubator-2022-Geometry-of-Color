@@ -8,20 +8,20 @@
 data_path:
   - 'C:\Users\schle\Documents\GitHub\Incubator-2022-Geometry-of-Color\CSV data all OCT locs Jan 2022\'
 save_path:
-  - 'C:\Users\schle\Documents\MosTop Outputs\experiment_10-21_basic_stats\'
+  - 'C:\Users\schle\Documents\MosTop Outputs\experiment_10-23_hexgrid_by_density\'
 
 # settings that define the files that will be searched for in the load folder above.
 # processes indicated below will be run on all such files found. 
 subject:
-  - ['AO001R', 'AO008R']  #['AO001R', 'AO008R']
+  - ['AO001R']  #['AO001R', 'AO008R']
 angle:
-  - ['temporal', 'nasal', 'superior', 'inferior']  #['temporal', 'nasal', 'superior', 'inferior']
+  - ['temporal']  #['temporal', 'nasal', 'superior', 'inferior']
 eccentricity:
-  - ['1.5','3.5', '4', '4.5', '10']  #['1.5','3.5', '4', '4.5', '10']
+  - ['1.5']  #['1.5','3.5', '4', '4.5', '10']
 conetype:
   - ['all','S'] #['all','L','M','S','unclassed']
 conetype_color:
-  - ['y','b'] #['y','r','g','b','w']
+  - ['gold','dodgerblue'] #['y','r','g','b','w']
 coord_unit:
   - 'pixels' # units of the coordinate data loaded in - any string you want
 coord_fltype:
@@ -34,10 +34,10 @@ img_fltype:
 # select single-mosaic processes to run. list in a....dictionary? why is it a dictionary? ***
 # options: 'basic stats', 'intracone_dists', 'monteCarlo_Uniform', 'monteCarlo_coneLocked
 sim_to_gen:
-  - []
+  - ['hexgrid_by_density']
 
 analyses_to_run:
-  - ['basic_stats']
+  - []
  
 # indicate whether all processes requested will be run on all mosaics found fitting the inputs above,
 # or processes will only be run for a file if that process' outputs are not present in an identified save file
@@ -55,11 +55,11 @@ bin_width:
 
 # monteCarlo_uniform and monteCarlo_coneLocked settings
 num_mc:
-  - 10 # number of monte carlo mosaics to generate
+  - 1 # number of monte carlo mosaics to generate 
 
-#spacified settings
+#spacified settings (perfect hex and coneLocked maximally spaced)
 num_sp:
-  - 1
+  - 1 # number of spacified mosaics to genearte 
 
 #spacify_by_nearest_neighbors settings
 num_neighbors_to_average: 1
@@ -73,3 +73,6 @@ to_be_corr:
 to_be_corr_colors: # white, rebeccapurple, royalblue, darkorange, firebrick
 - ['white',
    'darkorange']
+
+
+#plots to make

@@ -7,6 +7,10 @@ import mosaic_topog.flsyst as flsyst
 import mosaic_topog.calc as calc
 import mosaic_topog.show as show
 import mosaic_topog.utilities as util
+from py import process
+
+
+## --------------------------------SECONDARY ANALYSIS FUNCTIONS--------------------------------------
 
 
 def two_point_correlation_process(param, sav_cfg):
@@ -85,6 +89,9 @@ def two_point_correlation_process(param, sav_cfg):
         data_to_set = util.mapStringToNan(proc_vars)
 
     flsyst.setProcessVarsFromDict(param, sav_cfg, proc, data_to_set)
+
+
+## --------------------------------PRIMARY ANALYSIS FUNCTIONS--------------------------------------
 
 
 def intracone_dist_common(coord, bin_width, dist_area_norm):
@@ -196,20 +203,93 @@ def intracone_dist_process(param, sav_cfg):
 
         flsyst.setProcessVarsFromDict(param, sav_cfg, proc, data_to_set, prefix=PD_string)
 
-def basic_stats_process(param, sav_cfg):
-    proc = 'basic_stats'
-    proc_vars = sav_cfg[proc]['variables']
-    sav_fl = param['sav_fl']
-    with h5py.File(sav_fl, 'r') as file:
-        coord = file['input_data']['cone_coord'][()]
-        img = file['input_data']['cone_img'][()]
-    num_cones = coord.shape[0]
-    img_area = img.shape[0] * img.shape[1]
-    density = num_cones/img_area
-    hex_radius_of_this_density = np.sqrt(np.sqrt(4/3)/density)
+## -------------------------- SIMULATION PROCESSES ---------------------------------
 
-    data_to_set = util.mapStringToLocal(proc_vars, locals())
+def hexgrid_by_density_process(param, sav_cfg):
+    proc = 'hexgrid_by_density'
+    proc_vars = sav_cfg['hexgrid_by_density']['variables']
+
+    #First load in the inputs that are needed for this function
+    sav_fl = param['sav_fl']
+    num_sp = param['num_sp']
+    with h5py.File(sav_fl, 'r') as file:
+        img = file['input_data']['cone_img'][()]
+        num_cones = file['basic_stats']['num_cones'][()]
+        cone_density = file['basic_stats']['cone_density'][()]
+        hex_radius = file['basic_stats']['hex_radius_of_this_density'][()]
+    
+    #plt.imshow(img)
+    
+    if num_cones > 1: 
+        
+        img_y = img.shape[0]
+        img_x = img.shape[1]
+
+        img_ratio = img_y / img_x
+
+        #Then write and/or direct to the code of the process itself 
+        phi = (np.sqrt(5)+1)/2
+        fig_width = 21
+
+        N = num_cones
+        ratio = np.sqrt(3)/2 # cos(60°)
+        y_scale_ratio = hex_radius * ratio
+        N_X = img_x
+        N_Y = img_y
+
+        xv, yv = np.meshgrid(np.arange(0, N_X, hex_radius), np.arange(0, N_Y, y_scale_ratio), sparse=False, indexing='xy')
+
+        num_cones_placed = xv.shape[0] * xv.shape[1]
+
+        coord = np.empty([num_sp, num_cones_placed, 2])
+        coord[:]= np.nan
+
+        for sp in np.arange(0, num_sp):
+        
+            img_y = img.shape[0]
+            img_x = img.shape[1]
+
+            img_ratio = img_y / img_x
+
+            #Then write and/or direct to the code of the process itself 
+            phi = (np.sqrt(5)+1)/2
+            fig_width = 21
+
+            N = num_cones
+            ratio = np.sqrt(3)/2 # cos(60°)
+            y_scale_ratio = hex_radius * ratio
+            N_X = img_x
+            N_Y = img_y
+
+            xv, yv = np.meshgrid(np.arange(0, N_X, hex_radius), np.arange(0, N_Y, y_scale_ratio), sparse=False, indexing='xy')
+            
+            num_cones_placed = xv.shape[0] * xv.shape[1]
+
+            cone_density = num_cones_placed / (img_x * img_y)
+
+            jitter_x = np.random.rand()
+            jitter_x = (jitter_x - .5) * hex_radius
+            jitter_y = np.random.rand()
+            jitter_y = (jitter_y - .5) * y_scale_ratio
+            xv = xv + jitter_x
+            yv = yv + jitter_y
+
+            xv[::2, :] += hex_radius/2
+
+            coord[sp, 0:xv.flatten().shape[0], 0] = xv.flatten()
+            coord[sp, 0:yv.flatten().shape[0], 1] = yv.flatten()
+
+            fig, ax = plt.subplots(figsize=(fig_width, fig_width))
+
+            ax.scatter(xv, yv)
+            ax.set_aspect('equal')
+
+            data_to_set = util.mapStringToLocal(proc_vars, locals())
+    else:
+        data_to_set = util.mapStringToNan(proc_vars)
+
     flsyst.setProcessVarsFromDict(param, sav_cfg, proc, data_to_set)
+    
 
 def coneLocked_spacify_by_nearest_neighbors_process(param, sav_cfg):
     """
@@ -307,91 +387,8 @@ def monteCarlo_coneLocked_process(param, sav_cfg):
     monteCarlo_process(param, sav_cfg, 'coneLocked')
 
 
-def gen_sim_process(user_param, sav_cfg):
-    """
-    Inputs
-    ------
 
-    Outputs
-    -------
-    """
-    sim_to_gen = user_param['sim_to_gen'][0]
-    processes = user_param['processes']
-    for sim in sim_to_gen:
-        print('Generating simulation "' + sim + '" for ' + str(len(processes[sim])) + ' mosaic coordinate files...') 
-        for ind in processes[sim]:
-            param = unpackThisParam(user_param, ind)
-            globals()[sav_cfg[sim]['process']](param, sav_cfg)
-
-
-def primary_analyses_process(user_param, sav_cfg):
-    """
-    Inputs
-    ------
-
-    Outputs
-    -------
-
-    """
-    processes = user_param['processes']
-    tiers = getAnalysisTiers(sav_cfg)
-
-    # perform on data
-    for proc in tiers[0]:
-        if proc in user_param['analyses_to_run'][0]:
-            print('Running process "' + proc + '" on ' + str(len(processes[proc])) + ' mosaic coordinate files...') 
-            print('Running process "' + proc + '" on ' + str(user_param['num_mc'][0] * len(user_param['sim_to_gen'][0])) + ' simulated mosaic coordinate files...') 
-
-            for ind in processes[proc]:
-                param = unpackThisParam(user_param, ind)
-                globals()[sav_cfg[proc]['process']](param, sav_cfg)
-                for sim in user_param['sim_to_gen'][0]:
-                    globals()[sav_cfg[sim]['process']](param, sav_cfg)
-        else:
-            print('didnt run ' + proc)
-
-
-def secondary_analyses_process(user_param, sav_cfg):
-    """
-    Inputs
-    ------
-
-    Outputs
-    -------
-    """
-    processes = user_param['processes']
-    tiers = getAnalysisTiers(sav_cfg)
-
-    # perform on data
-    for proc in tiers[1]:
-        if proc in user_param['analyses_to_run'][0]:
-            print('Running process "' + proc + '" on ' + str(len(processes[proc])) + ' mosaic coordinate files...') 
-            for ind in processes[proc]:
-                param = unpackThisParam(user_param, ind)
-                globals()[sav_cfg[proc]['process']](param, sav_cfg)
-
-
-def getAnalysisTiers(sav_cfg):
-    """
-    Inputs
-    ------
-
-    Outputs
-    -------
-    """
-    analysis_proc = []
-    analysis_tiers = []
-    for key in sav_cfg.keys():
-        if 'process_type' in sav_cfg[key]:
-            if sav_cfg[key]['process_type'] == 'analysis':
-                analysis_proc.append(key)
-                analysis_tiers.append(sav_cfg[key]['analysis_tier'])
-    max_tier = np.amax(analysis_tiers)
-    analyses_by_tier = []
-    for tier in np.arange(0, max_tier):
-        analyses_by_tier.append([np.array(analysis_proc)[np.nonzero(analysis_tiers == tier+1)[0]][0]])
-    return analyses_by_tier
-
+## --------------------------------DEFAULT PROCESS FUNCTIONS--------------------------------------
 
 def input_data_process(param, sav_cfg):
     """
@@ -433,38 +430,22 @@ def mosaic_meta_process(param, sav_cfg):
 
     flsyst.setProcessVarsFromDict(param, sav_cfg, proc, data_to_set)
 
+def basic_stats_process(param, sav_cfg):
+    proc = 'basic_stats'
+    proc_vars = sav_cfg[proc]['variables']
+    sav_fl = param['sav_fl']
+    with h5py.File(sav_fl, 'r') as file:
+        coord = file['input_data']['cone_coord'][()]
+        img = file['input_data']['cone_img'][()]
+    num_cones = coord.shape[0]
+    img_area = img.shape[0] * img.shape[1]
+    cone_density = num_cones/img_area
+    hex_radius_of_this_density = np.sqrt(np.sqrt(4/3)/cone_density)
 
-def default_processes_process(user_param, sav_cfg):
-    """
-    Inputs
-    ------
+    data_to_set = util.mapStringToLocal(proc_vars, locals())
+    flsyst.setProcessVarsFromDict(param, sav_cfg, proc, data_to_set)
 
-    Outputs
-    -------
-    """
-    # identify mandatory processes
-    # should consider making this a list in the yaml rather than 
-    # a property of the individual files
-
-    mand = sav_cfg['default_processes']['content']
-
-    # get all files to check
-    fls = []
-    processes = user_param['processes']
-    for proc in processes:
-        fls = np.union1d(fls, processes[proc])
-
-    fls = fls.astype(int)
-
-    for ind in fls:
-        param = unpackThisParam(user_param, ind)
-        if not os.path.exists(param['sav_fl']):
-            with h5py.File(param['sav_fl'], 'w') as file:
-                print('created file: ' + param['sav_fl'])
-        for proc in mand:
-            globals()[sav_cfg[proc]['process']](param, sav_cfg)
-
-
+## -------------------------------PROCESS HIERARCHY FUNCTIONS-------------------------------------
 def unpackThisParam(user_param, ind):
     # this function is dumb
     # make this less dumb
@@ -508,11 +489,140 @@ def runSingleMosaicProcess(user_param, sav_cfg):
     """
 
     """
-    default_processes_process(user_param, sav_cfg)
 
     # this needs to updated, needs to error if the layer doesn't exist
     for layer in sav_cfg['process_hierarchy']['content']:
         globals()[sav_cfg[layer]['process']](user_param, sav_cfg)
+def default_processes_process(user_param, sav_cfg):
+    """
+    Inputs
+    ------
+
+    Outputs
+    -------
+    """
+    # identify mandatory processes
+    # should consider making this a list in the yaml rather than 
+    # a property of the individual files
+
+    mand = []
+    for key in sav_cfg.keys():
+        if sav_cfg[key]['process_type'] == 'default':
+            mand.append(key)
+    print('mand: ')
+    print(mand)
+
+    # get all files to check
+    fls = []
+    processes = user_param['processes']
+    for proc in processes:
+        fls = np.union1d(fls, processes[proc])
+
+    fls = fls.astype(int)
+
+    for ind in fls:
+        param = unpackThisParam(user_param, ind)
+        if not os.path.exists(param['sav_fl']):
+            with h5py.File(param['sav_fl'], 'w') as file:
+                print('created file: ' + param['sav_fl'])
+        for proc in mand:
+            globals()[sav_cfg[proc]['process']](param, sav_cfg)
+
+def gen_sim_process(user_param, sav_cfg):
+    """
+    Inputs
+    ------
+
+    Outputs
+    -------
+    """
+    sim_to_gen = user_param['sim_to_gen'][0]
+    processes = user_param['processes']
+    for sim in sim_to_gen:
+        print('Generating simulation "' + sim + '" for ' + str(len(processes[sim])) + ' mosaic coordinate files...') 
+        for ind in processes[sim]:
+            param = unpackThisParam(user_param, ind)
+            globals()[sav_cfg[sim]['process']](param, sav_cfg)
+
+
+def getAnalysisTiers(sav_cfg):
+    """
+    Inputs
+    ------
+
+    Outputs
+    -------
+    """
+    analysis_proc = []
+    analysis_tiers = []
+    for key in sav_cfg.keys():
+        if 'process_type' in sav_cfg[key]:
+            if sav_cfg[key]['process_type'] == 'analysis':
+                analysis_proc.append(key)
+                analysis_tiers.append(sav_cfg[key]['analysis_tier'])
+    max_tier = np.amax(analysis_tiers)
+    analyses_by_tier = []
+    for tier in np.arange(0, max_tier):
+        analyses_by_tier.append(np.array(analysis_proc)[np.nonzero(analysis_tiers == tier+1)[0]])
+    return analyses_by_tier
+
+
+def primary_analyses_process(user_param, sav_cfg):
+    """
+    Inputs
+    ------
+
+    Outputs
+    -------
+
+    """
+    processes = user_param['processes']
+    
+    tiers = getAnalysisTiers(sav_cfg)
+    
+    # perform on data
+    for proc in tiers[0]:
+        if proc in user_param['analyses_to_run'][0]:
+            print('MEASURED COORDINATES')
+            for ind in processes[proc]:
+                print('Running process "' + proc + '" on file' + str(ind) + '/' + str(len(processes[proc])) +'...') 
+                param = unpackThisParam(user_param, ind)
+                globals()[sav_cfg[proc]['process']](param, sav_cfg)
+                print("     SIMULATED COORDINATES")
+                for sim in user_param['sim_to_gen'][0]:
+                    if sim == 'monteCarlo_uniform' or sim == 'monteCarlo_coneLocked':
+                        numsim = user_param['num_mc']
+                    elif sim == 'coneLocked_spacify_by_nearest_neighbors' or sim == 'hexgrid_by_density':
+                        numsim = user_param['num_sp']
+                    else:
+                        print('Error: invalid simulation entry')
+                    print('     Running process "' + proc + '" on' + str(numsim) + ' ' + sim + 'simulations...') 
+                    globals()[sav_cfg[sim]['process']](param, sav_cfg)
+        else:
+            print('didnt run ' + proc)
+
+
+def secondary_analyses_process(user_param, sav_cfg):
+    """
+    Inputs
+    ------
+
+    Outputs
+    -------
+    """
+    processes = user_param['processes']
+    tiers = getAnalysisTiers(sav_cfg)
+
+    # perform on data
+    for proc in tiers[1]:
+        if proc in user_param['analyses_to_run'][0]:
+            print('Running process "' + proc + '" on ' + str(len(processes[proc])) + ' mosaic coordinate files...') 
+            for ind in processes[proc]:
+                param = unpackThisParam(user_param, ind)
+                globals()[sav_cfg[proc]['process']](param, sav_cfg)
+
+
+## --------------------------------SMP VIEWING FUNCTIONS--------------------------------------
 
 
 def viewIntraconeDistHists(save_names, prefix, save_things=False, save_path=''):
@@ -550,7 +660,7 @@ def viewIntraconeDistHists(save_names, prefix, save_things=False, save_path=''):
             print(id + ' contains < 2 cones, skipping... ')
 
 
-def viewSpacified(save_name, sp, save_things=False, save_path=''):
+def viewSpacified(space_type, save_name, sp, save_things=False, save_path=''):
     for fl in save_name:
         # get spacified coordinate data and plotting parameters from the save file
         with h5py.File(fl, 'r') as file:  # context manager
@@ -559,12 +669,18 @@ def viewSpacified(save_name, sp, save_things=False, save_path=''):
             coord_unit = bytes(file['input_data']['coord_unit'][()]).decode("utf8")
             conetype_color = bytes(file['input_data']['conetype_color'][()]).decode("utf8")
             num_sp = file['input_data']['num_sp'][()]
-            coord = file['coneLocked_spacify_by_nearest_neighbors']['coord'][()]
-            print(coord.shape)
+
+            if space_type == 'coneLocked':
+                coord = file['coneLocked_spacify_by_nearest_neighbors']['coord'][()]
+            elif space_type == 'uniform':
+                coord = file['hexgrid_by_density']['coord'][()]
+
+            print('num points: ' + str(coord.shape[0]))
+
         if not np.isnan(coord[0]).any():
             num_cone = coord.shape[1]
             for s in sp:
-                id_str = 'spacified' + '_(' + str(s+1) + '//' + str(num_sp) + ')_' + mosaic + '_(' + str(num_cone) + ' cones)'
+                id_str = space_type + '-spacified' + '_(' + str(s+1) + '//' + str(num_sp) + ')_' + mosaic + '_(' + str(num_cone) + ' cones)'
                 xlab = coord_unit
                 ylab = coord_unit
                 this_coord = np.zeros([num_cone, 2])
@@ -572,11 +688,12 @@ def viewSpacified(save_name, sp, save_things=False, save_path=''):
 
                 ax = show.scatt(this_coord, id_str, plot_col=conetype_color, xlabel=xlab, ylabel=ylab)
 
-            ax.figure
+                ax.figure
+                if save_things:
+                    savnm = save_path + mosaic + '_' + s + '_' + conetype + '.png'
+                    plt.savefig(savnm)
 
-            if save_things:
-                savnm = save_path + mosaic + '_' + conetype + '.png'
-                plt.savefig(savnm)
+           
 
         else:
             print('no spacified for "' + fl + '," skipping')
