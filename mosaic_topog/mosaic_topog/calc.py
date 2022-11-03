@@ -1,6 +1,9 @@
 from cmath import nan
+from pyexpat.errors import XML_ERROR_NO_ELEMENTS
 import numpy as np
 from scipy import spatial
+
+import matplotlib.pyplot as plt
 
 # Functions
 # ---------
@@ -91,6 +94,100 @@ def distHist(dists, bin_width):
     return hist, bin_edges
 
 
+def hexgrid(num2gen, hex_radius, x_dim, y_dim, jitter=0):
+    """
+    generate array of hexagonally arranged points within a 2D range
+
+    Parameters
+    ----------
+    hex_radius : float
+        number of hexagonally spaced distributions to generate 
+        (all the same if jitter = 0)
+    x_len : int or float
+        2-element list, xlim[0] and xlim[1] are the lower and upper bounds
+        of the uniform distribution (inclusive)
+    y_len : int or float
+        2-element list, xlim[0] and xlim[1] are the lower and upper bounds
+        of the uniform distribution (inclusive)
+    jitter : 
+    Returns
+    -------
+    np.array
+        Monte Carlo coordinate matrix of shape [num_coords, 2, num_mc].
+        1st column x, 2nd column y.
+    """
+    hex_radius = np.float_(hex_radius)
+
+    x_len = x_dim[1] - x_dim[0]
+    y_len = y_dim[1] - y_dim[0]
+    
+    #generate rectangular grid such that:
+    #   points are contained in the same dimensions as the cone image
+    #   x-spacing = the maximum spacing for cones of this density
+    #   y-spacing = sin(60)*x-spacing (so that the distance between
+    #               all points will be equal when every other row is
+    #               displaced to go from rectangular -> hexagonal packing)
+    x_rectgrid_spacing = hex_radius
+    print('hex_radius: ' + str(hex_radius))
+    y_rectgrid_spacing = x_rectgrid_spacing * (np.sqrt(3) / 2)  # SIN(60°)
+    xv, yv = np.meshgrid(np.arange(0, x_len, x_rectgrid_spacing),
+                         np.arange(0, y_len, y_rectgrid_spacing),
+                         sparse=False,
+                        indexing='xy')
+    num_cones_placed = xv.shape[0] * xv.shape[1]
+
+    # initialize output vars
+    coord = np.empty([num2gen, num_cones_placed, 2])
+    coord[:] = np.nan
+
+    if jitter:
+        jitter_x_all = np.empty([num2gen, 1])
+        jitter_x_all[:] = np.nan
+        jitter_y_all = np.empty([num2gen, 1])
+        jitter_y_all[:] = np.nan
+    else:
+        jitter_x_all = np.nan
+        jitter_y_all = np.nan
+
+    # jitter the hexagonal grid for as many mosaics as we are to make
+    # *** i think that it would be better to generate a larger grid and have
+    #     it randomly crop the image area from it
+    for sp in np.arange(0, num2gen):
+        if jitter:
+            [xv, yv, jitter_x_all[sp], jitter_y_all[sp]] = calc.rectGridJitter(xv, yv, -.5, x_rectgrid_spacing, y_rectgrid_spacing)
+        
+        # translate every other row by half the x-spacing (rect -> hex)
+        xv[::2, :] += x_rectgrid_spacing/2
+
+        # # view
+        # fig_width = 21
+        # fig, ax = plt.subplots(figsize=(fig_width, fig_width))
+        # ax.scatter(xv, yv)
+        # ax.set_aspect('equal')
+
+        # flatten the hexagonal spacing vectors, send to standard coordinate array
+        x_vect = xv.flatten()
+        y_vect = yv.flatten()
+        coord[sp, :, 0] = x_vect
+        coord[sp, :, 1] = y_vect
+
+    return [coord, jitter_x_all, jitter_y_all]
+
+
+def rectGridJitter(xv, yv, rand_modifier, x_rectgrid_spacing, y_rectgrid_spacing):
+    
+    # get randomized amounts of jitter in the x and y direction
+    jitter_x = np.random.rand()
+    jitter_x = (jitter_x + rand_modifier) * x_rectgrid_spacing
+    jitter_y = np.random.rand()
+    jitter_y = (jitter_y + rand_modifier) * y_rectgrid_spacing
+
+    # apply jitter to the rectangular grid coordinates
+    xv = xv + jitter_x
+    yv = yv + jitter_y
+
+    return xv, yv, jitter_x, jitter_y
+
 def setFirstAndSecondSpacifiedCone(coord, seed_ind, dists):
     set_cones = [seed_ind]
     set_coord = np.ones([2, 2]) * -1
@@ -143,14 +240,17 @@ def setThirdOnwardSpacifiedCone(coord, avail, set_cones, set_coord, next_cone_in
         else:
             print('improper entry for std_of_blank_of_nearest_neighbor_distances, must be sum or average')
         
+        if num_averaged == 1 and not (nearest_neighbor_metric == distances_to_average).all:
+            print('SOMETHING IS WRONG WITH THE AVERAGING FOR NEAREST CONE DISTANCE')
+
         nearest_neighbor_stds.append(np.std(nearest_neighbor_metric, axis=0))
-    print(std_of_blank_of_nearest_neighbor_distances)
+
     spaciest_cone = avail[np.argmin(np.array(nearest_neighbor_stds))]
     
     # set the next cone in the spacified mosaic data
     set_cones.append(spaciest_cone)
     set_coord[next_cone_ind][:] = coord[spaciest_cone][:]
-    avail = removeVal(avail,[spaciest_cone])
+    avail = removeVal(avail, [spaciest_cone])
 
     return [set_cones, set_coord, avail]
 

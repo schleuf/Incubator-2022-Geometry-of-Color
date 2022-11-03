@@ -1,3 +1,4 @@
+from cmath import nan
 import numpy as np
 import matplotlib.pyplot as plt
 import h5py
@@ -30,7 +31,6 @@ def two_point_correlation_process(param, sav_cfg):
         corr_by_hist = file[corr_by + '_intracone_dist']['hist_mean'][()]
         bin_edge = file[corr_by + '_intracone_dist']['bin_edge'][()]
         all_coord = file['input_data']['cone_coord'][()]
-        
         maxbins = np.amax([corr_by_hist.shape[0], maxbins])
 
         to_be_corr_hists = []
@@ -209,7 +209,7 @@ def hexgrid_by_density_process(param, sav_cfg):
     proc = 'hexgrid_by_density'
     proc_vars = sav_cfg['hexgrid_by_density']['variables']
 
-    #First load in the inputs that are needed for this function
+    # First load in the inputs that are needed for this function
     sav_fl = param['sav_fl']
     num_sp = param['num_sp']
     with h5py.File(sav_fl, 'r') as file:
@@ -218,78 +218,23 @@ def hexgrid_by_density_process(param, sav_cfg):
         cone_density = file['basic_stats']['cone_density'][()]
         hex_radius = file['basic_stats']['hex_radius_of_this_density'][()]
     
-    #plt.imshow(img)
-    
-    if num_cones > 1: 
-        
-        img_y = img.shape[0]
-        img_x = img.shape[1]
+    # plt.imshow(img)
+    jitter = 0 
+    if num_cones > 1:  # otherwise why bother
+        [coord, jitter_x_all, jitter_y_all] = calc.hexgrid(num_sp,
+                                                           hex_radius,
+                                                           [0, img.shape[0]],
+                                                           [0, img.shape[1]],
+                                                           jitter)
+        num_cones_placed = coord.shape[0]
+        cone_density = num_cones_placed / (img.shape[0] * img.shape[1])
 
-        img_ratio = img_y / img_x
-
-        #Then write and/or direct to the code of the process itself 
-        phi = (np.sqrt(5)+1)/2
-        fig_width = 21
-
-        N = num_cones
-        ratio = np.sqrt(3)/2 # cos(60°)
-        y_scale_ratio = hex_radius * ratio
-        N_X = img_x
-        N_Y = img_y
-
-        xv, yv = np.meshgrid(np.arange(0, N_X, hex_radius), np.arange(0, N_Y, y_scale_ratio), sparse=False, indexing='xy')
-
-        num_cones_placed = xv.shape[0] * xv.shape[1]
-
-        coord = np.empty([num_sp, num_cones_placed, 2])
-        coord[:]= np.nan
-
-        for sp in np.arange(0, num_sp):
-        
-            img_y = img.shape[0]
-            img_x = img.shape[1]
-
-            img_ratio = img_y / img_x
-
-            #Then write and/or direct to the code of the process itself 
-            phi = (np.sqrt(5)+1)/2
-            fig_width = 21
-
-            N = num_cones
-            ratio = np.sqrt(3)/2 # cos(60°)
-            y_scale_ratio = hex_radius * ratio
-            N_X = img_x
-            N_Y = img_y
-
-            xv, yv = np.meshgrid(np.arange(0, N_X, hex_radius), np.arange(0, N_Y, y_scale_ratio), sparse=False, indexing='xy')
-            
-            num_cones_placed = xv.shape[0] * xv.shape[1]
-
-            cone_density = num_cones_placed / (img_x * img_y)
-
-            jitter_x = np.random.rand()
-            jitter_x = (jitter_x - .5) * hex_radius
-            jitter_y = np.random.rand()
-            jitter_y = (jitter_y - .5) * y_scale_ratio
-            xv = xv + jitter_x
-            yv = yv + jitter_y
-
-            xv[::2, :] += hex_radius/2
-
-            coord[sp, 0:xv.flatten().shape[0], 0] = xv.flatten()
-            coord[sp, 0:yv.flatten().shape[0], 1] = yv.flatten()
-
-            fig, ax = plt.subplots(figsize=(fig_width, fig_width))
-
-            ax.scatter(xv, yv)
-            ax.set_aspect('equal')
-
-            data_to_set = util.mapStringToLocal(proc_vars, locals())
+        data_to_set = util.mapStringToLocal(proc_vars, locals())
     else:
         data_to_set = util.mapStringToNan(proc_vars)
 
     flsyst.setProcessVarsFromDict(param, sav_cfg, proc, data_to_set)
-    
+
 
 def coneLocked_spacify_by_nearest_neighbors_process(param, sav_cfg):
     """
@@ -660,6 +605,11 @@ def viewIntraconeDistHists(save_names, prefix, save_things=False, save_path=''):
             print(id + ' contains < 2 cones, skipping... ')
 
 
+def viewMosaic(coord, coord_unit, conetype_color, id):
+    ax = show.scatt(coord, id, plot_col=conetype_color, xlabel=coord_unit, ylabel=coord_unit)
+    ax.figure
+    
+
 def viewSpacified(space_type, save_name, sp, save_things=False, save_path=''):
     for fl in save_name:
         # get spacified coordinate data and plotting parameters from the save file
@@ -690,7 +640,7 @@ def viewSpacified(space_type, save_name, sp, save_things=False, save_path=''):
 
                 ax.figure
                 if save_things:
-                    savnm = save_path + mosaic + '_' + s + '_' + conetype + '.png'
+                    savnm = save_path + mosaic + '_' + str(s) + '_' + conetype + '.png'
                     plt.savefig(savnm)
 
            
@@ -790,9 +740,7 @@ def view2PC(save_name, scale_std=1, showNearestCone=False, save_things=False, sa
             all_cone_mean_nearest = file['two_point_correlation']['all_cone_mean_nearest'][()]
             to_be_corr_colors = [bytes(n).decode('utf8') for n in file['input_data']['to_be_corr_colors'][()]]
             to_be_corr = [bytes(n).decode('utf8') for n in file['input_data']['to_be_corr'][()]]
-
-            print(to_be_corr_colors)
-            print(to_be_corr)
+            hex_radius = file['basic_stats']['hex_radius_of_this_density'][()]
 
         # *** shouldn't need to get this this way, save it in meta data
         num_cone = coord.shape[0]
@@ -821,17 +769,15 @@ def view2PC(save_name, scale_std=1, showNearestCone=False, save_things=False, sa
                     cone_rad_x = np.arange(half_cone_rad, half_cone_rad + (5 * all_cone_mean_nearest + 1), step=all_cone_mean_nearest)
                     lin_extent = 1.5
 
-        #           if showNearestCone:
-        #               for lin in cone_rad_x:
-        #                   if lin == cone_rad_x[0]:
-        #                       ax = show.line([lin, lin], [-1 * lin_extent, lin_extent], id='cone-dist', plot_col='olive')
-        #                   else:
-        #                       ax = show.line([lin, lin], [-1 * lin_extent, lin_extent], id='cone-dist', ax=ax, plot_col='olive')
+                    # if showNearestCone:
+                    #     for lin in cone_rad_x:
+                    #         if lin == cone_rad_x[0]:
+                    #             ax = show.line([lin, lin], [-1 * lin_extent, lin_extent], id='cone-dist', ax=ax, plot_col='olive')
+                    #         else:
+                    #             ax = show.line([lin, lin], [-1 * lin_extent, lin_extent], id='cone-dist', ax=ax, plot_col='olive')
 
-        #               ax = show.shadyStats(x, MCU_mean, MCU_std, id_str, scale_std=scale_std,
-        #                                   ax=ax, plot_col='dimgray')
-        #            else:        
-
+                    ax = show.line([hex_radius, hex_radius], [-1 * lin_extent, lin_extent], id='hex_radius', ax=ax, plot_col='maroon')
+                    
                     ax = show.shadyStats(x, hist_mean, hist_std, id_str, ax = ax, scale_std=scale_std,
                                         plot_col = plot_col, label = plot_label)
 

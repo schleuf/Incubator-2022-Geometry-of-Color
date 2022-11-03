@@ -191,6 +191,7 @@ def histo(hist_data, bin_edges, id, x_dim=1, plot_col='w',
     else:
         hist_data = hist_data[:, x_dim]
 
+        
     ax.set_facecolor(bckg_col)
     ax.hist(hist_data,
             bins=bin_edges,

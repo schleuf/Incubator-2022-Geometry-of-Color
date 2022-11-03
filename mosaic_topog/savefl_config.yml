@@ -114,10 +114,8 @@ hexgrid_by_density:
   - coord
   - num_cones_placed
   - cone_density
-  - jitter_x
-  - jitter_y
-
-
+  - jitter_x_all
+  - jitter_y_all
 
 # Primary Analysis Processes
 
