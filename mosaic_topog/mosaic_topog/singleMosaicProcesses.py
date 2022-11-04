@@ -100,6 +100,7 @@ def intracone_dist_common(coord, bin_width, dist_area_norm):
 
 
     """
+
     # get intracone distances
     dist = calc.dist_matrices(coord)
 
@@ -581,6 +582,7 @@ def viewIntraconeDistHists(save_names, prefix, save_things=False, save_path=''):
             conetype = bytes(file['mosaic_meta']['conetype'][()]).decode("utf8")
             coord_unit = bytes(file['input_data']['coord_unit'][()]).decode("utf8")
             conetype_color = bytes(file['input_data']['conetype_color'][()]).decode("utf8")
+            bin_width = file['input_data']['bin_width'][()]
         num_cone = coord.shape[0]
         id = mosaic + '_' + conetype
         if not np.isnan(hist[0]):
@@ -589,7 +591,7 @@ def viewIntraconeDistHists(save_names, prefix, save_things=False, save_path=''):
             xlab = 'distance, ' + coord_unit
             ylab = 'bin count (binsize = ' + str(bin_edge[1]-bin_edge[0])
             tit = 'intracone distance (' + str(num_cone) + " cones)"
-            x = bin_edge[1:]/2
+            x = bin_edge[1:]-(bin_width/2)
 
             # view histogram
             
@@ -694,6 +696,7 @@ def viewMonteCarloStats(save_name, mc_type, scale_std=1, save_things=False, save
             bin_edge = file['monteCarlo_' + mc_type + '_intracone_dist']['bin_edge'][()]
             mean_hist = file['monteCarlo_' + mc_type + '_intracone_dist']['hist_mean'][()]
             std_hist = file['monteCarlo_' + mc_type + '_intracone_dist']['hist_std'][()]
+            bin_width = file['input_data']['bin_width'][()]
         num_cone = coord.shape[0]
         id_str = mosaic + '_' + conetype
         if not np.isnan(mean_hist[0]):
@@ -702,7 +705,7 @@ def viewMonteCarloStats(save_name, mc_type, scale_std=1, save_things=False, save
             xlab = 'distance, ' + coord_unit
             ylab = 'bin count (binsize = ' + str(bin_edge[1]-bin_edge[0])
             tit = 'MCU intracone distance (' + str(num_cone) + " cones, " + str(num_mc) + " MCUs)"
-            x = bin_edge[1:]/2
+            x = x = bin_edge[1:]-(bin_width/2)
 
             ax = show.shadyStats(x, mean_hist, std_hist, id_str, scale_std=scale_std,
                             plot_col=conetype_color, title=tit, xlabel=xlab,
@@ -763,7 +766,7 @@ def view2PC(save_name, scale_std=1, showNearestCone=False, save_things=False, sa
 
                     # *** SS fix this to pull the string from inputs
                     tit = 'intracone dists normed by MCU (' + str(num_cone) + " cones, " + str(num_mc) + " MCs)"
-                    x = bin_edge[1:]/2
+                    x = bin_edge[1:]-(bin_width/2)
 
                     half_cone_rad = all_cone_mean_nearest / 2
                     cone_rad_x = np.arange(half_cone_rad, half_cone_rad + (5 * all_cone_mean_nearest + 1), step=all_cone_mean_nearest)
@@ -783,7 +786,7 @@ def view2PC(save_name, scale_std=1, showNearestCone=False, save_things=False, sa
 
                     if showNearestCone:
                         plt.xlim([0, half_cone_rad + 5 * all_cone_mean_nearest + 1])
-                        plt.ylim([-2,2]) #plt.ylim([-0, lin_extent])
+                        plt.ylim([-2,15]) #plt.ylim([-0, lin_extent])
 
                     ax.figure
                     ax.legend()
