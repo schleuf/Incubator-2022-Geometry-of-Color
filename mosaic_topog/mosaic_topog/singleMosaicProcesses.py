@@ -154,7 +154,23 @@ def intracone_dist_process(param, sav_cfg):
         all_coord = file['input_data']['cone_coord'][()]
         coord = []
         coord.append(np.reshape(all_coord, [1] + list(all_coord.shape)))
-        for sim in sim_to_gen:
+
+        simulated = []
+        for key in file:
+            take = 0
+            if key == 'monteCarlo_uniform':
+                take = 1
+            elif key == 'monteCarlo_coneLocked':
+                take = 1 
+            elif key == 'coneLocked_spacify_by_nearest_neighbors':
+                take = 1
+            elif key == 'hexgrid_by_density':
+                take = 1
+            
+            if take:
+                simulated.append(key)
+
+        for sim in simulated:
             coord.append(file[sim]['coord'][()])
             # print(file[sim]['coord'][()])
 
@@ -162,11 +178,11 @@ def intracone_dist_process(param, sav_cfg):
 
         # to store the outputs of this process
         data_to_set = {}
-        
+
         if ind == 0:
             PD_string = 'measured' + '_'
         else:
-            PD_string = sim_to_gen[ind-1] + '_'
+            PD_string = simulated[ind-1] + '_'
 
         # if this is a valid coordinate dataset for this process...
         if len(point_data.shape) == 3:
@@ -177,6 +193,8 @@ def intracone_dist_process(param, sav_cfg):
             std_nearest = np.zeros(num_mosaic)
             hist = np.empty(num_mosaic, dtype=np.ndarray)
             max_hist_bin = 0
+
+            print('     Running intracone distances on ' + str(num_mosaic) + " " + PD_string + ' mosaics...') 
             for mos in np.arange(0, num_mosaic):
                 this_coord = point_data[mos, :, :]
                 dist[mos, :, :], mean_nearest[mos], std_nearest[mos], hist[mos], bin_edge, annulus_area = intracone_dist_common(this_coord.squeeze(), bin_width, dist_area_norm)
@@ -534,16 +552,16 @@ def primary_analyses_process(user_param, sav_cfg):
                 print('Running process "' + proc + '" on file' + str(ind) + '/' + str(len(processes[proc])) +'...') 
                 param = unpackThisParam(user_param, ind)
                 globals()[sav_cfg[proc]['process']](param, sav_cfg)
-                print("     SIMULATED COORDINATES")
-                for sim in user_param['sim_to_gen'][0]:
-                    if sim == 'monteCarlo_uniform' or sim == 'monteCarlo_coneLocked':
-                        numsim = user_param['num_mc']
-                    elif sim == 'coneLocked_spacify_by_nearest_neighbors' or sim == 'hexgrid_by_density':
-                        numsim = user_param['num_sp']
-                    else:
-                        print('Error: invalid simulation entry')
-                    print('     Running process "' + proc + '" on' + str(numsim) + ' ' + sim + 'simulations...') 
-                    globals()[sav_cfg[sim]['process']](param, sav_cfg)
+                #print("     SIMULATED COORDINATES")
+                # for sim in user_param['sim_to_gen'][0]:
+                #     if sim == 'monteCarlo_uniform' or sim == 'monteCarlo_coneLocked':
+                #         numsim = user_param['num_mc']
+                #     elif sim == 'coneLocked_spacify_by_nearest_neighbors' or sim == 'hexgrid_by_density':
+                #         numsim = user_param['num_sp']
+                #     else:
+                #         print('Error: invalid simulation entry')
+                    # print('     Running process "' + proc + '" on' + str(numsim) + ' ' + sim + 'simulations...') 
+                    # globals()[sav_cfg[sim]['process']](param, sav_cfg)
         else:
             print('didnt run ' + proc)
 
