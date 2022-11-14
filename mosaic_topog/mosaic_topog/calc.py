@@ -6,6 +6,8 @@ from scipy import spatial
 import cv2
 
 import matplotlib.pyplot as plt
+import mosaic_topog.utilities as util
+import mosaic_topog.show as show
 
 
 # Functions
@@ -13,7 +15,115 @@ import matplotlib.pyplot as plt
 # dist_matrices
 # Monte_Carlo_uniform
 
- 
+
+def voronoi(img, subdiv):
+
+    (facets, centers) = subdiv.getVoronoiFacetList([])
+  
+    voronoi_area = np.empty([len(facets), ])
+    num_neighbor = np.empty([len(facets), ])
+
+    voronoi_area[:] = np.nan
+    num_neighbor[:] = np.nan
+    bound = np.zeros([len(facets), ])
+
+    x_dim = [0, img.shape[1]]
+    y_dim = [0, img.shape[0]]
+
+    # identify bounded voronoi cell as any with a facet with an x,y boundary value
+    # calculate metrics from bound voronoi cells
+    buffer = 1
+    kwargs_dummy = {}
+    ax = show.getAx(kwargs_dummy)
+    for i in range(0, len(facets)):
+        fac = facets[i]
+        unbound = 0
+        rand_col = np.array([random.randint(0, 255),
+                             random.randint(0, 255),
+                             random.randint(0, 255)])
+        rand_col = rand_col/255
+        for f in fac:
+            if ((f[0] <= x_dim[0] + buffer or f[0] >= x_dim[1] - buffer) or
+                (f[1] <= y_dim[0] + buffer or f[1] >= y_dim[1] - buffer)):
+                unbound = 1
+        if not unbound:
+            for f in fac:
+                ax = show.scatt(np.array([f[0], f[1]]), id='voronoi facets', ax=ax, plot_col=rand_col) 
+        if not unbound:
+            bound[i] = 1
+        facets_e = util.explode_xy(fac)
+        voronoi_area[i] = shoelace_area(facets_e[0], facets_e[1])
+        num_neighbor[i] = len(fac)
+    bound = np.array(bound, int)
+
+    if np.nanstd(voronoi_area) == 0:
+        voronoi_area_regularity = 1
+    else:
+        voronoi_area_regularity = np.nanmean(voronoi_area[bound])/np.nanstd(voronoi_area[bound])
+
+    if np.nanstd(num_neighbor) == 0:
+        num_neighbor_regularity = 1
+    else:
+        num_neighbor_regularity = np.nanmean(num_neighbor[bound])/np.nanstd(num_neighbor[bound])
+
+    density = sum(bound)/sum(voronoi_area[bound])
+    hexrad = hex_radius(density)
+
+    return (facets, centers, bound, voronoi_area, voronoi_area_regularity,
+            density, hexrad, num_neighbor, num_neighbor_regularity)
+
+
+def delaunay(img, subdiv, delaunay_colour):
+    triangleList = subdiv.getTriangleList()
+    size = img.shape
+    r = (0, 0, size[1], size[0])
+
+    for t in triangleList:
+        pt1 = (int(t[0]), int(t[1]))
+        pt2 = (int(t[2]), int(t[3]))
+        pt3 = (int(t[4]), int(t[5]))
+
+        if rectContains(r, pt1) and rectContains(r, pt2) and rectContains(r, pt3):
+            cv2.line(img, pt1, pt2, delaunay_colour, 1)
+            cv2.line(img, pt2, pt3, delaunay_colour, 1)
+            cv2.line(img, pt3, pt1, delaunay_colour, 1)
+
+
+def rectContains(rectangle, point):
+    if (point[0] < rectangle[0] or
+        point[1] < rectangle[1] or
+        point[0] > rectangle[2] or
+        point[0] > rectangle[3]): 
+        return False
+    return True
+
+
+def shoelace_area(x_list, y_list):
+    # print('x_list')
+    # print(x_list)
+    # print('')
+    # print('y_list')
+    # print(y_list)
+    # print('')
+
+    a1, a2 = 0, 0
+    x_list.append(x_list[0])
+    y_list.append(y_list[0])
+    for j in range(len(x_list)-1):
+        a1 += x_list[j]*y_list[j+1]
+        a2 += y_list[j]*x_list[j+1]
+    l=abs(a1-a2)/2
+
+    # print('area')
+    # print(l)
+    # print('')
+    return l
+
+def hex_radius(density):
+    radius = np.sqrt(np.sqrt(4/3)/density)
+    return radius
+
+
 def corr(test_vector, ref_vector):
     return test_vector / ref_vector - 1
 
@@ -130,7 +240,6 @@ def hexgrid(num2gen, hex_radius, x_dim, y_dim, jitter=0):
     #               all points will be equal when every other row is
     #               displaced to go from rectangular -> hexagonal packing)
     x_rectgrid_spacing = hex_radius
-    print('hex_radius: ' + str(hex_radius))
     y_rectgrid_spacing = x_rectgrid_spacing * (np.sqrt(3) / 2)  # SIN(60°)
     xv, yv = np.meshgrid(np.arange(0, x_len, x_rectgrid_spacing),
                          np.arange(0, y_len, y_rectgrid_spacing),
@@ -351,10 +460,11 @@ def monteCarlo_coneLocked(num_coord, all_coord, num_mc):
 
 # ------------------------Functions from https://learnopencv.com/delaunay-triangulation-and-voronoi-diagram-using-opencv-c-python/
 
-# Draw a point
-def draw_point(img, p, color ) :
+
+def draw_point(img, p, color) :
     cv2.circle( img, p, 2, color, cv2.cv.CV_FILLED, cv2.CV_AA, 0 )
  
+
 # Draw delaunay triangles
 def draw_delaunay(img, subdiv, delaunay_color ) :
  

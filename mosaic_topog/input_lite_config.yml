@@ -6,14 +6,15 @@
 # if there is already analyses for a mosaic that you want to add analyses to, it must 
 # be located in the save file the same name as the coordinate file but with the save file-type
 data_path:
+  # - 'C:\Users\schle\Documents\GitHub\Incubator-2022-Geometry-of-Color\CSV data test locs hexgrids\'
   - 'C:\Users\schle\Documents\GitHub\Incubator-2022-Geometry-of-Color\CSV data all OCT locs Jan 2022\'
 save_path:
-  - 'C:\Users\schle\Documents\MosTop Outputs\experiment_11-4_hexgrid_voronoi\'
+  - 'C:\Users\schle\Documents\MosTop Outputs\experiment_11-14_voronoi_cones\'
 
 # settings that define the files that will be searched for in the load folder above.
 # processes indicated below will be run on all such files found. 
 subject:
-  - ['AO001R']  #['AO001R', 'AO008R']
+  - ['AO001R']  # set optionis: ['AO001R', 'AO008R'] or ['test5', 'test10']
 angle:
   - ['temporal']  #['temporal', 'nasal', 'superior', 'inferior']
 eccentricity:
@@ -28,22 +29,27 @@ coord_fltype:
   - '.csv'
 img_fltype:
   - '.png'
+convert_coord_unit: True
+convert_coord_unit_to: 'arcsec'
+coord_conversion_factor: 9.36
+density_unit: 'degrees' # applied to original coord_unit if convert_unit is false, otherwise applied to convert_unit_to
+density_conversion_factor: 0.00027777777 # make 1 if want density to be the same unit as coord
 
 # Run settings
 # ------------
 # select single-mosaic processes to run. list in a....dictionary? why is it a dictionary? ***
 # options: 'basic stats', 'intracone_dists', 'monteCarlo_Uniform', 'monteCarlo_coneLocked
 sim_to_gen:
-  #- ['hexgrid_by_density']
-  - ['monteCarlo_uniform',
-     'monteCarlo_coneLocked',
-     'coneLocked_spacify_by_nearest_neighbors',
-     'hexgrid_by_density']
+  - []
+  # - ['monteCarlo_uniform',
+  #    'monteCarlo_coneLocked',
+  #    'coneLocked_spacify_by_nearest_neighbors',
+  #    'hexgrid_by_density']
 
 analyses_to_run:
-  # - ['intracone_dist']
-  - ['intracone_dist',
-     'two_point_correlation']
+  - ['voronoi']
+  # - ['intracone_dist',
+  #    'two_point_correlation']
  
 # indicate whether all processes requested will be run on all mosaics found fitting the inputs above,
 # or processes will only be run for a file if that process' outputs are not present in an identified save file
@@ -57,11 +63,11 @@ data_to_run:
 dist_area_norm:
   - False # bool
 bin_width:
-  - 2
+  - 1
 
 # monteCarlo_uniform and monteCarlo_coneLocked settings
 num_mc:
-  - 10 # number of monte carlo mosaics to generate 
+  - 100 # number of monte carlo mosaics to generate 
 
 #spacified settings (perfect hex and coneLocked maximally spaced)
 num_sp:
@@ -71,19 +77,16 @@ num_sp:
 num_neighbors_to_average: 1
 std_of_blank_of_nearest_neighbor_distances: 'average' # 'sum' or 'average'
 
+#hexgrid settings
+sim_hexgrid_by: 'voronoi' # 'rectangular' or 'voronoi'
+
 #two point correlation
 corr_by: 'monteCarlo_uniform'
 to_be_corr:
-- ['measured', 
-   'monteCarlo_uniform',
-   'monteCarlo_coneLocked',
-   'coneLocked_spacify_by_nearest_neighbors',
-   'hexgrid_by_density']
+- ['measured',
+   'monteCarlo_uniform']
 to_be_corr_colors: # white, rebeccapurple, royalblue, darkorange, firebrick
 - ['white',
-   'rebeccapurple',
-   'royalblue',
-   'darkorange',
-   'firebrick']
+   'rebeccapurple']
 
 #plots to make

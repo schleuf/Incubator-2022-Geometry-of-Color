@@ -53,8 +53,15 @@ input_data:
     - data_path
     - save_path
     - cone_img
+    - img_x
+    - img_y
     - cone_coord
     - coord_unit
+    - convert_coord_unit
+    - convert_coord_unit_to
+    - coord_conversion_factor
+    - density_unit
+    - density_conversion_factor
     - conetype_color
     - sim_to_gen
     - analyses_to_run
@@ -67,6 +74,7 @@ input_data:
     - to_be_corr_colors
     - num_neighbors_to_average
     - std_of_blank_of_nearest_neighbor_distances
+    - sim_hexgrid_by
 
 basic_stats:
   process: basic_stats_process
@@ -74,7 +82,7 @@ basic_stats:
   variables:
     - num_cones
     - img_area
-    - cone_density
+    - rectangular_cone_density
     - hex_radius_of_this_density
 
 # Simulation Processes
@@ -131,6 +139,23 @@ intracone_dist:
   - hist_std
   - bin_edge
   - annulus_area
+
+
+voronoi:
+  process: voronoi_process
+  process_type: analysis
+  analysis_tier: 1
+  variables:
+  - facets
+  - centers
+  - bound
+  - voronoi_area
+  - num_neighbor
+  - voronoi_area_regularity
+  - num_neighbor_regularity
+  - density
+  - hex_radius
+
 
 # Secondary Analysis Processes
 

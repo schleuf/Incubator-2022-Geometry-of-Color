@@ -14,7 +14,14 @@ import numpy as np
 #  removeListInds
 #    remove more than one index from a list at once
 #
-
+#EXPLODE X AND Y
+def explode_xy(xy):
+    xl=[]
+    yl=[]
+    for i in range(len(xy)):
+        xl.append(xy[i][0])
+        yl.append(xy[i][1])
+    return xl,yl
 
 def vector_zeroPad(vector_to_pad, num_preceding, num_following):
     if not (len(vector_to_pad.shape) == 1

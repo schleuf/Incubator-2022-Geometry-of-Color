@@ -6,6 +6,7 @@ import mosaic_topog.utilities as util
 import yaml
 import h5py
 
+
 def getAllConeCoord(sav_fl, mosaic):
      # look for all cone mosaic for this data
     save_path = os.path.dirname(sav_fl)
@@ -17,6 +18,7 @@ def getAllConeCoord(sav_fl, mosaic):
         print('could not pull total cones coordinates from ' + all_coord_fl)
     
     return all_coord
+
 
 def setProcessByType(file, proc, var, data, prefix=''):
     """
@@ -33,6 +35,8 @@ def setProcessByType(file, proc, var, data, prefix=''):
         file[proc_to_set][var] = np.int_(data)
     elif isinstance(data, bool):
         file[proc_to_set][var] = np.bool_(data)
+    elif isinstance(data, dict):
+        file[proc_to_set][var] = data
     elif isinstance(data, list):
         try:
             if not data:

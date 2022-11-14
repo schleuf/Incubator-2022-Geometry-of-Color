@@ -1,14 +1,18 @@
 from cmath import nan
+from tkinter.tix import MAX
 import numpy as np
 import matplotlib.pyplot as plt
 import h5py
 import os
+import cv2
 
 import mosaic_topog.flsyst as flsyst
 import mosaic_topog.calc as calc
 import mosaic_topog.show as show
 import mosaic_topog.utilities as util
 from py import process
+
+import random
 
 
 ## --------------------------------SECONDARY ANALYSIS FUNCTIONS--------------------------------------
@@ -55,6 +59,8 @@ def two_point_correlation_process(param, sav_cfg):
         # Hey Sierra this section shouldn't need to be heeeere ***
         # get average nearest cone in the overall mosaic
         all_cone_dist = calc.dist_matrices(all_coord)
+        print(all_cone_dist.size)
+
         # get avg and std of nearest cone distance in the mosaic
         nearest_dist = []
         for cone in np.arange(0, all_cone_dist.shape[0]):
@@ -74,6 +80,7 @@ def two_point_correlation_process(param, sav_cfg):
             corred_set = []
             for ind, vect in enumerate(to_be_corr_set):
                 if not all(x == 0 for x in vect):
+                    print('points in intrapoint distance hist: ' + str(np.nansum(vect)))
                     if ind == 0: #mean
                         corred_set.append(calc.corr(vect, corr_by_hist))
                     elif ind == 1: 
@@ -84,6 +91,7 @@ def two_point_correlation_process(param, sav_cfg):
                     corred_set.append(temp)
             corred.append(np.float64(corred_set))
         corred = np.float64(corred)
+        
         data_to_set = util.mapStringToLocal(proc_vars, locals())
     else:
         data_to_set = util.mapStringToNan(proc_vars)
@@ -92,6 +100,65 @@ def two_point_correlation_process(param, sav_cfg):
 
 
 ## --------------------------------PRIMARY ANALYSIS FUNCTIONS--------------------------------------
+
+
+def voronoi_process(param, sav_cfg):
+    """
+    Inputs
+    ------
+
+    Outputs
+    -------
+
+
+    """
+    proc = 'voronoi'
+    proc_vars = sav_cfg[proc]['variables']
+
+    sav_fl = param['sav_fl']
+    with h5py.File(sav_fl, 'r') as file:
+        img_x = int(file['input_data']['img_x'][()])
+        img_y = int(file['input_data']['img_y'][()])
+
+    coord, PD_string = getDataForPrimaryProcess(sav_fl)
+
+    for ind, point_data in enumerate(coord):
+
+        points = []
+        for p in np.arange(0, point_data.shape[1]):
+            points.append([point_data[0, p, 0], point_data[0, p, 1]])
+
+        img = np.zeros([img_x, img_y, 3])
+        img_rect = [int(0), int(0), int(img_x), int(img_y)]
+
+        subdiv = cv2.Subdiv2D(img_rect)
+
+        for p in np.arange(0, len(points)):
+            subdiv.insert(points[p])
+
+        calc.delaunay(img, subdiv, (0, 0, 255))
+
+        img_voronoi = np.zeros(img.shape, dtype=img.dtype)
+        [facets, centers, bound, voronoi_area, voronoi_area_regularity,
+         density, hex_radius, num_neighbor, num_neighbor_regularity] = calc.voronoi(img_voronoi, subdiv)
+
+        # convert list of lists to numpy arrays that can be saved in the h5py
+        temp_f = np.empty([int(np.nansum(num_neighbor)), 3])
+        temp_f[:] = np.nan
+        count = 0
+        for ind2, f in enumerate(facets):
+            temp_f[count:count+len(f), 0] = ind2
+            temp_f[count:count+len(f), 1:3] = f[:]
+            count = count+len(f)
+        facets = temp_f
+
+        temp_c = np.array(centers)
+        centers = temp_c
+
+        data_to_set = util.mapStringToLocal(proc_vars, locals())
+
+        flsyst.setProcessVarsFromDict(param, sav_cfg, proc, data_to_set,
+                                    prefix=PD_string[ind])
 
 
 def intracone_dist_common(coord, bin_width, dist_area_norm):
@@ -131,28 +198,13 @@ def intracone_dist_common(coord, bin_width, dist_area_norm):
     return dist, mean_nearest, std_nearest, hist, bin_edge, annulus_area
 
 
-def intracone_dist_process(param, sav_cfg):
-    """
-    Inputs
-    ------
-
-    Outputs
-    -------
-
-
-    """
-    proc = 'intracone_dist'
-    proc_vars = sav_cfg[proc]['variables']
-    sav_fl = param['sav_fl']
-    bin_width = param['bin_width']
-    dist_area_norm = param['dist_area_norm']
-    sim_to_gen = param['sim_to_gen']
-
-    # get any needed info from the save file
+def getDataForPrimaryProcess(sav_fl):
+   # get any needed info from the save file
     # this handling of the different types of point-data shouldn't be within the intracone
     with h5py.File(sav_fl, 'r') as file:
         all_coord = file['input_data']['cone_coord'][()]
         coord = []
+        PD_string = []
         coord.append(np.reshape(all_coord, [1] + list(all_coord.shape)))
 
         simulated = []
@@ -180,10 +232,33 @@ def intracone_dist_process(param, sav_cfg):
         data_to_set = {}
 
         if ind == 0:
-            PD_string = 'measured' + '_'
+            PD_string.append('measured' + '_')
         else:
-            PD_string = simulated[ind-1] + '_'
+            PD_string.append(simulated[ind-1] + '_')
 
+    return coord, PD_string
+
+
+def intracone_dist_process(param, sav_cfg):
+    """
+    Inputs
+    ------
+
+    Outputs
+    -------
+
+
+    """
+    proc = 'intracone_dist'
+    proc_vars = sav_cfg[proc]['variables']
+    sav_fl = param['sav_fl']
+    bin_width = param['bin_width']
+    dist_area_norm = param['dist_area_norm']
+    sim_to_gen = param['sim_to_gen']
+
+    coord, PD_string = getDataForPrimaryProcess(sav_fl)
+    
+    for ind, point_data in enumerate(coord):
         # if this is a valid coordinate dataset for this process...
         if len(point_data.shape) == 3:
             num_mosaic = point_data.shape[0]
@@ -222,6 +297,8 @@ def intracone_dist_process(param, sav_cfg):
 
         flsyst.setProcessVarsFromDict(param, sav_cfg, proc, data_to_set, prefix=PD_string)
 
+
+
 ## -------------------------- SIMULATION PROCESSES ---------------------------------
 
 def hexgrid_by_density_process(param, sav_cfg):
@@ -235,7 +312,13 @@ def hexgrid_by_density_process(param, sav_cfg):
         img = file['input_data']['cone_img'][()]
         num_cones = file['basic_stats']['num_cones'][()]
         cone_density = file['basic_stats']['cone_density'][()]
-        hex_radius = file['basic_stats']['hex_radius_of_this_density'][()]
+        sim_hexgrid_by = file['input_data']['sim_hexgrid_by'][()]
+        if sim_hexgrid_by == 'rectangular':
+            hex_radius = file['basic_stats']['hex_radius_of_this_density'][()]
+        elif sim_hexgrid_by == 'voronoi':
+            hex_radius = file['measured_voronoi']['hex_radius'][()]
+        else:
+            print('bad input for sim_hexgrid_by, needs to be rectangular or voronoi')
     
     # plt.imshow(img)
     jitter = 0 
@@ -365,12 +448,29 @@ def input_data_process(param, sav_cfg):
     proc = 'input_data'
     proc_vars = sav_cfg[proc]['variables']
     data_to_set = {}
+
+    coord = np.loadtxt(param['coord_fl'], delimiter=',')
+    img = plt.imread(param['img_fl'])
+
+    param['img_x'] = img.shape[1]
+    param['img_y'] = img.shape[0]
+
+    if param['convert_coord_unit']:
+        param['coord_unit'] = param['convert_coord_unit_to']
+        coord = coord * param['coord_conversion_factor']
+        print(coord.shape)
+        ax = show.scatt(coord, 'coverted')
+
+        param['img_x'] = param['img_x'] * param['coord_conversion_factor']
+        param['img_y'] = param['img_y'] * param['coord_conversion_factor']
+
+
     for var in proc_vars:
         if var == 'cone_img':
-            data_to_set[var] = plt.imread(param['img_fl'])
+            data_to_set[var] = img
             
         elif var == 'cone_coord':
-            data_to_set[var] = (np.loadtxt(param['coord_fl'], delimiter=','))
+            data_to_set[var] = coord
         else:
             data_to_set[var] = param[var]
 
@@ -400,11 +500,16 @@ def basic_stats_process(param, sav_cfg):
     sav_fl = param['sav_fl']
     with h5py.File(sav_fl, 'r') as file:
         coord = file['input_data']['cone_coord'][()]
-        img = file['input_data']['cone_img'][()]
+        img_x = file['input_data']['img_x'][()]
+        img_y = file['input_data']['img_y'][()]
+        density_unit = file['input_data']['density_unit'][()]
+        density_conversion_factor = file['input_data']['density_conversion_factor'][()]
+
     num_cones = coord.shape[0]
-    img_area = img.shape[0] * img.shape[1]
-    cone_density = num_cones/img_area
-    hex_radius_of_this_density = np.sqrt(np.sqrt(4/3)/cone_density)
+    img_area = img_x * img_y * density_conversion_factor
+    rectangular_cone_density = num_cones/img_area
+
+    hex_radius_of_this_density = calc.hex_radius(rectangular_cone_density)
 
     data_to_set = util.mapStringToLocal(proc_vars, locals())
     flsyst.setProcessVarsFromDict(param, sav_cfg, proc, data_to_set)
@@ -443,7 +548,13 @@ def unpackThisParam(user_param, ind):
     param['to_be_corr_colors'] = user_param['to_be_corr_colors'][0]
     param['num_neighbors_to_average'] = user_param['num_neighbors_to_average']
     param['std_of_blank_of_nearest_neighbor_distances'] = user_param['std_of_blank_of_nearest_neighbor_distances']
-
+    param['convert_coord_unit'] = user_param['convert_coord_unit']
+    param['convert_coord_unit_to'] = user_param['convert_coord_unit_to']
+    param['coord_conversion_factor'] = user_param['coord_conversion_factor']
+    param['density_unit'] = user_param['density_unit']
+    param['density_conversion_factor'] = user_param['density_conversion_factor']
+    param['sim_hexgrid_by'] = user_param['sim_hexgrid_by']
+    
     return param
 
 
@@ -623,11 +734,6 @@ def viewIntraconeDistHists(save_names, prefix, save_things=False, save_path=''):
             
         else:
             print(id + ' contains < 2 cones, skipping... ')
-
-
-def viewMosaic(coord, coord_unit, conetype_color, id):
-    ax = show.scatt(coord, id, plot_col=conetype_color, xlabel=coord_unit, ylabel=coord_unit)
-    ax.figure
     
 
 def viewSpacified(space_type, save_name, sp, save_things=False, save_path=''):
@@ -662,8 +768,6 @@ def viewSpacified(space_type, save_name, sp, save_things=False, save_path=''):
                 if save_things:
                     savnm = save_path + mosaic + '_' + str(s) + '_' + conetype + '.png'
                     plt.savefig(savnm)
-
-           
 
         else:
             print('no spacified for "' + fl + '," skipping')
@@ -768,6 +872,8 @@ def view2PC(save_name, scale_std=1, showNearestCone=False, save_things=False, sa
         id_str = mosaic + '_' + conetype
 
         fig, ax = plt.subplots(1, 1, figsize = [10,10])
+        
+        maxY = 0
 
         for ind, corr_set in enumerate(corred):
             if not np.isnan(corr_set[0].all()):
@@ -777,7 +883,8 @@ def view2PC(save_name, scale_std=1, showNearestCone=False, save_things=False, sa
                     plot_label = to_be_corr[ind]
                     plot_col = to_be_corr_colors[ind]
 
-                    print(plot_col)
+                    maxY = np.nanmax([maxY,np.nanmax(hist_mean)])
+
                     # set up inputs to plot
                     xlab = 'distance, ' + coord_unit
                     ylab = 'bin count (binsize = ' + str(bin_width)
@@ -801,16 +908,19 @@ def view2PC(save_name, scale_std=1, showNearestCone=False, save_things=False, sa
                     
                     ax = show.shadyStats(x, hist_mean, hist_std, id_str, ax = ax, scale_std=scale_std,
                                         plot_col = plot_col, label = plot_label)
-
-                    if showNearestCone:
-                        plt.xlim([0, half_cone_rad + 5 * all_cone_mean_nearest + 1])
-                        plt.ylim([-2,15]) #plt.ylim([-0, lin_extent])
-
-                    ax.figure
-                    ax.legend()
-
-                    if save_things:
-                        savnm = save_path + id_str + '.png'
-                        plt.savefig(savnm)
+        
             else:
-                print('no')
+                    print('no')
+        
+        print(maxY)
+        if showNearestCone:
+            plt.xlim([0, half_cone_rad + 5 * all_cone_mean_nearest + 1])
+            plt.ylim([-1.5,maxY+2]) #plt.ylim([-0, lin_extent])
+
+        ax.figure
+        ax.legend()
+
+        if save_things:
+            savnm = save_path + id_str + '.png'
+            plt.savefig(savnm)
+            
