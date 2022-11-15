@@ -401,6 +401,9 @@ def getIndexes(categories, cat_str, cat_names):
     cat_index = {}
 
     for ind, cat_name in enumerate(cat_names):
+        print(cat_name)
+        print(categories[ind])
+        print('')
         vect = getIndex(categories[ind], cat_str[ind])
         cat_index[cat_name] = vect
 
@@ -429,6 +432,7 @@ def getIndex(cat_vals, fl_strings):
     index[:] = -1
 
     for ind, c in enumerate(cat_vals):
+        print(fl_strings)
         directory.append(np.nonzero(np.char.find(np.asarray(fl_strings),
                                     c) > -1)[0])
         index[directory[ind]] = int(ind)

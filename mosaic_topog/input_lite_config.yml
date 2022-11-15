@@ -6,15 +6,16 @@
 # if there is already analyses for a mosaic that you want to add analyses to, it must 
 # be located in the save file the same name as the coordinate file but with the save file-type
 data_path:
+  - 'C:\Users\schle\Documents\GitHub\Incubator-2022-Geometry-of-Color\CSV data test locs rectgrids\'
   # - 'C:\Users\schle\Documents\GitHub\Incubator-2022-Geometry-of-Color\CSV data test locs hexgrids\'
-  - 'C:\Users\schle\Documents\GitHub\Incubator-2022-Geometry-of-Color\CSV data all OCT locs Jan 2022\'
+  # - 'C:\Users\schle\Documents\GitHub\Incubator-2022-Geometry-of-Color\CSV data all OCT locs Jan 2022\'
 save_path:
-  - 'C:\Users\schle\Documents\MosTop Outputs\experiment_11-14_voronoi_cones\'
+  - 'C:\Users\schle\Documents\MosTop Outputs\experiment_11-15_rectgrid_voronoi_area_conversions\'
 
 # settings that define the files that will be searched for in the load folder above.
 # processes indicated below will be run on all such files found. 
 subject:
-  - ['AO001R']  # set optionis: ['AO001R', 'AO008R'] or ['test5', 'test10']
+  - ['rect10']  # set optionis: ['AO001R', 'AO008R'] or ['test5', 'test10'] or ['rect10']
 angle:
   - ['temporal']  #['temporal', 'nasal', 'superior', 'inferior']
 eccentricity:
@@ -29,11 +30,12 @@ coord_fltype:
   - '.csv'
 img_fltype:
   - '.png'
-convert_coord_unit: True
+convert_coord_unit: true
 convert_coord_unit_to: 'arcsec'
-coord_conversion_factor: 9.36
-density_unit: 'degrees' # applied to original coord_unit if convert_unit is false, otherwise applied to convert_unit_to
-density_conversion_factor: 0.00027777777 # make 1 if want density to be the same unit as coord
+coord_conversion_factor: 9.36 # pixels to arcsec = (60*60)*.0026 =  9.36
+density_unit: 'degrees' # 
+density_conversion_factor: 0.00027777777 # arcsec to degrees = 1/(60*60) = 0.00027777777
+bound_voronoi_facet_buffer: 2
 
 # Run settings
 # ------------
@@ -78,7 +80,7 @@ num_neighbors_to_average: 1
 std_of_blank_of_nearest_neighbor_distances: 'average' # 'sum' or 'average'
 
 #hexgrid settings
-sim_hexgrid_by: 'voronoi' # 'rectangular' or 'voronoi'
+sim_hexgrid_by: 'rectangular' # 'rectangular' or 'voronoi'
 
 #two point correlation
 corr_by: 'monteCarlo_uniform'

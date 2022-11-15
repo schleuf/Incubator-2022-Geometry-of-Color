@@ -16,7 +16,7 @@ import mosaic_topog.show as show
 # Monte_Carlo_uniform
 
 
-def voronoi(img, subdiv):
+def voronoi(img, subdiv, buffer):
 
     (facets, centers) = subdiv.getVoronoiFacetList([])
   
@@ -32,16 +32,15 @@ def voronoi(img, subdiv):
 
     # identify bounded voronoi cell as any with a facet with an x,y boundary value
     # calculate metrics from bound voronoi cells
-    buffer = 1
-    kwargs_dummy = {}
-    ax = show.getAx(kwargs_dummy)
+    ax = show.getAx({})
     for i in range(0, len(facets)):
-        fac = facets[i]
-        unbound = 0
         rand_col = np.array([random.randint(0, 255),
                              random.randint(0, 255),
                              random.randint(0, 255)])
         rand_col = rand_col/255
+
+        fac = facets[i]
+        unbound = 0
         for f in fac:
             if ((f[0] <= x_dim[0] + buffer or f[0] >= x_dim[1] - buffer) or
                 (f[1] <= y_dim[0] + buffer or f[1] >= y_dim[1] - buffer)):
@@ -49,7 +48,6 @@ def voronoi(img, subdiv):
         if not unbound:
             for f in fac:
                 ax = show.scatt(np.array([f[0], f[1]]), id='voronoi facets', ax=ax, plot_col=rand_col) 
-        if not unbound:
             bound[i] = 1
         facets_e = util.explode_xy(fac)
         voronoi_area[i] = shoelace_area(facets_e[0], facets_e[1])
@@ -59,18 +57,15 @@ def voronoi(img, subdiv):
     if np.nanstd(voronoi_area) == 0:
         voronoi_area_regularity = 1
     else:
-        voronoi_area_regularity = np.nanmean(voronoi_area[bound])/np.nanstd(voronoi_area[bound])
+        voronoi_area_regularity = np.nanmean(voronoi_area[np.nonzero(bound)])/np.nanstd(voronoi_area[np.nonzero(bound)])
 
     if np.nanstd(num_neighbor) == 0:
         num_neighbor_regularity = 1
     else:
-        num_neighbor_regularity = np.nanmean(num_neighbor[bound])/np.nanstd(num_neighbor[bound])
-
-    density = sum(bound)/sum(voronoi_area[bound])
-    hexrad = hex_radius(density)
+        num_neighbor_regularity = np.nanmean(num_neighbor[np.nonzero(bound)])/np.nanstd(num_neighbor[np.nonzero(bound)])
 
     return (facets, centers, bound, voronoi_area, voronoi_area_regularity,
-            density, hexrad, num_neighbor, num_neighbor_regularity)
+            num_neighbor, num_neighbor_regularity)
 
 
 def delaunay(img, subdiv, delaunay_colour):
@@ -206,6 +201,58 @@ def distHist(dists, bin_width):
     return hist, bin_edges
 
 
+def rectgrid(hex_radius, x_dim, y_dim):
+    """
+    generate array of hexagonally arranged points within a 2D range
+
+    Parameters
+    ----------
+    hex_radius : float
+        number of hexagonally spaced distributions to generate 
+        (all the same if jitter = 0)
+    x_len : int or float
+        2-element list, xlim[0] and xlim[1] are the lower and upper bounds
+        of the uniform distribution (inclusive)
+    y_len : int or float
+        2-element list, xlim[0] and xlim[1] are the lower and upper bounds
+        of the uniform distribution (inclusive)
+    jitter : 
+    Returns
+    -------
+    np.array
+        Monte Carlo coordinate matrix of shape [num_coords, 2, num_mc].
+        1st column x, 2nd column y.
+    """
+    hex_radius = np.float_(hex_radius)
+
+    x_len = x_dim[1] - x_dim[0]
+    y_len = y_dim[1] - y_dim[0]
+    
+    #generate rectangular grid such that:
+    #   points are contained in the same dimensions as the cone image
+    #   x-spacing = the maximum spacing for cones of this density
+    #   y-spacing = sin(60)*x-spacing (so that the distance between
+    #               all points will be equal when every other row is
+    #               displaced to go from rectangular -> hexagonal packing)
+    x_rectgrid_spacing = hex_radius
+    y_rectgrid_spacing = x_rectgrid_spacing
+    xv, yv = np.meshgrid(np.arange(0, x_len, x_rectgrid_spacing),
+                         np.arange(0, y_len, y_rectgrid_spacing),
+                         sparse=False, indexing='xy')
+    num_cones_placed = xv.shape[0] * xv.shape[1]
+
+    # initialize output vars
+    coord = np.empty([1, num_cones_placed, 2])
+    coord[:] = np.nan
+
+    # flatten the hexagonal spacing vectors, send to standard coordinate array
+    x_vect = xv.flatten()
+    y_vect = yv.flatten()
+    coord[0, :, 0] = x_vect
+    coord[0, :, 1] = y_vect
+
+    return [coord]
+
 def hexgrid(num2gen, hex_radius, x_dim, y_dim, jitter=0):
     """
     generate array of hexagonally arranged points within a 2D range
@@ -243,8 +290,7 @@ def hexgrid(num2gen, hex_radius, x_dim, y_dim, jitter=0):
     y_rectgrid_spacing = x_rectgrid_spacing * (np.sqrt(3) / 2)  # SIN(60°)
     xv, yv = np.meshgrid(np.arange(0, x_len, x_rectgrid_spacing),
                          np.arange(0, y_len, y_rectgrid_spacing),
-                         sparse=False,
-                        indexing='xy')
+                         sparse=False, indexing='xy')
     num_cones_placed = xv.shape[0] * xv.shape[1]
 
     # initialize output vars
@@ -265,7 +311,7 @@ def hexgrid(num2gen, hex_radius, x_dim, y_dim, jitter=0):
     #     it randomly crop the image area from it
     for sp in np.arange(0, num2gen):
         if jitter:
-            [xv, yv, jitter_x_all[sp], jitter_y_all[sp]] = calc.rectGridJitter(xv, yv, -.5, x_rectgrid_spacing, y_rectgrid_spacing)
+            [xv, yv, jitter_x_all[sp], jitter_y_all[sp]] = rectGridJitter(xv, yv, -.5, x_rectgrid_spacing, y_rectgrid_spacing)
         
         # translate every other row by half the x-spacing (rect -> hex)
         xv[::2, :] += x_rectgrid_spacing/2

@@ -119,6 +119,8 @@ def voronoi_process(param, sav_cfg):
     with h5py.File(sav_fl, 'r') as file:
         img_x = int(file['input_data']['img_x'][()])
         img_y = int(file['input_data']['img_y'][()])
+        bound_voronoi_facet_buffer = file['input_data']['bound_voronoi_facet_buffer'][()]
+        density_conversion_factor = file['input_data']['density_conversion_factor'][()]
 
     coord, PD_string = getDataForPrimaryProcess(sav_fl)
 
@@ -131,16 +133,34 @@ def voronoi_process(param, sav_cfg):
         img = np.zeros([img_x, img_y, 3])
         img_rect = [int(0), int(0), int(img_x), int(img_y)]
 
+        print('img_x: ', img_x)
+        print('img_y: ', img_y)
+
+        ax = show.scatt(np.squeeze(point_data), 'points to be voronoid')
+
         subdiv = cv2.Subdiv2D(img_rect)
 
         for p in np.arange(0, len(points)):
-            subdiv.insert(points[p])
+            try:
+                subdiv.insert(points[p])
+            except:
+                print('could not set')
+                print(points[p])
 
         calc.delaunay(img, subdiv, (0, 0, 255))
 
         img_voronoi = np.zeros(img.shape, dtype=img.dtype)
         [facets, centers, bound, voronoi_area, voronoi_area_regularity,
-         density, hex_radius, num_neighbor, num_neighbor_regularity] = calc.voronoi(img_voronoi, subdiv)
+         num_neighbor, num_neighbor_regularity] = calc.voronoi(img_voronoi, subdiv, bound_voronoi_facet_buffer)
+        print(sum(bound))
+        print(sum(voronoi_area[np.nonzero(bound)]))
+        print(sum(voronoi_area[np.nonzero(bound)]) * np.power(density_conversion_factor, 2))
+        density = sum(bound)/sum(voronoi_area[np.nonzero(bound)])
+        density_converted = sum(bound)/(np.power(density_conversion_factor, 2) * sum(voronoi_area[np.nonzero(bound)]))
+        hex_radius = calc.hex_radius(density)
+
+        print('voronoi density: ' + str(density_converted))
+        print('hex radius calc from voronoi: ' + str(hex_radius))
 
         # convert list of lists to numpy arrays that can be saved in the h5py
         temp_f = np.empty([int(np.nansum(num_neighbor)), 3])
@@ -158,7 +178,7 @@ def voronoi_process(param, sav_cfg):
         data_to_set = util.mapStringToLocal(proc_vars, locals())
 
         flsyst.setProcessVarsFromDict(param, sav_cfg, proc, data_to_set,
-                                    prefix=PD_string[ind])
+                                      prefix=PD_string[ind])
 
 
 def intracone_dist_common(coord, bin_width, dist_area_norm):
@@ -309,28 +329,49 @@ def hexgrid_by_density_process(param, sav_cfg):
     sav_fl = param['sav_fl']
     num_sp = param['num_sp']
     with h5py.File(sav_fl, 'r') as file:
-        img = file['input_data']['cone_img'][()]
         num_cones = file['basic_stats']['num_cones'][()]
-        cone_density = file['basic_stats']['cone_density'][()]
-        sim_hexgrid_by = file['input_data']['sim_hexgrid_by'][()]
+        img_x = file['input_data']['img_x'][()]
+        img_y = file['input_data']['img_y'][()]
+        sim_hexgrid_by = bytes(file['input_data']['sim_hexgrid_by'][()]).decode("utf8")
+        bound_voronoi_facet_buffer = file['input_data']['bound_voronoi_facet_buffer'][()]
         if sim_hexgrid_by == 'rectangular':
+            print(' creating hex radius by rectangluar density')
             hex_radius = file['basic_stats']['hex_radius_of_this_density'][()]
+            cone_density = file['basic_stats']['rectangular_cone_density'][()]
         elif sim_hexgrid_by == 'voronoi':
+            print('creatomg hex radius by voronoi density')
             hex_radius = file['measured_voronoi']['hex_radius'][()]
+            cone_density = file['measured_voronoi']['density'][()]
         else:
             print('bad input for sim_hexgrid_by, needs to be rectangular or voronoi')
-    
+            print(sim_hexgrid_by)
     # plt.imshow(img)
     jitter = 0 
+    print('img_x: ' + str(img_x))
+    print('img_y: ' + str(img_y))
+    print('hex_radius: ' + str(hex_radius))
+    print('cone_density'+ str(cone_density))
     if num_cones > 1:  # otherwise why bother
         [coord, jitter_x_all, jitter_y_all] = calc.hexgrid(num_sp,
                                                            hex_radius,
-                                                           [0, img.shape[0]],
-                                                           [0, img.shape[1]],
+                                                           [0, img_x],
+                                                           [0, img_y],
                                                            jitter)
-        num_cones_placed = coord.shape[0]
-        cone_density = num_cones_placed / (img.shape[0] * img.shape[1])
-
+        num_cones_placed = coord.shape[1]
+        cone_density = num_cones_placed / (img_x * img_y)
+        print('')
+        print('num cones placed: ' + str(num_cones_placed))
+        print('cone_density: ' + str(cone_density))
+        print(coord.shape)
+        before = show.scatt(np.squeeze(coord), 'before')
+        print('TRIMMING')
+        coord = util.trim_random_edge_points(np.squeeze(coord), img_x, img_y, num_cones, buffer=bound_voronoi_facet_buffer)
+        coord = np.expand_dims(coord, axis=0)
+        print('TRIMMED')
+        print('num cones placed: ' + str(num_cones_placed))
+        print('cone_density: ' + str(cone_density))
+        after = show.scatt(np.squeeze(coord), 'after')
+        print('')
         data_to_set = util.mapStringToLocal(proc_vars, locals())
     else:
         data_to_set = util.mapStringToNan(proc_vars)
@@ -506,8 +547,10 @@ def basic_stats_process(param, sav_cfg):
         density_conversion_factor = file['input_data']['density_conversion_factor'][()]
 
     num_cones = coord.shape[0]
-    img_area = img_x * img_y * density_conversion_factor
+    img_area = img_x * img_y 
+    print('img_area: ' + str(img_area))
     rectangular_cone_density = num_cones/img_area
+    rectangular_cone_density_converted = density_conversion_factor * (num_cones/img_area)
 
     hex_radius_of_this_density = calc.hex_radius(rectangular_cone_density)
 
@@ -546,6 +589,7 @@ def unpackThisParam(user_param, ind):
     param['corr_by'] = user_param['corr_by']
     param['to_be_corr'] = user_param['to_be_corr'][0]
     param['to_be_corr_colors'] = user_param['to_be_corr_colors'][0]
+
     param['num_neighbors_to_average'] = user_param['num_neighbors_to_average']
     param['std_of_blank_of_nearest_neighbor_distances'] = user_param['std_of_blank_of_nearest_neighbor_distances']
     param['convert_coord_unit'] = user_param['convert_coord_unit']
@@ -554,7 +598,7 @@ def unpackThisParam(user_param, ind):
     param['density_unit'] = user_param['density_unit']
     param['density_conversion_factor'] = user_param['density_conversion_factor']
     param['sim_hexgrid_by'] = user_param['sim_hexgrid_by']
-    
+    param['bound_voronoi_facet_buffer'] = user_param['bound_voronoi_facet_buffer']
     return param
 
 
@@ -658,10 +702,10 @@ def primary_analyses_process(user_param, sav_cfg):
     # perform on data
     for proc in tiers[0]:
         if proc in user_param['analyses_to_run'][0]:
-            print('MEASURED COORDINATES')
             for ind in processes[proc]:
-                print('Running process "' + proc + '" on file' + str(ind) + '/' + str(len(processes[proc])) +'...') 
+                print('Running process "' + proc + '" on file' + str(ind+1) + '/' + str(len(processes[proc])) +'...') 
                 param = unpackThisParam(user_param, ind)
+                print('     ' + param['sav_fl'])
                 globals()[sav_cfg[proc]['process']](param, sav_cfg)
                 #print("     SIMULATED COORDINATES")
                 # for sim in user_param['sim_to_gen'][0]:

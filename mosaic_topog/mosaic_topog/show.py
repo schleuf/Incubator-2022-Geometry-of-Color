@@ -92,7 +92,7 @@ def viewVoronoiDiagram(mos_type, save_things=False, save_name=[], prefix='',
         cv2.fillConvexPoly(img, ifacet, colour, 8, 0)
         ifacets = np.array([ifacet])
         cv2.polylines(img, ifacets, True, (0, 0, 255), 1)
-        cv2.circle(img, (int(centers[i][0]), int(centers[i][1])), 1, (0, 0, 255), cv2.FILLED)
+        cv2.circle(img, (int(centers[i][0]), int(centers[i][1])), 1 + round(img.shape[1]/100), (0, 0, 0), cv2.FILLED)
 
     ax = getAx(kwargs)
     ax.imshow(img)

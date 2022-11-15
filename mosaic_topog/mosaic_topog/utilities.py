@@ -1,5 +1,7 @@
 from cmath import nan
 import numpy as np
+import mosaic_topog.calc as calc
+import cv2
 
 # Functions
 # ---------
@@ -14,6 +16,50 @@ import numpy as np
 #  removeListInds
 #    remove more than one index from a list at once
 #
+
+
+def trim_random_edge_points(coord, img_x, img_y, num_cones, buffer=0):
+    # copied voronoi functionality from smp, bad form, needs to be a function
+    img = np.zeros([int(img_x), int(img_y), 3])
+    subdiv = cv2.Subdiv2D([0, 0, int(img_x), int(img_y)])
+
+    points = []
+    for p in np.arange(0, coord.shape[0]):
+        points.append([coord[p, 0], coord[p, 1]])
+
+    for p in np.arange(0, len(coord)):
+        try:
+            subdiv.insert(points[p])
+        except:
+            print('could not add coord to voronoi analysis: ' )
+            print(np.array([coord[p, 0],coord[p, 1]],'int'))
+    
+    calc.delaunay(img, subdiv, (0, 0, 255))
+
+    img_voronoi = np.zeros(img.shape, dtype=img.dtype)
+    [facets, centers, bound, voronoi_area, voronoi_area_regularity,
+     num_neighbor, num_neighbor_regularity] = calc.voronoi(img_voronoi, subdiv, buffer)
+    
+    temp = coord
+    diff_num_cones = coord.shape[1] - num_cones
+    print(diff_num_cones)
+    if diff_num_cones > 0:
+        unbound_inds = np.nonzero(bound==0)[0]
+        print(unbound_inds)
+        remove_inds = []
+        num_current = temp.shape[0]
+        while len(remove_inds) < diff_num_cones:
+            ind_to_remove = np.round(np.random.randint(0,unbound_inds.shape[0]-1))
+            if not ind_to_remove in remove_inds:
+                remove_inds.append(ind_to_remove)
+        print('inds to remove: ')
+        print(ind_to_remove)
+
+        temp[unbound_inds[ind_to_remove], :] = []
+        print(len(temp))
+    return temp
+
+
 #EXPLODE X AND Y
 def explode_xy(xy):
     xl=[]

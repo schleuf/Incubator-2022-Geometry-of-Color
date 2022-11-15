@@ -12,5 +12,5 @@ dependencies:
   - flake8
   - h5py
   - yaml
-  - opencv
+  - opencv>=4.6.0
 
