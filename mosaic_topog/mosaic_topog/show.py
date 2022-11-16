@@ -45,6 +45,7 @@ def viewVoronoiDiagram(mos_type, save_things=False, save_name=[], prefix='',
             conetype_color = bytes(file['input_data']['conetype_color'][()]).decode("utf8")
             facets = file[mos_type+'_voronoi']['facets'][()]
             centers = file[mos_type+'_voronoi']['centers'][()]
+            num_neighbor = file[mos_type+'_voronoi']['num_neighbor'][()]
             bound = file[mos_type+'_voronoi']['bound'][()]
             img_x = int(file['input_data']['img_x'][()])
             img_y = int(file['input_data']['img_y'][()])
@@ -66,23 +67,24 @@ def viewVoronoiDiagram(mos_type, save_things=False, save_name=[], prefix='',
             ifacet_arr.append(f)
 
         ifacet = np.array(ifacet_arr, np.int)
+
         if not bound[i]:
             colour = [150, 150, 150]
-        elif len(ifacet_arr) == 3:
+        elif num_neighbor[i] == 3:
             colour = [255, 0, 0]
-        elif len(ifacet_arr) == 4:
+        elif num_neighbor[i] == 4:
             colour = [255, 100, 0]
-        elif len(ifacet_arr) == 5:
+        elif num_neighbor[i] == 5:
             colour = [255, 255, 0]
-        elif len(ifacet_arr) == 6:
+        elif num_neighbor[i] == 6:
             colour = [0, 255, 0]
-        elif len(ifacet_arr) == 7:
+        elif num_neighbor[i] == 7:
             colour = [0, 255, 255]
-        elif len(ifacet_arr) == 8:
+        elif num_neighbor[i] == 8:
             colour = [0, 0, 255]
-        elif len(ifacet_arr) == 9:
+        elif num_neighbor[i] == 9:
             colour = [100, 0, 255]
-        elif len(ifacet_arr) == 10:
+        elif num_neighbor[i] == 10:
             colour = [255, 0, 255]
         else:
             colour = [255, 255, 255]
@@ -92,7 +94,7 @@ def viewVoronoiDiagram(mos_type, save_things=False, save_name=[], prefix='',
         cv2.fillConvexPoly(img, ifacet, colour, 8, 0)
         ifacets = np.array([ifacet])
         cv2.polylines(img, ifacets, True, (0, 0, 255), 1)
-        cv2.circle(img, (int(centers[i][0]), int(centers[i][1])), 1 + round(img.shape[1]/100), (0, 0, 0), cv2.FILLED)
+        cv2.circle(img, (int(centers[i][0]), int(centers[i][1])), 1, (0, 0, 0), cv2.FILLED)
 
     ax = getAx(kwargs)
     ax.imshow(img)

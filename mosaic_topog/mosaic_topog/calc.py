@@ -4,7 +4,6 @@ import numpy as np
 import random
 from scipy import spatial
 import cv2
-
 import matplotlib.pyplot as plt
 import mosaic_topog.utilities as util
 import mosaic_topog.show as show
@@ -19,7 +18,27 @@ import mosaic_topog.show as show
 def voronoi(img, subdiv, buffer):
 
     (facets, centers) = subdiv.getVoronoiFacetList([])
-  
+    
+    # facets_gen = 0
+    # facets_removed = 0
+    # temp = []
+    # for ind,fac in enumerate(facets):
+    #     facets_gen = facets_gen + fac.shape[0]
+    #     unique_rows = np.unique(fac, axis=0)
+    #     if unique_rows.shape[0] < fac.shape[0]:
+    #         facets_removed = facets_removed + (fac.shape[0] - unique_rows.shape[0])
+    #     temp.append(unique_rows)
+    # print('removed ' + str(facets_removed) + ' duplicate facets from '
+    #       + str(centers.shape[0]) + ' points run through subdiv2D')
+
+    # facets = tuple(temp)
+
+    # for ind,cent in enumerate(centers):
+    #     unique_rows = np.unique(, axis=0)
+    #     if unique_rows.shape[0] < fac.shape[0]:
+    #         facets_removed = fac.shape[0] - unique_rows.shape[0]
+    #         facets[ind] = fac[unique_rows,:]
+
     voronoi_area = np.empty([len(facets), ])
     num_neighbor = np.empty([len(facets), ])
 
@@ -33,6 +52,7 @@ def voronoi(img, subdiv, buffer):
     # identify bounded voronoi cell as any with a facet with an x,y boundary value
     # calculate metrics from bound voronoi cells
     ax = show.getAx({})
+
     for i in range(0, len(facets)):
         rand_col = np.array([random.randint(0, 255),
                              random.randint(0, 255),
@@ -49,18 +69,19 @@ def voronoi(img, subdiv, buffer):
             for f in fac:
                 ax = show.scatt(np.array([f[0], f[1]]), id='voronoi facets', ax=ax, plot_col=rand_col) 
             bound[i] = 1
-        facets_e = util.explode_xy(fac)
+        facets_e = [fac[:, 0].tolist(), fac[:, 1].tolist()]
         voronoi_area[i] = shoelace_area(facets_e[0], facets_e[1])
-        num_neighbor[i] = len(fac)
+        num_neighbor[i] = np.unique(fac, axis=0).shape[0]
+
     bound = np.array(bound, int)
 
     if np.nanstd(voronoi_area) == 0:
-        voronoi_area_regularity = 1
+        voronoi_area_regularity = np.nan
     else:
         voronoi_area_regularity = np.nanmean(voronoi_area[np.nonzero(bound)])/np.nanstd(voronoi_area[np.nonzero(bound)])
 
     if np.nanstd(num_neighbor) == 0:
-        num_neighbor_regularity = 1
+        num_neighbor_regularity = np.nan
     else:
         num_neighbor_regularity = np.nanmean(num_neighbor[np.nonzero(bound)])/np.nanstd(num_neighbor[np.nonzero(bound)])
 
@@ -94,12 +115,6 @@ def rectContains(rectangle, point):
 
 
 def shoelace_area(x_list, y_list):
-    # print('x_list')
-    # print(x_list)
-    # print('')
-    # print('y_list')
-    # print(y_list)
-    # print('')
 
     a1, a2 = 0, 0
     x_list.append(x_list[0])
@@ -107,8 +122,8 @@ def shoelace_area(x_list, y_list):
     for j in range(len(x_list)-1):
         a1 += x_list[j]*y_list[j+1]
         a2 += y_list[j]*x_list[j+1]
-    l=abs(a1-a2)/2
 
+    l=abs(a1-a2)/2
     # print('area')
     # print(l)
     # print('')

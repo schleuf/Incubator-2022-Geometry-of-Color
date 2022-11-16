@@ -167,9 +167,9 @@ def voronoi_process(param, sav_cfg):
         temp_f[:] = np.nan
         count = 0
         for ind2, f in enumerate(facets):
-            temp_f[count:count+len(f), 0] = ind2
-            temp_f[count:count+len(f), 1:3] = f[:]
-            count = count+len(f)
+            temp_f[count:count+num_neighbor[ind2], 0] = ind2
+            temp_f[count:count+num_neighbor[ind2], 1:3] = f[:]
+            count = count+num_neighbor[ind2]
         facets = temp_f
 
         temp_c = np.array(centers)

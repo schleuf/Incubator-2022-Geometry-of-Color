@@ -432,7 +432,6 @@ def getIndex(cat_vals, fl_strings):
     index[:] = -1
 
     for ind, c in enumerate(cat_vals):
-        print(fl_strings)
         directory.append(np.nonzero(np.char.find(np.asarray(fl_strings),
                                     c) > -1)[0])
         index[directory[ind]] = int(ind)
