@@ -20,11 +20,15 @@ def viewVoronoiHistogram(mos_type, metric, save_things=False, save_name=[], pref
             bound = file[mos_type+'_voronoi']['bound'][()]
 
             metric_data = file[mos_type+'_voronoi'][metric][()]
+            metric_mean = file[mos_type+'_voronoi'][metric+'_mean'][()]
+            metric_std = file[mos_type+'_voronoi'][metric+'_std'][()]
             metric_regularity = file[mos_type+'_voronoi'][metric+'_regularity'][()]
 
         ax = getAx(kwargs)
         ax.hist(metric_data[np.nonzero(bound)])
         ax.figure
+        print(metric + ' mean: ' + str(metric_mean))
+        print(metric + ' std: ' + str(metric_std))
         print(metric + ' regularity: ' + str(metric_regularity))
 
         if save_things:
@@ -52,9 +56,9 @@ def viewVoronoiDiagram(mos_type, save_things=False, save_name=[], prefix='',
 
     # convert facets to list of lists
     temp_f = []
-    for f in np.arange(0, int(np.nanmax(facets[:,0]))+1): # first column indicates which cell this is a voronoi facet of
-        rows = np.nonzero(facets[:,0]==f)
-        temp_f.append(facets[rows,1:3])
+    for f in np.arange(0, int(np.nanmax(facets[:, 0])) + 1):  # first column indicates which cell this is a voronoi facet of
+        rows = np.nonzero(facets[:, 0] == f)
+        temp_f.append(facets[rows, 1:3])
 
     facets = temp_f
 
@@ -70,21 +74,21 @@ def viewVoronoiDiagram(mos_type, save_things=False, save_name=[], prefix='',
 
         if not bound[i]:
             colour = [150, 150, 150]
-        elif num_neighbor[i] == 3:
+        elif int(num_neighbor[i]) == 3:
             colour = [255, 0, 0]
-        elif num_neighbor[i] == 4:
+        elif int(num_neighbor[i]) == 4:
             colour = [255, 100, 0]
-        elif num_neighbor[i] == 5:
+        elif int(num_neighbor[i]) == 5:
             colour = [255, 255, 0]
-        elif num_neighbor[i] == 6:
+        elif int(num_neighbor[i]) == 6:
             colour = [0, 255, 0]
-        elif num_neighbor[i] == 7:
+        elif int(num_neighbor[i]) == 7:
             colour = [0, 255, 255]
-        elif num_neighbor[i] == 8:
+        elif int(num_neighbor[i]) == 8:
             colour = [0, 0, 255]
-        elif num_neighbor[i] == 9:
+        elif int(num_neighbor[i]) == 9:
             colour = [100, 0, 255]
-        elif num_neighbor[i] == 10:
+        elif int(num_neighbor[i]) == 10:
             colour = [255, 0, 255]
         else:
             colour = [255, 255, 255]

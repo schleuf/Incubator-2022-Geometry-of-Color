@@ -138,23 +138,24 @@ def voronoi_process(param, sav_cfg):
 
         ax = show.scatt(np.squeeze(point_data), 'points to be voronoid')
 
-        subdiv = cv2.Subdiv2D(img_rect)
+        # subdiv = cv2.Subdiv2D(img_rect)
 
-        for p in np.arange(0, len(points)):
-            try:
-                subdiv.insert(points[p])
-            except:
-                print('could not set')
-                print(points[p])
+        # for p in np.arange(0, len(points)):
+        #     try:
+        #         subdiv.insert(points[p])
+        #     except:
+        #         print('could not set')
+        #         print(points[p])
 
-        calc.delaunay(img, subdiv, (0, 0, 255))
+        # calc.delaunay(img, subdiv, (0, 0, 255))
 
-        img_voronoi = np.zeros(img.shape, dtype=img.dtype)
-        [facets, centers, bound, voronoi_area, voronoi_area_regularity,
-         num_neighbor, num_neighbor_regularity] = calc.voronoi(img_voronoi, subdiv, bound_voronoi_facet_buffer)
-        print(sum(bound))
-        print(sum(voronoi_area[np.nonzero(bound)]))
-        print(sum(voronoi_area[np.nonzero(bound)]) * np.power(density_conversion_factor, 2))
+        # img_voronoi = np.zeros(img.shape, dtype=img.dtype)
+        [regions, vertices, bound, voronoi_area, voronoi_area_mean, voronoi_area_std, voronoi_area_regularity,
+         num_neighbor, num_neighbor_mean, num_neighbor_std, num_neighbor_regularity] = calc.voronoi(np.squeeze(coord), bound_voronoi_facet_buffer)
+        
+        print('num bound: ' + str(sum(bound)))
+        print('total voronoi area: ' + str(sum(voronoi_area[np.nonzero(bound)])))
+
         density = sum(bound)/sum(voronoi_area[np.nonzero(bound)])
         density_converted = sum(bound)/(np.power(density_conversion_factor, 2) * sum(voronoi_area[np.nonzero(bound)]))
         hex_radius = calc.hex_radius(density)
@@ -163,17 +164,11 @@ def voronoi_process(param, sav_cfg):
         print('hex radius calc from voronoi: ' + str(hex_radius))
 
         # convert list of lists to numpy arrays that can be saved in the h5py
-        temp_f = np.empty([int(np.nansum(num_neighbor)), 3])
-        temp_f[:] = np.nan
-        count = 0
-        for ind2, f in enumerate(facets):
-            temp_f[count:count+num_neighbor[ind2], 0] = ind2
-            temp_f[count:count+num_neighbor[ind2], 1:3] = f[:]
-            count = count+num_neighbor[ind2]
-        facets = temp_f
 
-        temp_c = np.array(centers)
-        centers = temp_c
+        temp_reg = np.empty([len(regions), int(np.nanmax(num_neighbor))])
+        for r,reg in enumerate(regions):
+            temp_reg[r,0:len(reg)] = reg
+        regions = temp_reg
 
         data_to_set = util.mapStringToLocal(proc_vars, locals())
 

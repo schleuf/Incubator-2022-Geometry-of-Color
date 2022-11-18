@@ -148,11 +148,15 @@ voronoi:
   process_type: analysis
   analysis_tier: 1
   variables:
-  - facets
-  - centers
+  - regions
+  - vertices
   - bound
   - voronoi_area
   - num_neighbor
+  - voronoi_area_mean
+  - voronoi_area_std
+  - num_neighbor_mean
+  - num_neighbor_std
   - voronoi_area_regularity
   - num_neighbor_regularity
   - density

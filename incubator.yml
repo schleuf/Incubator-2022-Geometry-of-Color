@@ -13,4 +13,5 @@ dependencies:
   - h5py
   - yaml
   - opencv>=4.6.0
+  - shapely
 

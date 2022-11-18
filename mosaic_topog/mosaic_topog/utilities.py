@@ -1,4 +1,5 @@
 from cmath import nan
+import random
 import numpy as np
 import mosaic_topog.calc as calc
 import cv2
@@ -16,6 +17,14 @@ import cv2
 #  removeListInds
 #    remove more than one index from a list at once
 #
+
+
+def randCol():
+    rand_col = np.array([random.randint(0, 255),
+                         random.randint(0, 255),
+                         random.randint(0, 255)])
+    rand_col = rand_col/255
+    return rand_col
 
 
 def trim_random_edge_points(coord, img_x, img_y, num_cones, buffer=0):

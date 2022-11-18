@@ -3,10 +3,12 @@ from pyexpat.errors import XML_ERROR_NO_ELEMENTS
 import numpy as np
 import random
 from scipy import spatial
-import cv2
 import matplotlib.pyplot as plt
 import mosaic_topog.utilities as util
 import mosaic_topog.show as show
+from scipy.spatial import Voronoi, voronoi_plot_2d, ConvexHull, convex_hull_plot_2d
+from shapely.geometry import Point
+from shapely.geometry.polygon import Polygon
 
 
 # Functions
@@ -14,79 +16,105 @@ import mosaic_topog.show as show
 # dist_matrices
 # Monte_Carlo_uniform
 
-
-def voronoi(img, subdiv, buffer):
-
-    (facets, centers) = subdiv.getVoronoiFacetList([])
+def slope_intercept(line):
+    x1 = line[0][0]
+    x2 = line[1][0]
+    y1 = line[0][1]
+    y2 = line[1][1]
+    slope = (y2-y1)/(x2-x1)
     
-    # facets_gen = 0
-    # facets_removed = 0
-    # temp = []
-    # for ind,fac in enumerate(facets):
-    #     facets_gen = facets_gen + fac.shape[0]
-    #     unique_rows = np.unique(fac, axis=0)
-    #     if unique_rows.shape[0] < fac.shape[0]:
-    #         facets_removed = facets_removed + (fac.shape[0] - unique_rows.shape[0])
-    #     temp.append(unique_rows)
-    # print('removed ' + str(facets_removed) + ' duplicate facets from '
-    #       + str(centers.shape[0]) + ' points run through subdiv2D')
+    y_intercept = y1 - (slope*x1)
+    return slope, y_intercept
 
-    # facets = tuple(temp)
 
-    # for ind,cent in enumerate(centers):
-    #     unique_rows = np.unique(, axis=0)
-    #     if unique_rows.shape[0] < fac.shape[0]:
-    #         facets_removed = fac.shape[0] - unique_rows.shape[0]
-    #         facets[ind] = fac[unique_rows,:]
+def point_on_line(x, y, m, b):
+    if (y == ((m * x) + b)):
+        return True
+    return False
 
-    voronoi_area = np.empty([len(facets), ])
-    num_neighbor = np.empty([len(facets), ])
 
-    voronoi_area[:] = np.nan
+def points_on_line(points, m, c):
+    on_line = []
+    for i, p in enumerate(points):
+        if point_on_line(p[0], p[1], m, c):
+            on_line.append(i)
+    return on_line
+
+
+def voronoi_region_metrics(bound, regions, vertices):
+    num_neighbor = np.empty([len(regions), ])
+    voronoi_area = np.empty([len(regions), ])
     num_neighbor[:] = np.nan
-    bound = np.zeros([len(facets), ])
+    voronoi_area[:] = np.nan
 
-    x_dim = [0, img.shape[1]]
-    y_dim = [0, img.shape[0]]
+    # facets_e = util.explode_xy(np.unique(fac, axis=0))
+    for r, reg in enumerate(regions):
+        if bound[r]:
+            cell_verts = np.empty([len(reg),2])
+            for v, vert in enumerate(reg):
+                cell_verts[v,:] = vertices[v]
+            cell = Polygon(vertices[reg])
+            voronoi_area[r] = cell.area
+            num_neighbor[r] = int(np.unique(reg).shape[0])
+    return voronoi_area, num_neighbor
 
-    # identify bounded voronoi cell as any with a facet with an x,y boundary value
-    # calculate metrics from bound voronoi cells
-    ax = show.getAx({})
+def get_bound_voronoi_cells(vertices, regions,ridge_vertices):
+    unbound_vert = []
+    unbound_reg = []
 
-    for i in range(0, len(facets)):
-        rand_col = np.array([random.randint(0, 255),
-                             random.randint(0, 255),
-                             random.randint(0, 255)])
-        rand_col = rand_col/255
+    for vpair in ridge_vertices:
+        if vpair[0] < 0:
+            unbound_vert.append(vpair[1])
+        elif vpair[1] < 0:
+            unbound_vert.append(vpair[0])
 
-        fac = facets[i]
-        unbound = 0
-        for f in fac:
-            if ((f[0] <= x_dim[0] + buffer or f[0] >= x_dim[1] - buffer) or
-                (f[1] <= y_dim[0] + buffer or f[1] >= y_dim[1] - buffer)):
-                unbound = 1
-        if not unbound:
-            for f in fac:
-                ax = show.scatt(np.array([f[0], f[1]]), id='voronoi facets', ax=ax, plot_col=rand_col) 
-            bound[i] = 1
-        facets_e = [fac[:, 0].tolist(), fac[:, 1].tolist()]
-        voronoi_area[i] = shoelace_area(facets_e[0], facets_e[1])
-        num_neighbor[i] = np.unique(fac, axis=0).shape[0]
+    bound = np.ones([len(regions), ])
+    for r, reg in enumerate(regions):
+        if len(reg) == 0:
+            bound[r] = 0
+        for v in reg:
+            if v in unbound_vert:
+                unbound_reg.append(r)
+    unbound_reg = np.unique(unbound_reg)
+    bound[unbound_reg] = 0
 
-    bound = np.array(bound, int)
+    return bound
+
+
+def voronoi(coord, buffer):
+
+    vor = Voronoi(coord)
+    vertices = vor.vertices
+    regions = vor.regions
+    ridge_vertices = vor.ridge_vertices
+    voronoi_plot_2d(vor)
+    show.scatt(vertices,'')
+
+    bound = get_bound_voronoi_cells(vertices,regions,ridge_vertices)
+
+    voronoi_area, num_neighbor = voronoi_region_metrics(bound, regions, vertices)
 
     if np.nanstd(voronoi_area) == 0:
+        voronoi_area_mean = np.nan
+        voronoi_area_std = np.nan
         voronoi_area_regularity = np.nan
     else:
-        voronoi_area_regularity = np.nanmean(voronoi_area[np.nonzero(bound)])/np.nanstd(voronoi_area[np.nonzero(bound)])
+        voronoi_area_mean = np.nanmean(voronoi_area[np.nonzero(bound)])
+        voronoi_area_std = np.nanstd(voronoi_area[np.nonzero(bound)])
+        voronoi_area_regularity = voronoi_area_mean/voronoi_area_std
 
     if np.nanstd(num_neighbor) == 0:
+        num_neighbor_mean = np.nan
+        num_neighbor_std = np.nan
         num_neighbor_regularity = np.nan
     else:
-        num_neighbor_regularity = np.nanmean(num_neighbor[np.nonzero(bound)])/np.nanstd(num_neighbor[np.nonzero(bound)])
+        num_neighbor_mean = np.nanmean(num_neighbor[np.nonzero(bound)])
+        num_neighbor_std = np.nanstd(num_neighbor[np.nonzero(bound)])
+        num_neighbor_regularity = num_neighbor_mean/num_neighbor_std
 
-    return (facets, centers, bound, voronoi_area, voronoi_area_regularity,
-            num_neighbor, num_neighbor_regularity)
+    return (regions, vertices, bound, 
+            voronoi_area, voronoi_area_mean, voronoi_area_std, voronoi_area_regularity,
+            num_neighbor, num_neighbor_mean, num_neighbor_std, num_neighbor_regularity)
 
 
 def delaunay(img, subdiv, delaunay_colour):

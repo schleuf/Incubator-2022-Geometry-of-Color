@@ -6,16 +6,16 @@
 # if there is already analyses for a mosaic that you want to add analyses to, it must 
 # be located in the save file the same name as the coordinate file but with the save file-type
 data_path:
-  - 'C:\Users\schle\Documents\GitHub\Incubator-2022-Geometry-of-Color\CSV data test locs rectgrids\'
-  # - 'C:\Users\schle\Documents\GitHub\Incubator-2022-Geometry-of-Color\CSV data test locs hexgrids\'
+  # - 'C:\Users\schle\Documents\GitHub\Incubator-2022-Geometry-of-Color\CSV data test locs rectgrids\'
+  - 'C:\Users\schle\Documents\GitHub\Incubator-2022-Geometry-of-Color\CSV data test locs hexgrids\'
   # - 'C:\Users\schle\Documents\GitHub\Incubator-2022-Geometry-of-Color\CSV data all OCT locs Jan 2022\'
 save_path:
-  - 'C:\Users\schle\Documents\MosTop Outputs\experiment_11-15_rectgrid_voronoi_area_conversions\'
+  - 'C:\Users\schle\Documents\MosTop Outputs\experiment-11-17_scipy_voronoi\'
 
 # settings that define the files that will be searched for in the load folder above.
 # processes indicated below will be run on all such files found. 
 subject:
-  - ['rect10']  # set optionis: ['AO001R', 'AO008R'] or ['test5', 'test10'] or ['rect10']
+  - ['test10']  # set optionis: ['AO001R', 'AO008R'] or ['test5', 'test10'] or ['rect10']
 angle:
   - ['temporal']  #['temporal', 'nasal', 'superior', 'inferior']
 eccentricity:
