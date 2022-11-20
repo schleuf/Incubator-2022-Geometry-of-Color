@@ -27,6 +27,7 @@ def viewVoronoiHistogram(mos_type, metric, save_things=False, save_name=[], pref
             metric_regularity = file[mos_type+'_voronoi'][metric+'_regularity'][()]
 
         print(metric_data[np.nonzero(bound)])
+        print('coord_unit: ' + coord_unit)
         print(metric + ' mean: ' + str(metric_mean))
         print(metric + ' std: ' + str(metric_std))
         print(metric + ' regularity: ' + str(metric_regularity))
@@ -37,6 +38,8 @@ def viewVoronoiHistogram(mos_type, metric, save_things=False, save_name=[], pref
             plt.xlim([metric_mean - (2 * metric_std), metric_mean + (2 * metric_std)])
         else:
             plt.xlim([metric_mean - 5, metric_mean + 5])
+        plt.xlabel(metric)
+        plt.ylabel('count per bin')
         ax.figure
 
         if save_things:
@@ -54,12 +57,22 @@ def viewVoronoiDiagram(mos_type, save_things=False, save_name=[], prefix='',
             mosaic = bytes(file['mosaic_meta']['mosaic'][()]).decode("utf8")
             coord = file['input_data']['cone_coord'][()]
             conetype = bytes(file['mosaic_meta']['conetype'][()]).decode("utf8")
-            coord_unit = bytes(file['input_data']['coord_unit'][()]).decode("utf8")
             conetype_color = bytes(file['input_data']['conetype_color'][()]).decode("utf8")
             regions = file[mos_type+'_voronoi']['regions'][()]
             vertices = file[mos_type+'_voronoi']['vertices'][()]
             num_neighbor = file[mos_type+'_voronoi']['num_neighbor'][()]
             bound = file[mos_type+'_voronoi']['bound'][()]
+            voronoi_area = file[mos_type+'_voronoi']['voronoi_area'][()]
+            convert_coord_unit = file['input_data']['convert_coord_unit'][()]
+            
+            coord_unit = bytes(file['input_data']['coord_unit'][()]).decode("utf8")
+            hex_radius = file[mos_type+'_voronoi']['hex_radius'][()]
+            if convert_coord_unit:
+                density_unit = bytes(file['input_data']['density_unit'][()]).decode("utf8")
+                density = file[mos_type+'_voronoi']['density_converted'][()]
+            else:
+                density = file[mos_type+'_voronoi']['density'][()]
+                density_unit = coord_unit
 
 
     ax = getAx(kwargs)
@@ -93,6 +106,13 @@ def viewVoronoiDiagram(mos_type, save_things=False, save_name=[], prefix='',
 
     ax = scatt(coord,'bound_voronoi_cells', ax=ax, mosaic_data=True)
     ax.figure
+    plt.xlabel(coord_unit)
+    plt.ylabel(coord_unit)
+
+    print('num bound cells: ' + str(sum(bound)))
+    print('total voronoi area: ' + str(sum(voronoi_area[np.nonzero(bound)])) + density_unit + '^2')
+    print('voronoi density: ' + str(density) + ' points per ' + density_unit + '^2')
+    print('hex radius calc from voronoi: ' + str(hex_radius) + ' ' + coord_unit)
 
     if save_things:
         savnm = save_path + mosaic + '_bound_cells_' + str(z_dim) + '_' + conetype + '.png'

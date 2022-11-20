@@ -30,12 +30,11 @@ coord_fltype:
   - '.csv'
 img_fltype:
   - '.png'
-convert_coord_unit: False
-convert_coord_unit_to: 'arcsec'
-coord_conversion_factor: 9.36 # pixels to arcsec = (60*60)*.0026 =  9.36
+convert_coord_unit: True
+convert_coord_unit_to: 'arcmin'
+coord_conversion_factor: 60/400 # pixels to arcsec = (60*60)*.0026 =  9.36
 density_unit: 'degrees' # 
-density_conversion_factor: 1 # 0.00027777777 # arcsec to degrees = 1/(60*60) = 0.00027777777
-bound_voronoi_facet_buffer: 2
+density_conversion_factor: 1/60 # 0.00027777777 # arcsec to degrees = 1/(60*60) = 0.00027777777
 
 # Run settings
 # ------------

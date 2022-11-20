@@ -75,7 +75,6 @@ input_data:
     - num_neighbors_to_average
     - std_of_blank_of_nearest_neighbor_distances
     - sim_hexgrid_by
-    - bound_voronoi_facet_buffer
 
 basic_stats:
   process: basic_stats_process

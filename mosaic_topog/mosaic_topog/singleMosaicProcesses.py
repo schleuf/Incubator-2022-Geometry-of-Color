@@ -119,8 +119,15 @@ def voronoi_process(param, sav_cfg):
     with h5py.File(sav_fl, 'r') as file:
         img_x = int(file['input_data']['img_x'][()])
         img_y = int(file['input_data']['img_y'][()])
-        bound_voronoi_facet_buffer = file['input_data']['bound_voronoi_facet_buffer'][()]
-        density_conversion_factor = file['input_data']['density_conversion_factor'][()]
+        convert_coord_unit = file['input_data']['convert_coord_unit'][()]  
+        coord_unit = bytes(file['input_data']['coord_unit'][()]).decode("utf8")
+        if convert_coord_unit:
+            density_unit = bytes(file['input_data']['density_unit'][()]).decode("utf8")
+            density_conversion_factor = file['input_data']['density_conversion_factor'][()]
+            if type(density_conversion_factor) == str:
+                density_conversion_factor = eval(density_conversion_factor)
+        else:
+            density_unit = coord_unit
 
     coord, PD_string = getDataForPrimaryProcess(sav_fl)
 
@@ -136,38 +143,30 @@ def voronoi_process(param, sav_cfg):
         print('img_x: ', img_x)
         print('img_y: ', img_y)
 
-        ax = show.scatt(np.squeeze(point_data), 'points to be voronoid')
+        # ax = show.scatt(np.squeeze(point_data), 'points to be voronoid')
 
-        # subdiv = cv2.Subdiv2D(img_rect)
-
-        # for p in np.arange(0, len(points)):
-        #     try:
-        #         subdiv.insert(points[p])
-        #     except:
-        #         print('could not set')
-        #         print(points[p])
-
-        # calc.delaunay(img, subdiv, (0, 0, 255))
-
-        # img_voronoi = np.zeros(img.shape, dtype=img.dtype)
         [regions, vertices, bound, voronoi_area, voronoi_area_mean, voronoi_area_std, voronoi_area_regularity,
-         num_neighbor, num_neighbor_mean, num_neighbor_std, num_neighbor_regularity] = calc.voronoi(np.squeeze(coord), bound_voronoi_facet_buffer)
+         num_neighbor, num_neighbor_mean, num_neighbor_std, num_neighbor_regularity] = calc.voronoi(np.squeeze(coord))
         
         print('num bound: ' + str(sum(bound)))
-        print('total voronoi area: ' + str(sum(voronoi_area[np.nonzero(bound)])))
-
+        print('total voronoi area: ' + str(sum(voronoi_area[np.nonzero(bound)])) + ' ' + coord_unit + '^2')
+   
         density = sum(bound)/sum(voronoi_area[np.nonzero(bound)])
-        density_converted = sum(bound)/(np.power(density_conversion_factor, 2) * sum(voronoi_area[np.nonzero(bound)]))
         hex_radius = calc.hex_radius(density)
 
-        print('voronoi density: ' + str(density_converted))
-        print('hex radius calc from voronoi: ' + str(hex_radius))
+        if convert_coord_unit:
+            density_converted = sum(bound)/(np.power(density_conversion_factor, 2) * sum(voronoi_area[np.nonzero(bound)]))
+        else:
+            density_converted = density
+
+        print('voronoi density: ' + str(density_converted) + ' cones per ' + density_unit +'^2')
+        print('hex radius calc from voronoi: ' + str(hex_radius) + coord_unit)
 
         # convert list of lists to numpy arrays that can be saved in the h5py
 
         temp_reg = np.empty([len(regions), int(np.nanmax(num_neighbor))])
-        for r,reg in enumerate(regions):
-            temp_reg[r,0:len(reg)] = reg
+        for r, reg in enumerate(regions):
+            temp_reg[r, 0:len(reg)] = reg
         regions = temp_reg
 
         data_to_set = util.mapStringToLocal(proc_vars, locals())
@@ -493,10 +492,12 @@ def input_data_process(param, sav_cfg):
 
     if param['convert_coord_unit']:
         param['coord_unit'] = param['convert_coord_unit_to']
+        if type(param['coord_conversion_factor']) == str:
+            param['coord_conversion_factor'] = eval(param['coord_conversion_factor'])
+        if type(param['density_conversion_factor'] == str):
+            param['density_conversion_factor'] = eval(param['density_conversion_factor'])
         coord = coord * param['coord_conversion_factor']
-        print(coord.shape)
-        ax = show.scatt(coord, 'coverted')
-
+        # ax = show.scatt(coord, 'converted', xlabel=param['convert_coord_unit_to'], ylabel=param['convert_coord_unit_to'])
         param['img_x'] = param['img_x'] * param['coord_conversion_factor']
         param['img_y'] = param['img_y'] * param['coord_conversion_factor']
 
@@ -530,6 +531,7 @@ def mosaic_meta_process(param, sav_cfg):
 
     flsyst.setProcessVarsFromDict(param, sav_cfg, proc, data_to_set)
 
+
 def basic_stats_process(param, sav_cfg):
     proc = 'basic_stats'
     proc_vars = sav_cfg[proc]['variables']
@@ -540,10 +542,8 @@ def basic_stats_process(param, sav_cfg):
         img_y = file['input_data']['img_y'][()]
         density_unit = file['input_data']['density_unit'][()]
         density_conversion_factor = file['input_data']['density_conversion_factor'][()]
-
     num_cones = coord.shape[0]
     img_area = img_x * img_y 
-    print('img_area: ' + str(img_area))
     rectangular_cone_density = num_cones/img_area
     rectangular_cone_density_converted = density_conversion_factor * (num_cones/img_area)
 
@@ -593,7 +593,6 @@ def unpackThisParam(user_param, ind):
     param['density_unit'] = user_param['density_unit']
     param['density_conversion_factor'] = user_param['density_conversion_factor']
     param['sim_hexgrid_by'] = user_param['sim_hexgrid_by']
-    param['bound_voronoi_facet_buffer'] = user_param['bound_voronoi_facet_buffer']
     return param
 
 

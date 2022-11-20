@@ -81,14 +81,14 @@ def get_bound_voronoi_cells(vertices, regions,ridge_vertices):
     return bound
 
 
-def voronoi(coord, buffer):
+def voronoi(coord):
 
     vor = Voronoi(coord)
     vertices = vor.vertices
     regions = vor.regions
     ridge_vertices = vor.ridge_vertices
-    voronoi_plot_2d(vor)
-    show.scatt(vertices,'')
+    # voronoi_plot_2d(vor)
+    # show.scatt(vertices,'')
 
     bound = get_bound_voronoi_cells(vertices,regions,ridge_vertices)
 
