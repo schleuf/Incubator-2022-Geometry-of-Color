@@ -103,13 +103,12 @@ def voronoi(coord, buffer):
         voronoi_area_std = np.nanstd(voronoi_area[np.nonzero(bound)])
         voronoi_area_regularity = voronoi_area_mean/voronoi_area_std
 
+    num_neighbor_mean = np.nanmean(num_neighbor[np.nonzero(bound)])
+    num_neighbor_std = np.nanstd(num_neighbor[np.nonzero(bound)])
+
     if np.nanstd(num_neighbor) == 0:
-        num_neighbor_mean = np.nan
-        num_neighbor_std = np.nan
         num_neighbor_regularity = np.nan
     else:
-        num_neighbor_mean = np.nanmean(num_neighbor[np.nonzero(bound)])
-        num_neighbor_std = np.nanstd(num_neighbor[np.nonzero(bound)])
         num_neighbor_regularity = num_neighbor_mean/num_neighbor_std
 
     return (regions, vertices, bound, 

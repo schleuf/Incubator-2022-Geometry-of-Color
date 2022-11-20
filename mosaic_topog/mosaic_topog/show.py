@@ -2,13 +2,15 @@ import matplotlib.pyplot as plt
 import numpy as np
 import h5py
 import random
-import cv2
+from scipy.spatial import voronoi_plot_2d
+from shapely.geometry import Point
+from shapely.geometry.polygon import Polygon
 
 # --------------------------data viewing and saving functions--------------------------
 
 def viewVoronoiHistogram(mos_type, metric, save_things=False, save_name=[], prefix='',
-               save_path='', id='', z_dim=0, 
-               mosaic_data=True, marker='.', label=None, **kwargs):
+            save_path='', id='', z_dim=0, 
+            mosaic_data=True, marker='.', label=None, **kwargs):
     for fl in save_name:
         print(fl)
         # get spacified coordinate data and plotting parameters from the save file
@@ -24,12 +26,18 @@ def viewVoronoiHistogram(mos_type, metric, save_things=False, save_name=[], pref
             metric_std = file[mos_type+'_voronoi'][metric+'_std'][()]
             metric_regularity = file[mos_type+'_voronoi'][metric+'_regularity'][()]
 
-        ax = getAx(kwargs)
-        ax.hist(metric_data[np.nonzero(bound)])
-        ax.figure
+        print(metric_data[np.nonzero(bound)])
         print(metric + ' mean: ' + str(metric_mean))
         print(metric + ' std: ' + str(metric_std))
         print(metric + ' regularity: ' + str(metric_regularity))
+        ax = getAx(kwargs)
+        counts, bins = np.histogram(metric_data[np.nonzero(bound)])
+        ax.stairs(counts, bins)
+        if metric_std > 1:
+            plt.xlim([metric_mean - (2 * metric_std), metric_mean + (2 * metric_std)])
+        else:
+            plt.xlim([metric_mean - 5, metric_mean + 5])
+        ax.figure
 
         if save_things:
             savnm = save_path + mosaic + '_' + str(z_dim) + '_' + conetype + '.png'
@@ -37,81 +45,63 @@ def viewVoronoiHistogram(mos_type, metric, save_things=False, save_name=[], pref
 
 
 def viewVoronoiDiagram(mos_type, save_things=False, save_name=[], prefix='',
-               save_path='', id='', z_dim=0, 
-               mosaic_data=True, marker='.', label=None, **kwargs):
+            save_path='', id='', z_dim=0, 
+            mosaic_data=True, marker='.', label=None, **kwargs):
     for fl in save_name:
         print(fl)
         # get spacified coordinate data and plotting parameters from the save file
         with h5py.File(fl, 'r') as file:  # context manager
             mosaic = bytes(file['mosaic_meta']['mosaic'][()]).decode("utf8")
+            coord = file['input_data']['cone_coord'][()]
             conetype = bytes(file['mosaic_meta']['conetype'][()]).decode("utf8")
             coord_unit = bytes(file['input_data']['coord_unit'][()]).decode("utf8")
             conetype_color = bytes(file['input_data']['conetype_color'][()]).decode("utf8")
-            facets = file[mos_type+'_voronoi']['facets'][()]
-            centers = file[mos_type+'_voronoi']['centers'][()]
+            regions = file[mos_type+'_voronoi']['regions'][()]
+            vertices = file[mos_type+'_voronoi']['vertices'][()]
             num_neighbor = file[mos_type+'_voronoi']['num_neighbor'][()]
             bound = file[mos_type+'_voronoi']['bound'][()]
-            img_x = int(file['input_data']['img_x'][()])
-            img_y = int(file['input_data']['img_y'][()])
 
-    # convert facets to list of lists
-    temp_f = []
-    for f in np.arange(0, int(np.nanmax(facets[:, 0])) + 1):  # first column indicates which cell this is a voronoi facet of
-        rows = np.nonzero(facets[:, 0] == f)
-        temp_f.append(facets[rows, 1:3])
-
-    facets = temp_f
-
-    img = np.zeros([img_x, img_y, 3])    
-
-    for i in range(0, len(facets)):
-
-        ifacet_arr = []
-        for f in facets[i][0]:
-            ifacet_arr.append(f)
-
-        ifacet = np.array(ifacet_arr, np.int)
-
-        if not bound[i]:
-            colour = [150, 150, 150]
-        elif int(num_neighbor[i]) == 3:
-            colour = [255, 0, 0]
-        elif int(num_neighbor[i]) == 4:
-            colour = [255, 100, 0]
-        elif int(num_neighbor[i]) == 5:
-            colour = [255, 255, 0]
-        elif int(num_neighbor[i]) == 6:
-            colour = [0, 255, 0]
-        elif int(num_neighbor[i]) == 7:
-            colour = [0, 255, 255]
-        elif int(num_neighbor[i]) == 8:
-            colour = [0, 0, 255]
-        elif int(num_neighbor[i]) == 9:
-            colour = [100, 0, 255]
-        elif int(num_neighbor[i]) == 10:
-            colour = [255, 0, 255]
-        else:
-            colour = [255, 255, 255]
-        for ind, c in enumerate(colour): 
-            colour[ind] = c / 255
-
-        cv2.fillConvexPoly(img, ifacet, colour, 8, 0)
-        ifacets = np.array([ifacet])
-        cv2.polylines(img, ifacets, True, (0, 0, 255), 1)
-        cv2.circle(img, (int(centers[i][0]), int(centers[i][1])), 1, (0, 0, 0), cv2.FILLED)
 
     ax = getAx(kwargs)
-    ax.imshow(img)
+
+    for i in range(0, len(regions)):
+
+        if bound[i]:
+            if int(num_neighbor[i]) == 3:
+                colour = [255, 0, 0]
+            elif int(num_neighbor[i]) == 4:
+                colour = [255, 100, 0]
+            elif int(num_neighbor[i]) == 5:
+                colour = [255, 255, 0]
+            elif int(num_neighbor[i]) == 6:
+                colour = [0, 255, 0]
+            elif int(num_neighbor[i]) == 7:
+                colour = [0, 255, 255]
+            elif int(num_neighbor[i]) == 8:
+                colour = [0, 0, 255]
+            elif int(num_neighbor[i]) == 9:
+                colour = [100, 0, 255]
+            elif int(num_neighbor[i]) == 10:
+                colour = [255, 0, 255]
+            else:
+                colour = [255, 255, 255]
+            for ind, c in enumerate(colour): 
+                colour[ind] = c / 255
+            
+            polygon = vertices[np.array(regions[i], dtype=int)]
+            ax.fill(*zip(*polygon), facecolor = colour, edgecolor='k')
+
+    ax = scatt(coord,'bound_voronoi_cells', ax=ax, mosaic_data=True)
     ax.figure
 
     if save_things:
-        savnm = save_path + mosaic + '_' + str(z_dim) + '_' + conetype + '.png'
+        savnm = save_path + mosaic + '_bound_cells_' + str(z_dim) + '_' + conetype + '.png'
         plt.savefig(savnm)
 
 
 def viewMosaic(mos_type, save_things=False, save_name=[], prefix='',
-               save_path='', id='', z_dim=0, 
-               mosaic_data=True, marker='.', label=None, **kwargs):
+            save_path='', id='', z_dim=0, 
+            mosaic_data=True, marker='.', label=None, **kwargs):
 
     for fl in save_name:
         print(fl)
@@ -161,7 +151,7 @@ def viewMosaic(mos_type, save_things=False, save_name=[], prefix='',
             print('no coords for for "' + fl + '," skipping')
 
 
-  
+
 # ---------------------------------plotting functions----------------------------------
 
 
@@ -183,7 +173,7 @@ def getAx(kwargs):
         ax = kwargs['ax']
     elif 'figsize' in kwargs.keys():
         fig, ax = plt.subplots(1, 1, figsize=[kwargs['figsize'],
-                               kwargs['figsize']])
+                            kwargs['figsize']])
     else:
         fig, ax = plt.subplots(1, 1)
     return ax
@@ -258,7 +248,7 @@ def plotOnROI(img, coords, cone_types, id, colors, **kwargs):
                 ycoords = coords[cone_type][1]
 
             ax.scatter(x=xcoords, y=ycoords, s=csize, facecolors=cface,
-                       edgecolors=cedge)
+                    edgecolors=cedge)
 
     return ax
 
@@ -312,10 +302,10 @@ def scatt(coords, id, plot_col='w', bckg_col='k', z_dim=0, mosaic_data=True, mar
 
     ax.set_facecolor(bckg_col)
     ax.scatter(x=scatter_x, y=scatter_y,
-               s=30,
-               facecolors=plot_col,
-               marker=marker,
-               edgecolors='none')
+            s=30,
+            facecolors=plot_col,
+            marker=marker,
+            edgecolors='none')
     ax.get_xaxis().set_visible(True)
     ax.get_yaxis().set_visible(True)
 
@@ -326,7 +316,7 @@ def scatt(coords, id, plot_col='w', bckg_col='k', z_dim=0, mosaic_data=True, mar
 
 
 def histo(hist_data, bin_edges, id, x_dim=1, plot_col='w',
-          bckg_col='k', **kwargs):
+        bckg_col='k', **kwargs):
     """
 
     Parameters
@@ -395,7 +385,7 @@ def line(x, y, id, plot_col='w', bckg_col='k', linestyle='-', marker="", markers
 
 
 def shadyStats(x, mean, std, id, scale_std=1, plot_col='w',
-               bckg_col='k', label = '', **kwargs):
+            bckg_col='k', label = '', **kwargs):
     """
     plot the mean of function with the std shaded around it
 
