@@ -8,6 +8,210 @@ from shapely.geometry.polygon import Polygon
 
 # --------------------------data viewing and saving functions--------------------------
 
+## --------------------------------SMP VIEWING FUNCTIONS--------------------------------------
+
+
+# def viewIntraconeDistHists(save_names, prefix, save_things=False, save_path=''):
+#     print('beep')
+#     for fl in save_names:
+#         # get intracone distance histogram data and plotting parameters from the save file
+#         with h5py.File(fl, 'r') as file:  # context manager 
+#             coord = file['input_data']['cone_coord'][()]
+#             hist = file[prefix + 'intracone_dist']['hist_mean'][()]
+#             bin_edge = file[prefix + 'intracone_dist']['bin_edge'][()]
+#             mosaic = bytes(file['mosaic_meta']['mosaic'][()]).decode("utf8")
+#             conetype = bytes(file['mosaic_meta']['conetype'][()]).decode("utf8")
+#             coord_unit = bytes(file['input_data']['coord_unit'][()]).decode("utf8")
+#             conetype_color = bytes(file['input_data']['conetype_color'][()]).decode("utf8")
+#             bin_width = file['input_data']['bin_width'][()]
+#         num_cone = coord.shape[0]
+#         id = mosaic + '_' + conetype
+#         if not np.isnan(hist[0]):
+
+#             # set up inputs to plot
+#             xlab = 'distance, ' + coord_unit
+#             ylab = 'bin count (binsize = ' + str(bin_edge[1]-bin_edge[0])
+#             tit = 'intracone distance (' + str(num_cone) + " cones)"
+#             x = bin_edge[1:]-(bin_width/2)
+
+#             # view histogram
+            
+#             ax = line(x, hist, id, plot_col=conetype_color, title=tit, xlabel=xlab, ylabel=ylab)
+
+#             ax.figure
+
+#             if save_things:
+#                 savnm = save_path + id + '.png'
+#                 plt.savefig(savnm)
+            
+#         else:
+#             print(id + ' contains < 2 cones, skipping... ')
+    
+
+# def viewMonteCarloStats(save_name, mc_type, scale_std=1, save_things=False, save_path=''):
+#     for fl in save_name:
+#         # get intracone distance histogram data and plotting parameters from the save file
+#         with h5py.File(fl, 'r') as file:  # context manager
+#             coord = file['input_data']['cone_coord'][()]
+#             mosaic = bytes(file['mosaic_meta']['mosaic'][()]).decode("utf8")
+#             conetype = bytes(file['mosaic_meta']['conetype'][()]).decode("utf8")
+#             coord_unit = bytes(file['input_data']['coord_unit'][()]).decode("utf8")
+#             conetype_color = bytes(file['input_data']['conetype_color'][()]).decode("utf8")
+#             num_mc = file['input_data']['num_mc'][()]
+#             bin_edge = file['monteCarlo_' + mc_type + '_intracone_dist']['bin_edge'][()]
+#             mean_hist = file['monteCarlo_' + mc_type + '_intracone_dist']['hist_mean'][()]
+#             std_hist = file['monteCarlo_' + mc_type + '_intracone_dist']['hist_std'][()]
+#             bin_width = file['input_data']['bin_width'][()]
+#         num_cone = coord.shape[0]
+#         id_str = mosaic + '_' + conetype
+#         if not np.isnan(mean_hist[0]):
+
+#             # set up inputs to plot
+#             xlab = 'distance, ' + coord_unit
+#             ylab = 'bin count (binsize = ' + str(bin_edge[1]-bin_edge[0])
+#             tit = 'MCU intracone distance (' + str(num_cone) + " cones, " + str(num_mc) + " MCUs)"
+#             x = x = bin_edge[1:]-(bin_width/2)
+
+#             ax = shadyStats(x, mean_hist, std_hist, id_str, scale_std=scale_std,
+#                             plot_col=conetype_color, title=tit, xlabel=xlab,
+#                             ylabel=ylab)
+
+#             ax.figure
+
+#             if save_things:
+#                 savnm = save_path + id_str + '.png'
+#                 plt.savefig(savnm)
+
+            
+        # saving images
+        # .png if it doesn't need to be gorgeous and scaleable
+        # .pdf otherwise, or eps, something vectorized 
+        # numpy does parallelization under the hood
+
+        # manually setting up parallel in python kinda sucks
+        #   mpi is one approach
+
+
+def view2PC(save_name, scale_std=1, showNearestCone=False, save_things=False, save_path=''):
+    for fl in save_name:
+        # get intracone distance histogram data and plotting parameters from the save file
+        with h5py.File(fl, 'r') as file:  # context manager
+            coord = file['input_data']['cone_coord'][()]
+            mosaic = bytes(file['mosaic_meta']['mosaic'][()]).decode("utf8")
+            conetype = bytes(file['mosaic_meta']['conetype'][()]).decode("utf8")
+            coord_unit = bytes(file['input_data']['coord_unit'][()]).decode("utf8")
+            conetype_color = bytes(file['input_data']['conetype_color'][()]).decode("utf8")
+            num_mc = file['input_data']['num_mc'][()]
+            bin_width = file['input_data']['bin_width'][()]
+            bin_edge = file['two_point_correlation']['bin_edge'][()]
+            corred = file['two_point_correlation']['corred'][()]
+            all_cone_mean_nearest = file['two_point_correlation']['all_cone_mean_nearest'][()]
+            to_be_corr_colors = [bytes(n).decode('utf8') for n in file['input_data']['to_be_corr_colors'][()]]
+            to_be_corr = [bytes(n).decode('utf8') for n in file['input_data']['to_be_corr'][()]]
+            hex_radius = file['basic_stats']['hex_radius_of_this_density'][()]
+
+        # *** shouldn't need to get this this way, save it in meta data
+        num_cone = coord.shape[0]
+        id_str = mosaic + '_' + conetype
+
+        fig, ax = plt.subplots(1, 1, figsize = [10,10])
+        
+        maxY = 0
+
+        for ind, corr_set in enumerate(corred):
+            if not np.isnan(corr_set[0].all()):
+                if corr_set[0].shape[0] > 1:
+                    hist_mean = corr_set[0]
+                    hist_std = corr_set[1]
+                    plot_label = to_be_corr[ind]
+                    plot_col = to_be_corr_colors[ind]
+
+                    maxY = np.nanmax([maxY,np.nanmax(hist_mean)])
+
+                    # set up inputs to plot
+                    xlab = 'distance, ' + coord_unit
+                    ylab = 'bin count (binsize = ' + str(bin_width)
+
+                    # *** SS fix this to pull the string from inputs
+                    tit = 'intracone dists normed by MCU (' + str(num_cone) + " cones, " + str(num_mc) + " MCs)"
+                    x = bin_edge[1:]-(bin_width/2)
+
+                    half_cone_rad = all_cone_mean_nearest / 2
+                    cone_rad_x = np.arange(half_cone_rad, half_cone_rad + (5 * all_cone_mean_nearest + 1), step=all_cone_mean_nearest)
+                    lin_extent = 1.5
+
+                    # if showNearestCone:
+                    #     for lin in cone_rad_x:
+                    #         if lin == cone_rad_x[0]:
+                    #             ax = show.line([lin, lin], [-1 * lin_extent, lin_extent], id='cone-dist', ax=ax, plot_col='olive')
+                    #         else:
+                    #             ax = show.line([lin, lin], [-1 * lin_extent, lin_extent], id='cone-dist', ax=ax, plot_col='olive')
+
+                    ax = line([hex_radius, hex_radius], [-1 * lin_extent, lin_extent], id='hex_radius', ax=ax, plot_col='maroon')
+                    
+                    ax = shadyStats(x, hist_mean, hist_std, id_str, ax = ax, scale_std=scale_std,
+                                        plot_col = plot_col, label = plot_label)
+        
+            else:
+                    print('no')
+        
+        print(maxY)
+        if showNearestCone:
+            plt.xlim([0, half_cone_rad + 5 * all_cone_mean_nearest + 1])
+            plt.ylim([-1.5,maxY+2]) #plt.ylim([-0, lin_extent])
+
+        ax.figure
+        ax.legend()
+
+        if save_things:
+            savnm = save_path + id_str + '.png'
+            plt.savefig(savnm)
+
+            
+def viewIntraconeDist(mos_type, save_things=False, save_name=[], prefix='',
+            save_path='', id='', z_dim=0, scale_std=2,
+            mosaic_data=True, marker='.', label=None, **kwargs):
+    for fl in save_name:
+        # get intracone distance histogram data and plotting parameters from the save file
+        with h5py.File(fl, 'r') as file:  # context manager
+            mosaic = bytes(file['mosaic_meta']['mosaic'][()]).decode("utf8")
+            conetype = bytes(file['mosaic_meta']['conetype'][()]).decode("utf8")
+            coord_unit = bytes(file['input_data']['coord_unit'][()]).decode("utf8")
+            conetype_color = bytes(file['input_data']['conetype_color'][()]).decode("utf8")
+            
+            if mos_type == 'measured':
+                coord = file['input_data']['cone_coord'][()]
+                coord = np.expand_dims(coord, axis=0)
+            else:
+                coord = file[mos_type]['coord'][()]  
+
+            bin_edge = file[mos_type + '_intracone_dist']['bin_edge'][()]
+            mean_hist = file[mos_type + '_intracone_dist']['hist_mean'][()]
+            std_hist = file[mos_type + '_intracone_dist']['hist_std'][()]
+            bin_width = file['input_data']['bin_width'][()]
+
+        num_mos = coord.shape[0]
+        num_cone = coord.shape[1]
+        id_str = mosaic + '_' + conetype
+        if not np.isnan(mean_hist[0]):
+
+            # set up inputs to plot
+            xlab = 'distance, ' + coord_unit
+            ylab = 'bin count (binsize = ' + str(bin_edge[1]-bin_edge[0])
+            tit = mos_type + ' intracone distance (' + str(num_cone) + " cones, " + str(num_mos) + " mosaics)"
+            x = x = bin_edge[1:]-(bin_width/2)
+
+            ax = shadyStats(x, mean_hist, std_hist, id_str, scale_std=scale_std,
+                            plot_col=conetype_color, title=tit, xlabel=xlab,
+                            ylabel=ylab)
+
+            ax.figure
+
+            if save_things:
+                savnm = save_path + id_str + '.png'
+                plt.savefig(savnm)
+                 
+
 def viewVoronoiHistogram(mos_type, metric, save_things=False, save_name=[], prefix='',
             save_path='', id='', z_dim=0, 
             mosaic_data=True, marker='.', label=None, **kwargs):
@@ -19,20 +223,20 @@ def viewVoronoiHistogram(mos_type, metric, save_things=False, save_name=[], pref
             conetype = bytes(file['mosaic_meta']['conetype'][()]).decode("utf8")
             coord_unit = bytes(file['input_data']['coord_unit'][()]).decode("utf8")
             conetype_color = bytes(file['input_data']['conetype_color'][()]).decode("utf8")
-            bound = file[mos_type+'_voronoi']['bound'][()]
+           
+            bound_regions = file[mos_type+'_voronoi']['bound_regions'][()][z_dim]
+            metric_data = file[mos_type+'_voronoi'][metric][()][z_dim]
+            metric_mean = file[mos_type+'_voronoi'][metric+'_mean'][()][z_dim]
+            metric_std = file[mos_type+'_voronoi'][metric+'_std'][()][z_dim]
+            metric_regularity = file[mos_type+'_voronoi'][metric+'_regularity'][()][z_dim]
 
-            metric_data = file[mos_type+'_voronoi'][metric][()]
-            metric_mean = file[mos_type+'_voronoi'][metric+'_mean'][()]
-            metric_std = file[mos_type+'_voronoi'][metric+'_std'][()]
-            metric_regularity = file[mos_type+'_voronoi'][metric+'_regularity'][()]
-
-        print(metric_data[np.nonzero(bound)])
+        #print(metric_data[np.nonzero(bound_regions)])
         print('coord_unit: ' + coord_unit)
         print(metric + ' mean: ' + str(metric_mean))
         print(metric + ' std: ' + str(metric_std))
         print(metric + ' regularity: ' + str(metric_regularity))
         ax = getAx(kwargs)
-        counts, bins = np.histogram(metric_data[np.nonzero(bound)])
+        counts, bins = np.histogram(metric_data[np.nonzero(bound_regions)])
         ax.stairs(counts, bins)
         if metric_std > 1:
             plt.xlim([metric_mean - (2 * metric_std), metric_mean + (2 * metric_std)])
@@ -55,62 +259,66 @@ def viewVoronoiDiagram(mos_type, save_things=False, save_name=[], prefix='',
         # get spacified coordinate data and plotting parameters from the save file
         with h5py.File(fl, 'r') as file:  # context manager
             mosaic = bytes(file['mosaic_meta']['mosaic'][()]).decode("utf8")
-            coord = file['input_data']['cone_coord'][()]
             conetype = bytes(file['mosaic_meta']['conetype'][()]).decode("utf8")
             conetype_color = bytes(file['input_data']['conetype_color'][()]).decode("utf8")
+            if mos_type == 'measured':
+                coord = file['input_data']['cone_coord'][()]
+                coord = np.expand_dims(coord, axis=0)
+            else:
+                coord = file[mos_type]['coord'][()]
+            
             regions = file[mos_type+'_voronoi']['regions'][()]
             vertices = file[mos_type+'_voronoi']['vertices'][()]
             num_neighbor = file[mos_type+'_voronoi']['num_neighbor'][()]
-            bound = file[mos_type+'_voronoi']['bound'][()]
+            bound_regions = file[mos_type+'_voronoi']['bound_regions'][()]
             voronoi_area = file[mos_type+'_voronoi']['voronoi_area'][()]
             convert_coord_unit = file['input_data']['convert_coord_unit'][()]
             
             coord_unit = bytes(file['input_data']['coord_unit'][()]).decode("utf8")
             hex_radius = file[mos_type+'_voronoi']['hex_radius'][()]
+            density = file[mos_type+'_voronoi']['density'][()]
+
             if convert_coord_unit:
                 density_unit = bytes(file['input_data']['density_unit'][()]).decode("utf8")
-                density = file[mos_type+'_voronoi']['density_converted'][()]
             else:
-                density = file[mos_type+'_voronoi']['density'][()]
                 density_unit = coord_unit
-
 
     ax = getAx(kwargs)
 
-    for i in range(0, len(regions)):
-
-        if bound[i]:
-            if int(num_neighbor[i]) == 3:
+    for i in range(0, len(regions[z_dim])):
+        if bound_regions[z_dim][i]:
+            if int(num_neighbor[z_dim][i]) == 3:
                 colour = [255, 0, 0]
-            elif int(num_neighbor[i]) == 4:
+            elif int(num_neighbor[z_dim][i]) == 4:
                 colour = [255, 100, 0]
-            elif int(num_neighbor[i]) == 5:
+            elif int(num_neighbor[z_dim][i]) == 5:
                 colour = [255, 255, 0]
-            elif int(num_neighbor[i]) == 6:
+            elif int(num_neighbor[z_dim][i]) == 6:
                 colour = [0, 255, 0]
-            elif int(num_neighbor[i]) == 7:
+            elif int(num_neighbor[z_dim][i]) == 7:
                 colour = [0, 255, 255]
-            elif int(num_neighbor[i]) == 8:
+            elif int(num_neighbor[z_dim][i]) == 8:
                 colour = [0, 0, 255]
-            elif int(num_neighbor[i]) == 9:
+            elif int(num_neighbor[z_dim][i]) == 9:
                 colour = [100, 0, 255]
-            elif int(num_neighbor[i]) == 10:
+            elif int(num_neighbor[z_dim][i]) == 10:
                 colour = [255, 0, 255]
             else:
                 colour = [255, 255, 255]
             for ind, c in enumerate(colour): 
                 colour[ind] = c / 255
             
-            polygon = vertices[np.array(regions[i], dtype=int)]
+            vert = regions[z_dim][i][np.nonzero(~np.isnan(regions[z_dim][i]))]
+            polygon = vertices[z_dim][np.array(vert, dtype=int)]
             ax.fill(*zip(*polygon), facecolor = colour, edgecolor='k')
 
-    ax = scatt(coord,'bound_voronoi_cells', ax=ax, mosaic_data=True)
+    ax = scatt(np.squeeze(coord[z_dim, :, :]),'bound_voronoi_cells', ax=ax, mosaic_data=True)
     ax.figure
     plt.xlabel(coord_unit)
     plt.ylabel(coord_unit)
 
-    print('num bound cells: ' + str(sum(bound)))
-    print('total voronoi area: ' + str(sum(voronoi_area[np.nonzero(bound)])) + density_unit + '^2')
+    print('num bound cells: ' + str(sum(bound_regions[z_dim])))
+    print('total voronoi area: ' + str(sum(voronoi_area[z_dim][np.nonzero(bound_regions[z_dim])])) + density_unit + '^2')
     print('voronoi density: ' + str(density) + ' points per ' + density_unit + '^2')
     print('hex radius calc from voronoi: ' + str(hex_radius) + ' ' + coord_unit)
 

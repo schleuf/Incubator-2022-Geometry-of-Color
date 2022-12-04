@@ -50,12 +50,15 @@ def setProcessByType(file, proc, var, data, prefix=''):
             print('')
             print(var)
             print(data)
+            print(type(data))
             print('')
-            print('still not handling lists well in flsyst.setproc_to_setessByType, need to go fix')
+            print('still not handling lists well in flsyst.setProcessByType, need to go fix')
     elif isinstance(data, np.ndarray) or isinstance(data, np.int32):
         try:
             file[proc_to_set][var] = data
         except TypeError:
+            print(proc_to_set)
+            print(var)
             print('GAH something weird about ndarrays in flsyst.setproc_to_setessByType')
             file[proc_to_set][var] = np.float_(data.astype('float64'))   
     else:

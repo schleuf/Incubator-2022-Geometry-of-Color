@@ -2,7 +2,11 @@ from cmath import nan
 import random
 import numpy as np
 import mosaic_topog.calc as calc
-import cv2
+import mosaic_topog.show as show
+from scipy.spatial import Voronoi, voronoi_plot_2d
+from shapely.geometry import Point
+from shapely.geometry.polygon import Polygon
+import pytest
 
 # Functions
 # ---------
@@ -19,6 +23,38 @@ import cv2
 #
 
 
+def numSim(process, num_sim, sim_to_gen):
+    """
+    return the number of simulations to be generated
+    
+    Parameters
+    ----------
+    process : the process we're finding out how many to generate
+    num_sim : a single number (means same number generated for all mosaics) 
+              or a list of numbers corresponding to each simulation to be 
+              generated
+    sim_to_gen : user input variable, list of simulations to generate
+
+    Returns
+    -------
+    numSim : the number of simulations to produce for the given process 
+    """
+    if len(num_sim) < len(sim_to_gen) or len(num_sim) > len(sim_to_gen):
+        if len(num_sim) == 1:
+            numSim = int(num_sim[0])
+        else:
+            raise Exception('inappropriate # of values in input variable ""numSim""')
+    elif len(num_sim) == len(sim_to_gen): 
+        for ind, sim in enumerate(sim_to_gen):
+            if sim == process:
+                sim_ind = ind
+        numSim = num_sim[sim_ind]
+    else:
+        raise Exception('inappropriate # of values in input variable ""numSim""')
+    
+    return numSim
+
+
 def randCol():
     rand_col = np.array([random.randint(0, 255),
                          random.randint(0, 255),
@@ -27,46 +63,32 @@ def randCol():
     return rand_col
 
 
-def trim_random_edge_points(coord, img_x, img_y, num_cones, buffer=0):
-    # copied voronoi functionality from smp, bad form, needs to be a function
-    img = np.zeros([int(img_x), int(img_y), 3])
-    subdiv = cv2.Subdiv2D([0, 0, int(img_x), int(img_y)])
-
-    points = []
-    for p in np.arange(0, coord.shape[0]):
-        points.append([coord[p, 0], coord[p, 1]])
-
-    for p in np.arange(0, len(coord)):
-        try:
-            subdiv.insert(points[p])
-        except:
-            print('could not add coord to voronoi analysis: ' )
-            print(np.array([coord[p, 0],coord[p, 1]],'int'))
-    
-    calc.delaunay(img, subdiv, (0, 0, 255))
-
-    img_voronoi = np.zeros(img.shape, dtype=img.dtype)
-    [facets, centers, bound, voronoi_area, voronoi_area_regularity,
-     num_neighbor, num_neighbor_regularity] = calc.voronoi(img_voronoi, subdiv, buffer)
-    
-    temp = coord
+def trim_random_edge_points(coord, num_cones, img_x, img_y):
+    if len(coord.shape) == 2:
+        coord = np.expand_dims(coord, 0)
     diff_num_cones = coord.shape[1] - num_cones
-    print(diff_num_cones)
     if diff_num_cones > 0:
-        unbound_inds = np.nonzero(bound==0)[0]
-        print(unbound_inds)
-        remove_inds = []
-        num_current = temp.shape[0]
-        while len(remove_inds) < diff_num_cones:
-            ind_to_remove = np.round(np.random.randint(0,unbound_inds.shape[0]-1))
-            if not ind_to_remove in remove_inds:
-                remove_inds.append(ind_to_remove)
-        print('inds to remove: ')
-        print(ind_to_remove)
-
-        temp[unbound_inds[ind_to_remove], :] = []
-        print(len(temp))
-    return temp
+        temp = []
+        [regions, vertices, ridge_vertices, ridge_points, point_region] = calc.voronoi(coord)
+        bound_cones = calc.get_bound_voronoi_cells(coord, img_x, img_y)
+        bound_regions = []
+        
+        for m in np.arange(0, coord.shape[0]):
+            bound_regions.append(np.zeros([len(regions[m]), ]))
+            bound_reg = point_region[m][np.array(np.nonzero(bound_cones[m])[0], dtype=int)]
+            bound_regions[m][bound_reg] = 1
+            unbound_inds = np.nonzero(bound_regions[m] == 0)[0]
+            unbound_cone_inds = np.nonzero(np.isin(point_region[m], unbound_inds))[0]        
+            remove_inds = []
+            while len(remove_inds) < diff_num_cones:
+                ind_to_remove = np.round(np.random.randint(0,unbound_cone_inds.shape[0]-1))
+                if ind_to_remove not in remove_inds:
+                    remove_inds.append(ind_to_remove)
+            temp.append(np.delete(coord[m], unbound_cone_inds[remove_inds], 0))
+    else:
+        temp = coord
+    coord = np.array(temp)
+    return coord
 
 
 #EXPLODE X AND Y
@@ -77,6 +99,7 @@ def explode_xy(xy):
         xl.append(xy[i][0])
         yl.append(xy[i][1])
     return xl,yl
+
 
 def vector_zeroPad(vector_to_pad, num_preceding, num_following):
     if not (len(vector_to_pad.shape) == 1

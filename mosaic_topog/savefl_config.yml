@@ -64,16 +64,13 @@ input_data:
     - density_conversion_factor
     - conetype_color
     - sim_to_gen
+    - num_sim
     - analyses_to_run
     - bin_width
     - dist_area_norm
-    - num_mc
-    - num_sp
     - corr_by
     - to_be_corr
     - to_be_corr_colors
-    - num_neighbors_to_average
-    - std_of_blank_of_nearest_neighbor_distances
     - sim_hexgrid_by
 
 basic_stats:
@@ -83,8 +80,8 @@ basic_stats:
     - num_cones
     - img_area
     - rectangular_cone_density
-    - rectangular_cone_density_converted
     - hex_radius_of_this_density
+    - density_unit
 
 # Simulation Processes
 # # example of a key entry for a simulation process
@@ -123,8 +120,6 @@ hexgrid_by_density:
   - coord
   - num_cones_placed
   - cone_density
-  - jitter_x_all
-  - jitter_y_all
 
 # Primary Analysis Processes
 
@@ -149,17 +144,19 @@ voronoi:
   variables:
   - regions
   - vertices
-  - bound
+  - point_region
+  - bound_regions
+  - bound_cones
   - voronoi_area
   - num_neighbor
   - voronoi_area_mean
   - voronoi_area_std
   - num_neighbor_mean
   - num_neighbor_std
+  - neighbors_cones
   - voronoi_area_regularity
   - num_neighbor_regularity
   - density
-  - density_converted
   - hex_radius
 
 
