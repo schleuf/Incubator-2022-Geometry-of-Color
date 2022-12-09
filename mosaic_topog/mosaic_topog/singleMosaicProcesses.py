@@ -59,7 +59,6 @@ def two_point_correlation_process(param, sav_cfg):
         # Hey Sierra this section shouldn't need to be heeeere ***
         # get average nearest cone in the overall mosaic
         all_cone_dist = calc.dist_matrices(all_coord)
-        print(all_cone_dist.size)
 
         # get avg and std of nearest cone distance in the mosaic
         nearest_dist = []
@@ -80,7 +79,7 @@ def two_point_correlation_process(param, sav_cfg):
             corred_set = []
             for ind, vect in enumerate(to_be_corr_set):
                 if not all(x == 0 for x in vect):
-                    print('points in intrapoint distance hist: ' + str(np.nansum(vect)))
+                    # print('points in intrapoint distance hist: ' + str(np.nansum(vect)))
                     if ind == 0: #mean
                         corred_set.append(calc.corr(vect, corr_by_hist))
                     elif ind == 1: 
@@ -119,15 +118,12 @@ def voronoi_process(param, sav_cfg):
     with h5py.File(sav_fl, 'r') as file:
         convert_coord_unit = file['input_data']['convert_coord_unit'][()]  
         coord_unit = bytes(file['input_data']['coord_unit'][()]).decode("utf8")
-        img = file['input_data']['cone_img'][()]
-        img_y = [0, img.shape[0]]
-        img_x = [0, img.shape[1]]
+        img_y = [0, file['input_data']['img_y'][()]]
+        img_x = [0, file['input_data']['img_x'][()]]
         if convert_coord_unit:
             coord_conversion_factor = file['input_data']['coord_conversion_factor'][()]
             if type(coord_conversion_factor) == str:
                 coord_conversion_factor = eval(coord_conversion_factor)
-            img_x[1] = float(img_x[1]) * coord_conversion_factor
-            img_y[1] = float(img_y[1]) * coord_conversion_factor
             density_unit = bytes(file['input_data']['density_unit'][()]).decode("utf8")
             density_conversion_factor = file['input_data']['density_conversion_factor'][()]
             if type(density_conversion_factor) == str:
@@ -146,25 +142,40 @@ def voronoi_process(param, sav_cfg):
         # ax = show.scatt(np.squeeze(point_data), 'points to be voronoid')
 
         [regions, vertices, ridge_vertices, ridge_points, point_region] = calc.voronoi(point_data)
+
         bound_cones = calc.get_bound_voronoi_cells(point_data, img_x, img_y)
        
         bound_regions = []
         for m in np.arange(point_data.shape[0]):
-            ax = show.plotKwargs({}, '')
-            ax = show.scatt(point_data[m, :, :], 'bound region check', ax=ax)
+            # ax = show.plotKwargs({}, '')
+            # ax = show.scatt(point_data[m, :, :], 'bound region check', ax=ax)
             bound_regions.append(np.zeros([len(regions[m]), ]))
             bound_reg = point_region[m][np.array(np.nonzero(bound_cones[m])[0], dtype=int)]
             bound_regions[m][bound_reg] = 1
             # for b in bound_reg:
             #     verts = regions[m][b]
+            #     vert_copy = np.array(verts)
+            #     if vert_copy.shape[0] > len(verts):
+            #         print('an abundance of verts!')
             #     poly = vertices[m][verts]
             #     ax.fill(*zip(*poly), facecolor='r', edgecolor='k')
-        
+
         neighbors_cones = calc.getVoronoiNeighbors(point_data, vertices, regions, ridge_vertices, ridge_points, point_region, bound_regions, bound_cones)
+
+        # it's possible for some cones in erratic mosaics to be bound but have no bound neighbors. get rid of those.
+        for m in np.arange(point_data.shape[0]):
+            for nc in np.arange(0, neighbors_cones.shape[1]):
+                not_nans = [~np.isnan(neighbors_cones[m, nc, x]) for x in np.arange(0, neighbors_cones.shape[2])]
+                neighb_cones = np.array(neighbors_cones[m, nc, np.nonzero(not_nans)[0]], dtype=int)
+                if ~np.any(np.nonzero(bound_cones[m][neighb_cones])[0]):
+                    bound_cones[m][nc] = 0
+                    r = point_region[m][nc]
+                    bound_regions[m][r] = 0
+                    neighbors_cones[m, nc, :] = np.nan
 
         [voronoi_area, voronoi_area_mean,
         voronoi_area_std, voronoi_area_regularity,
-        num_neighbor, num_neighbor_mean, cone_neighbors,
+        num_neighbor, num_neighbor_mean,
         num_neighbor_std, num_neighbor_regularity]  = calc.voronoi_region_metrics(bound_regions, regions, vertices, point_region)
 
         density = np.empty([point_data.shape[0],])
@@ -253,18 +264,20 @@ def getDataForPrimaryProcess(sav_fl):
         coord.append(np.reshape(all_coord, [1] + list(all_coord.shape)))
 
         simulated = []
+
         for key in file:
             take = 0
             if key == 'monteCarlo_uniform':
                 take = 1
             elif key == 'monteCarlo_coneLocked':
                 take = 1 
-            elif key == 'coneLocked_spacify_by_nearest_neighbors':
+            elif key == 'coneLocked_maxSpacing':
                 take = 1
             elif key == 'hexgrid_by_density':
                 take = 1
             
             if take:
+                print('took it')
                 simulated.append(key)
 
         for sim in simulated:
@@ -358,6 +371,8 @@ def hexgrid_by_density_process(param, sav_cfg):
         img_x = file['input_data']['img_x'][()]
         img_y = file['input_data']['img_y'][()]
         sim_hexgrid_by = bytes(file['input_data']['sim_hexgrid_by'][()]).decode("utf8")
+        id = bytes(file['mosaic_meta']['mosaic'][()]).decode("utf8")
+        og_density = file['basic_stats']['rectangular_cone_density'][()]
 
         # print('rectangular density')
         # print(file['basic_stats']['rectangular_cone_density'][()])
@@ -384,16 +399,13 @@ def hexgrid_by_density_process(param, sav_cfg):
                              hex_radius,
                              [0, img_x],
                              [0, img_y])
-        
-        ax1 = show.scatt(coord[0,:,:], '')
-        ax2 = show.scatt(coord[1,:,:], '')
 
         num_cones_placed = coord.shape[1]
         cone_density = num_cones_placed / (img_x * img_y)
 
-        #before = show.scatt(np.squeeze(coord[0, :, :]), 'before')
+        # before = show.scatt(np.squeeze(coord[0, :, :]), id +' before')
         coord = util.trim_random_edge_points(coord, num_cones, [0, img_x], [0, img_y])
-        #after = show.scatt(np.squeeze(coord[0, :, :]), 'after')
+        # after = show.scatt(np.squeeze(coord[0, :, :]), id + ' after')
 
         data_to_set = util.mapStringToLocal(proc_vars, locals())
     else:
@@ -402,36 +414,81 @@ def hexgrid_by_density_process(param, sav_cfg):
     flsyst.setProcessVarsFromDict(param, sav_cfg, proc, data_to_set)
 
 
-def coneLocked_spacify_by_nearest_neighbors_process(param, sav_cfg):
-    """
-    """
-    # get any needed info from the save file
-    proc = 'coneLocked_spacify_by_nearest_neighbors'
+def coneLocked_maxSpacing_process(param, sav_cfg):
+    proc = 'coneLocked_maxSpacing'
     proc_vars = sav_cfg[proc]['variables']
-    sav_fl = param['sav_fl']
+    sav_fl = param['sav_fl']    
     with h5py.File(sav_fl, 'r') as file:
         og_coord = file['input_data']['cone_coord'][()]
-        img = file['input_data']['cone_img'][()]
-        sim_to_gen = file['input_data']['sim_to_gen'][()]
-    num_sim = param['num_sim']
-
-    num2gen = util.numSim(proc, num_sim, sim_to_gen)
-
-    if len(og_coord.shape) == 2 and og_coord.shape[1] == 2:
-        num_coord = og_coord.shape[0]
-
+        img_x = file['input_data']['img_x'][()]
+        img_y = file['input_data']['img_y'][()]
+        sim_hexgrid_by = bytes(file['input_data']['sim_hexgrid_by'][()]).decode("utf8")
+        if sim_hexgrid_by == 'rectangular':
+            hex_radius = file['input_data']['hex_radius_for_this_density'][()]
+        elif sim_hexgrid_by == 'voronoi' :
+            hex_radius = file['measured_voronoi']['hex_radius'][()]
+    if og_coord.shape[0] > 1:
+        num_sim = param['num_sim']
+        sim_to_gen = param['sim_to_gen']
+        x_dim = [0, img_x]
+        y_dim = [0, img_y]
+        # get all-cone-coordinates
         all_coord = flsyst.getAllConeCoord(sav_fl, param['mosaic'])
-
-        if all_coord.shape[0] == og_coord.shape[0]:
-            print('skipped unnecessary expensive spacifying of all_coord data')
-            coord = np.tile(all_coord, (num2gen, 1, 1))
-        else:
-            coord = calc.spacifyByNearestNeighbors(num_coord, all_coord, num2gen)
-            for m in coord.shape[0]:
-                ax = show.scatt(np.squeeze(coord[m,:,:],'coneLocked spacified'))
+        # number of mosaics to generate
+        num2gen = util.numSim('coneLocked_maxSpacing', num_sim, sim_to_gen)
+        # cones per mosaic to generate
+        cones2place = og_coord.shape[0]
+        spaced_coord = calc.coneLocked_hexgrid_mask(all_coord, num2gen, cones2place, x_dim, y_dim, hex_radius)
+        # trim excess cones
+        temp = np.empty([num2gen, cones2place, 2])
+        # ax = show.plotKwargs({},'')
+        for mos in np.arange(0, num2gen):
+            non_nan = np.array(np.nonzero(~np.isnan(spaced_coord[mos,:,0]))[0], dtype=int)
+            # ax0 = show.scatt(all_coord, 'trim test: before', plot_col = 'y')
+            # ax0 = show.scatt(spaced_coord[mos,:,:], 'trim test: before', plot_col = 'r', ax=ax0)
+            temp[mos, :, :] = util.trim_random_edge_points(spaced_coord[mos, non_nan, :], cones2place, x_dim, y_dim)
+            # ax2 = show.scatt(all_coord, '', plot_col='y')
+            # ax2 = show.scatt(temp[mos, :, :], 'coneLocked maximally spaced',plot_col='r', ax=ax2)
+            col = util.randCol()
+            # ax = show.scatt(temp[mos,:,:], 'conelocked spacified overlay', plot_col = col, ax=ax)
+        coord = temp
         data_to_set = util.mapStringToLocal(proc_vars, locals())
-        
+    else:
+        data_to_set = util.mapStringToNan(proc_vars)
+
     flsyst.setProcessVarsFromDict(param, sav_cfg, proc, data_to_set)
+
+
+# def coneLocked_spacify_by_nearest_neighbors_process(param, sav_cfg):
+#     """
+#     """
+#     # get any needed info from the save file
+#     proc = 'coneLocked_spacify_by_nearest_neighbors'
+#     proc_vars = sav_cfg[proc]['variables']
+#     sav_fl = param['sav_fl']
+#     with h5py.File(sav_fl, 'r') as file:
+#         og_coord = file['input_data']['cone_coord'][()]
+#         img = file['input_data']['cone_img'][()]
+#         sim_to_gen = file['input_data']['sim_to_gen'][()]
+#     num_sim = param['num_sim']
+
+#     num2gen = util.numSim(proc, num_sim, sim_to_gen)
+
+#     if len(og_coord.shape) == 2 and og_coord.shape[1] == 2:
+#         num_coord = og_coord.shape[0]
+
+#         all_coord = flsyst.getAllConeCoord(sav_fl, param['mosaic'])
+
+#         if all_coord.shape[0] == og_coord.shape[0]:
+#             print('skipped unnecessary expensive spacifying of all_coord data')
+#             coord = np.tile(all_coord, (num2gen, 1, 1))
+#         else:
+#             coord = calc.spacifyByNearestNeighbors(num_coord, all_coord, num2gen)
+#             for m in coord.shape[0]:
+#                 ax = show.scatt(np.squeeze(coord[m,:,:],'coneLocked spacified'))
+#         data_to_set = util.mapStringToLocal(proc_vars, locals())
+        
+#     flsyst.setProcessVarsFromDict(param, sav_cfg, proc, data_to_set)
 
 
 def monteCarlo_process(param, sav_cfg, mc_type):
@@ -440,7 +497,7 @@ def monteCarlo_process(param, sav_cfg, mc_type):
     with h5py.File(sav_fl, 'r') as file:
         all_coord = file['input_data']['cone_coord'][()]
         num2gen = util.numSim('monteCarlo_' + mc_type, param['num_sim'], param['sim_to_gen'])
-        img_x = file['input_data']['img_y'][()]
+        img_x = file['input_data']['img_x'][()]
         img_y = file['input_data']['img_y'][()]
 
     proc = 'monteCarlo_' + mc_type
@@ -735,7 +792,6 @@ def primary_analyses_process(user_param, sav_cfg):
             for ind in processes[proc]:
                 print('Running process "' + proc + '" on file' + str(ind+1) + '/' + str(len(processes[proc])) +'...') 
                 param = unpackThisParam(user_param, ind)
-                print('     ' + param['sav_fl'])
                 globals()[sav_cfg[proc]['process']](param, sav_cfg)
                 #print("     SIMULATED COORDINATES")
                 # for sim in user_param['sim_to_gen'][0]:

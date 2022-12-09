@@ -92,7 +92,7 @@ from shapely.geometry.polygon import Polygon
         #   mpi is one approach
 
 
-def view2PC(save_name, scale_std=1, showNearestCone=False, save_things=False, save_path=''):
+def view2PC(save_name, scale_std=2, showNearestCone=False, save_things=False, save_path=''):
     for fl in save_name:
         # get intracone distance histogram data and plotting parameters from the save file
         with h5py.File(fl, 'r') as file:  # context manager

@@ -107,8 +107,14 @@ monteCarlo_coneLocked:
   - all_coord
   - coord
 
-coneLocked_spacify_by_nearest_neighbors:
-  process: coneLocked_spacify_by_nearest_neighbors_process
+# coneLocked_spacify_by_nearest_neighbors:
+#   process: coneLocked_spacify_by_nearest_neighbors_process
+#   process_type: simulation
+#   variables:
+#   - coord
+
+coneLocked_maxSpacing:
+  process: coneLocked_maxSpacing_process
   process_type: simulation
   variables:
   - coord
@@ -128,7 +134,6 @@ intracone_dist:
   process_type: analysis
   analysis_tier: 1
   variables:
-  - dist
   - mean_nearest
   - std_nearest
   - hist_mean

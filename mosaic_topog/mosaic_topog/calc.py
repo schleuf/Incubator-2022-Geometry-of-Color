@@ -6,10 +6,11 @@ from scipy import spatial
 import matplotlib.pyplot as plt
 import mosaic_topog.utilities as util
 import mosaic_topog.show as show
-from scipy.spatial import Voronoi, voronoi_plot_2d, ConvexHull, convex_hull_plot_2d
+from scipy.spatial import Voronoi, voronoi_plot_2d, ConvexHull, convex_hull_plot_2d, distance
 from shapely.geometry import Point
 from shapely.geometry.polygon import Polygon
 import sys
+import math
 
 eps = sys.float_info.epsilon
 
@@ -17,6 +18,28 @@ eps = sys.float_info.epsilon
 # ---------
 # dist_matrices
 # Monte_Carlo_uniform
+
+def rotate_around_point(xy, radians, origin=(0, 0)):
+    """
+    FROM https://gist.github.com/LyleScott/e36e08bfb23b1f87af68c9051f985302
+    Rotate a point around a given point.
+    
+    I call this the "high performance" version since we're caching some
+    values that are needed >1 time. It's less readable than the previous
+    function but it's faster.
+    """
+    x = xy[:, 0]
+    y = xy[:, 1]
+    offset_x, offset_y = origin
+    adjusted_x = (x - offset_x)
+    adjusted_y = (y - offset_y)
+    cos_rad = math.cos(radians)
+    sin_rad = math.sin(radians)
+    qx = offset_x + cos_rad * adjusted_x + sin_rad * adjusted_y
+    qy = offset_y + -sin_rad * adjusted_x + cos_rad * adjusted_y
+
+    return qx, qy
+
 
 def in_box(towers, bounding_box):
     """
@@ -55,8 +78,6 @@ def points_on_line(points, m, c):
 
 def voronoi_region_metrics(bound, regions, vertices, point_region):
     num_mos = len(vertices)
-    print('num_mos')
-    print(num_mos)
     max_vertlen = np.nanmax([len(vertices[v]) for v in np.arange(0, num_mos)])
     max_reglen = np.nanmax([len(regions[r]) for r in np.arange(0, num_mos)])
     
@@ -83,12 +104,13 @@ def voronoi_region_metrics(bound, regions, vertices, point_region):
     for m in np.arange(0, num_mos):
         for r, reg in enumerate(regions[m]):
             if bool(bound[m][r]):
-                cell_verts = np.empty([len(reg), 2])
-                for v, vert in enumerate(reg):
-                    cell_verts[v, :] = vertices[m][vert]
-                poly = Polygon(cell_verts)
-                voronoi_area[m, r] = poly.area
-                num_neighbor[m, r] = int(np.unique(reg).shape[0])
+                if len(reg) > 2:
+                    cell_verts = np.empty([len(reg), 2])
+                    for v, vert in enumerate(reg):
+                        cell_verts[v, :] = vertices[m][vert]
+                    poly = Polygon(cell_verts)
+                    voronoi_area[m, r] = poly.area
+                    num_neighbor[m, r] = int(np.unique(reg).shape[0])
 
         voronoi_area_mean[m] = (np.nanmean(voronoi_area[m, :]))
         voronoi_area_std[m] = (np.nanstd(voronoi_area[m, :]))     
@@ -107,15 +129,10 @@ def voronoi_region_metrics(bound, regions, vertices, point_region):
             num_neighbor_regularity[m] = (num_neighbor_mean[m]/num_neighbor_std[m])
      
         max_neighbors = int(np.nanmax([max_neighbors, np.nanmax(num_neighbor[m])]))
-    
-    reg_neighbors = np.empty([num_mos, max_reglen, max_neighbors])
-    cone_neighbors = np.empty([num_mos, max_reglen, max_neighbors])
-    reg_neighbors[:] = np.nan
-    cone_neighbors[:] = np.nan
 
     return [voronoi_area, voronoi_area_mean,
             voronoi_area_std, voronoi_area_regularity,
-            num_neighbor, num_neighbor_mean, cone_neighbors,
+            num_neighbor, num_neighbor_mean,
             num_neighbor_std, num_neighbor_regularity]
 
 
@@ -198,18 +215,21 @@ def get_bound_voronoi_cells(coord, img_x, img_y):
     bound_cones = np.ones([num_mos, coord.shape[1]])
     bound_cones = np.array(bound_cones, dtype=int)
     bounding_box = np.array([img_x[0], img_x[1], img_y[0], img_y[1]])
-    buffer = eps*10
+    buffer = eps*30
     for m in np.arange(0, num_mos):
         points_center = coord[m, :, :]
 
         points_left = np.copy(points_center)
-        points_left[:, 0] = bounding_box[0] - (points_left[:, 0] - bounding_box[0])
+        points_left[:, 0] = bounding_box[0] - (points_center[:, 0] - bounding_box[0])
+
         points_right = np.copy(points_center)
-        points_right[:, 0] = bounding_box[1] + (bounding_box[1] - points_right[:, 0])
+        points_right[:, 0] = bounding_box[1] + (bounding_box[1] - points_center[:, 0])
+
         points_down = np.copy(points_center)
-        points_down[:, 1] = bounding_box[2] - (points_down[:, 1] - bounding_box[2])
+        points_down[:, 1] = bounding_box[2] - (points_center[:, 1] - bounding_box[2])
+        
         points_up = np.copy(points_center)
-        points_up[:, 1] = bounding_box[3] + (bounding_box[3] - points_up[:, 1])
+        points_up[:, 1] = bounding_box[3] + (bounding_box[3] - points_center[:, 1])
         points = np.append(points_center,
                            np.append(np.append(points_left,
                                                points_right,
@@ -219,9 +239,19 @@ def get_bound_voronoi_cells(coord, img_x, img_y):
                                                axis=0),
                                      axis=0),
                            axis=0)
-        # Compute Voronoi
+        
+        #Compute Voronoi
         # fig = plt.figure()
         # ax = fig.gca()
+        # ax = show.scatt(points_center,'',plot_col='w',ax=ax)
+        # ax = show.line([bounding_box[0], bounding_box[1]],[bounding_box[2], bounding_box[2]], '', ax=ax, plot_col='w') #bottom
+        # ax = show.line([bounding_box[0], bounding_box[1]],[bounding_box[3], bounding_box[3]], '', ax=ax, plot_col='w') #top
+        # ax = show.line([bounding_box[0], bounding_box[0]],[bounding_box[2], bounding_box[3]], '', ax=ax, plot_col='w') #left
+        # ax = show.line([bounding_box[1], bounding_box[1]],[bounding_box[2], bounding_box[3]], '', ax=ax, plot_col='w') #right
+        # ax = show.scatt(points_left,'',plot_col='r',ax=ax)
+        # ax = show.scatt(points_right,'',plot_col='y',ax=ax)
+        # ax = show.scatt(points_up,'',plot_col='b',ax=ax)
+        # ax = show.scatt(points_down,'',plot_col='g',ax=ax)
 
         vor = Voronoi(points)
 
@@ -235,14 +265,16 @@ def get_bound_voronoi_cells(coord, img_x, img_y):
                 x = vor.vertices[v][0]
                 y = vor.vertices[v][1]
 
-                if ((x <= bounding_box[0] + buffer and x >= bounding_box[0] - buffer) or 
-                    (x <= bounding_box[1] + buffer and x >= bounding_box[1] - buffer) or
-                    (y <= bounding_box[2] + buffer and y >= bounding_box[2] - buffer) or
-                    (y <= bounding_box[3] + buffer and y >= bounding_box[3] - buffer) or
-                    (cx <= bounding_box[0] + buffer and cx >= bounding_box[0] - buffer) or 
-                    (cx <= bounding_box[1] + buffer and cx >= bounding_box[1] - buffer) or
-                    (cy <= bounding_box[2] + buffer and cy >= bounding_box[2] - buffer) or
-                    (cy <= bounding_box[3] + buffer and cy >= bounding_box[3] - buffer)):
+                if ((x <= bounding_box[0] + buffer) or 
+                    (x >= bounding_box[1] - buffer) or
+                    (y <= bounding_box[2] + buffer) or
+                    (y >= bounding_box[3] - buffer) or 
+                    (np.isinf(x) or np.isinf(y))):
+                    # (cx <= bounding_box[0] + buffer) or 
+                    # (cx >= bounding_box[1] - buffer) or
+                    # (cy <= bounding_box[2] + buffer) or
+                    # (cy >= bounding_box[3] - buffer) or 
+                    # (x < 0) or (y < 0) or r < 0 or (v < 0)):
 
                     unbound_inds.append(c)
                 # else:
@@ -456,12 +488,6 @@ def hexgrid(num2gen, hex_radius, x_dim, y_dim):
     """
     hex_radius = np.float_(hex_radius)
 
-    x_len = x_dim[1] - x_dim[0]
-    y_len = y_dim[1] - y_dim[0]
-    
-    print(x_len)
-    print(y_len)
-    print(hex_radius)
 
     #generate rectangular grid such that:
     #   points are contained in the same dimensions as the cone image
@@ -471,8 +497,8 @@ def hexgrid(num2gen, hex_radius, x_dim, y_dim):
     #               displaced to go from rectangular -> hexagonal packing)
     x_rectgrid_spacing = hex_radius
     y_rectgrid_spacing = x_rectgrid_spacing * (np.sqrt(3) / 2)  # SIN(60°)
-    xv, yv = np.meshgrid(np.arange(0, x_len, x_rectgrid_spacing),
-                         np.arange(0, y_len, y_rectgrid_spacing),
+    xv, yv = np.meshgrid(np.arange(x_dim[0], x_dim[1], x_rectgrid_spacing),
+                         np.arange(y_dim[0], y_dim[1], y_rectgrid_spacing),
                          sparse=False, indexing='xy')
     num_cones_placed = xv.shape[0] * xv.shape[1]
     # translate every other row by half the x-spacing (rect -> hex)
@@ -606,43 +632,109 @@ def setThirdOnwardSpacifiedCone(coord, avail, set_cones, set_coord, next_cone_in
 
     return [set_cones, set_coord, avail]
 
+def coneLocked_hexgrid_mask(all_coord, num2gen, cones2place, x_dim, y_dim, hex_radius):
+    # cal the size of the hexgrid to generate
+    x_len = x_dim[1] - x_dim[0]
+    y_len = y_dim[1] - y_dim[0]
+    jitter = hex_radius
+    img_diagonal = np.sqrt(np.power(x_len, 2) + np.power(y_len, 2))
+    jitt_diagonal = 2 * np.sqrt(2 * np.power(jitter,2))
+    hex_width = img_diagonal + jitt_diagonal
+    # calc the offset of the hexgrid to generate
+    diff_x = hex_width - x_len
+    diff_y = hex_width - y_len
+    offset_x = -1 * (diff_x/2)
+    offset_y = -1 * (diff_y/2)
+    hex_x = [offset_x, offset_x + hex_width -1]
+    hex_y = [offset_y, offset_y + hex_width -1]
+    # generate hexgrid
+    hex_coord = hexgrid(num2gen, hex_radius, hex_x, hex_y)
+    spaced_coord = []
+    max_hex = 0
+    for mos in np.arange(0, num2gen):
+        enough_cones = False
+        while not enough_cones:
+            # jitter the hexgrid
+            xy_jitter = (np.random.rand(2) * 2 * jitter) - jitter
+            hex_coord[ mos, :, 0] = hex_coord[mos, :, 0] + xy_jitter[0]
+            hex_coord[ mos, :, 1] = hex_coord[mos, :, 1] + xy_jitter[1]
+            # rotate the hexgrid
+            rot = np.random.rand(1) * 2 * math.pi
+            center = [x_dim[1]/2, y_dim[1]/2]
+            rot_x, rot_y = rotate_around_point(hex_coord[mos, :, :], rot, center)
+            hex_coord[mos, :, 0] = rot_x
+            hex_coord[mos, :, 1] = rot_y
 
-def spacifyByNearestNeighbors(num_coord, all_coord, num2gen):
-    """
-    asdf
-    """
-    if num_coord > 1 and all_coord.shape[0] >= num_coord:
+            # find hexgrid points within the image bounds
+            inds_in_img_bounds = in_box(hex_coord[mos, :, :], [x_dim[0], x_dim[1], y_dim[0], y_dim[1]])
+            bound_hex = hex_coord[mos, inds_in_img_bounds, :]
+            if bound_hex.shape[0] >= cones2place:
+                enough_cones = True
         
-        sp_coord = np.empty([num2gen, num_coord, 2], dtype=float)
-
-        # get matrix of intercone distances
-        dists = dist_matrices(all_coord)
-
-        #randomize seed list
-        seed_inds = np.arange(0, all_coord.shape[0])
-        np.random.shuffle(seed_inds)
+        max_hex = np.amax([max_hex, bound_hex.shape[0]])
         
-        for sp in np.arange(0, num2gen):  # looop through mosaics to make
-            avail_cones = np.arange(0, all_coord.shape[0])
+        # get intercone distance histogram for cones versus bound hexgrid points
+        dist_mat = distance.cdist(bound_hex, all_coord, 'euclidean')
+        
+        # for every bound hexgrid point, identify its closest cone and add to the spacified coordinates
+        min_dist_cone_inds = np.argmin(dist_mat, axis=1)
+        spaced_coord.append(all_coord[min_dist_cone_inds, :])
 
-            set_coord = np.ones([num_coord, 2]) * -1
+        # ax = show.scatt(all_coord, 'test grid', plot_col='y', s=3)
+        # ax = show.scatt(bound_hex, 'test grid', ax=ax)
+        # ax = show.scatt(spaced_coord[mos], 'test_grid', ax=ax, plot_col = 'r', s=.5)
+        # ax = show.line([x_dim[0], x_dim[0]], [y_dim[0], y_dim[1]], '', ax=ax, plot_col = 'r')
+        # ax = show.line([x_dim[1], x_dim[1]], [y_dim[0], y_dim[1]],'', ax=ax, plot_col = 'r')
+        # ax = show.line([x_dim[0], x_dim[1]], [y_dim[0], y_dim[0]],'', ax=ax, plot_col = 'r')
+        # ax = show.line([x_dim[0], x_dim[1]], [y_dim[1], y_dim[1]],'', ax=ax, plot_col = 'r')
 
-            seed_ind = seed_inds[sp]
+    temp = np.empty([num2gen, max_hex, 2])
+    temp[:] = np.nan
+    for mos in np.arange(0, num2gen):
+        temp[mos, 0:spaced_coord[mos].shape[0], :] = spaced_coord[mos]
+    spaced_coord = temp
 
-            [set_cones, set_coord[0:2, :]] = setFirstAndSecondSpacifiedCone(all_coord, seed_ind, dists)
+    return spaced_coord
+        
+    
 
-            avail_cones = removeVal(avail_cones, set_cones)
-            ax = show.plotKwargs({},'')
-            for a in np.arange(0, num_coord):
-                print(str(a) + '...')
-                [set_cones, set_coord, avail_cones] = setThirdOnwardSpacifiedCone(all_coord, avail_cones, set_cones, set_coord, a, dists)
-                ax = show.scatt(set_coord,'spacifying', ax=ax)
-                ax.draw
-            sp_coord[sp, :, :] = set_coord
-    else:
-        sp_coord = nan
+        
+# def spacifyByNearestNeighbors(num_coord, all_coord, num2gen):
+#     """
+#     asdf
+#     """
+#     if num_coord > 1 and all_coord.shape[0] >= num_coord:
+        
+#         sp_coord = np.empty([num2gen, num_coord, 2], dtype=float)
+
+#         # get matrix of intercone distances
+#         dists = dist_matrices(all_coord)
+
+#         #randomize seed list
+#         seed_inds = np.arange(0, all_coord.shape[0])
+#         np.random.shuffle(seed_inds)
+        
+#         for sp in np.arange(0, num2gen):  # looop through mosaics to make
+#             avail_cones = np.arange(0, all_coord.shape[0])
+
+#             set_coord = np.ones([num_coord, 2]) * -1
+
+#             seed_ind = seed_inds[sp]
+
+#             [set_cones, set_coord[0:2, :]] = setFirstAndSecondSpacifiedCone(all_coord, seed_ind, dists)
+
+#             avail_cones = removeVal(avail_cones, set_cones)
+#             ax = show.plotKwargs({},'')
+#             for a in np.arange(0, num_coord):
+#                 print(str(a) + '...')
+#                 [set_cones, set_coord, avail_cones] = setThirdOnwardSpacifiedCone(all_coord, avail_cones, set_cones, set_coord, a, dists)
+#                 ax = show.scatt(set_coord,'spacifying', ax=ax)
+#                 ax.draw
+#             sp_coord[sp, :, :] = set_coord
+#     else:
+#         sp_coord = nan
          
-    return sp_coord
+#     return sp_coord
 
 
 def monteCarlo_uniform(num_coord, num_mc, xlim, ylim):

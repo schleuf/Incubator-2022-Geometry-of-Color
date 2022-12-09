@@ -38,20 +38,22 @@ def numSim(process, num_sim, sim_to_gen):
     Returns
     -------
     numSim : the number of simulations to produce for the given process 
-    """
+"""
     if len(num_sim) < len(sim_to_gen) or len(num_sim) > len(sim_to_gen):
         if len(num_sim) == 1:
             numSim = int(num_sim[0])
         else:
             raise Exception('inappropriate # of values in input variable ""numSim""')
+    
     elif len(num_sim) == len(sim_to_gen): 
         for ind, sim in enumerate(sim_to_gen):
             if sim == process:
-                sim_ind = ind
-        numSim = num_sim[sim_ind]
+                sim_ind = ind 
+        numSim = int(num_sim[sim_ind])
+    
     else:
         raise Exception('inappropriate # of values in input variable ""numSim""')
-    
+
     return numSim
 
 
@@ -67,6 +69,8 @@ def trim_random_edge_points(coord, num_cones, img_x, img_y):
     if len(coord.shape) == 2:
         coord = np.expand_dims(coord, 0)
     diff_num_cones = coord.shape[1] - num_cones
+    # print('trimming: num cone difference')
+    # print(diff_num_cones)
     if diff_num_cones > 0:
         temp = []
         [regions, vertices, ridge_vertices, ridge_points, point_region] = calc.voronoi(coord)
