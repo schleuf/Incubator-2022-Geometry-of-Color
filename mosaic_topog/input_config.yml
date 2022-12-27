@@ -17,11 +17,11 @@ subject:
 angle:
   - ['temporal']  #['temporal', 'nasal', 'superior', 'inferior']
 eccentricity:
-  - ['1.5']  #['1.5','3.5', '4', '4.5', '10']
+  - ['1.5','3.5', '4', '4.5', '10']  #['1.5','3.5', '4', '4.5', '10']
 conetype:
-  - ['all','S'] #['all','L','M','S','unclassed']
+  - ['all'] #['all','L','M','S','unclassed']
 conetype_color:
-  - ['gold','dodgerblue'] #['y','r','g','b','w']
+  - ['gold'] #,'dodgerblue'] #['y','r','g','b','w']
 coord_unit:
   - 'pixels' # units of the coordinate data loaded in - any string you want
 coord_fltype:

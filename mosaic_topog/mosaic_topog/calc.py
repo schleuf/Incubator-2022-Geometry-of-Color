@@ -19,6 +19,7 @@ eps = sys.float_info.epsilon
 # dist_matrices
 # Monte_Carlo_uniform
 
+
 def rotate_around_point(xy, radians, origin=(0, 0)):
     """
     FROM https://gist.github.com/LyleScott/e36e08bfb23b1f87af68c9051f985302
@@ -51,14 +52,39 @@ def in_box(towers, bounding_box):
                                          towers[:, 1] <= bounding_box[3]))
 
 
+def line_intersection(x1, y1, x2, y2):
+    line1 = [[x1[0], y1[0]], [x1[1], y1[1]]]
+    [s1, i1] = slope_intercept(line1)
+    line2 = [[x2[0], y2[0]], [x2[1], y2[1]]]
+    [s2, i2] = slope_intercept(line2)
+
+    #solve for intercept
+    x = (i2-i1)/(s1-s2)
+
+    # print('X')
+    # print(x)
+
+    try1 = np.around(x*s1 + i1, 3)
+    try2 = np.around(x*s2 + i2, 3)
+
+    # print('Y1')
+    # print(try1)
+    # print('Y2')
+    # print(try2)
+
+    if try1 == try2:
+        return [x, try1]
+    else:
+        return [np.nan, np.nan]
+
+
 def slope_intercept(line):
     x1 = line[0][0]
     x2 = line[1][0]
     y1 = line[0][1]
     y2 = line[1][1]
-    slope = (y2-y1)/(x2-x1)
-    
-    y_intercept = y1 - (slope*x1)
+    slope = (y2-y1)/(x2-x1)    
+    y_intercept = y1 - (slope * x1)
     return slope, y_intercept
 
 
@@ -301,7 +327,9 @@ def voronoi_innards(coord):
     ridge_vertices = (vor.ridge_vertices)
     ridge_points = (vor.ridge_points)
     point_region = (vor.point_region)
-
+    # for m in np.arange(0, coord.shape[0]):
+        # print('regions: ' + str(len(regions)))
+        # print('point_regions: ' + str(len(point_region)))
     return (regions, vertices, ridge_vertices, ridge_points, point_region)
 
 
@@ -313,6 +341,7 @@ def voronoi(coord):
     ridge_vertices = []
     point_region = []
     ridge_points = []
+
     for i in np.arange(0, coord.shape[0]):
         regions.append([])
         vertices.append([])
@@ -649,10 +678,16 @@ def coneLocked_hexgrid_mask(all_coord, num2gen, cones2place, x_dim, y_dim, hex_r
     hex_y = [offset_y, offset_y + hex_width -1]
     # generate hexgrid
     hex_coord = hexgrid(num2gen, hex_radius, hex_x, hex_y)
+
     spaced_coord = []
     max_hex = 0
+
+    modded_hex_radius = False
+    hex_radius_decrease = 0
+    percent_of_og_hex_radius = hex_radius/100
     for mos in np.arange(0, num2gen):
         enough_cones = False
+        count_fails = 0
         while not enough_cones:
             # jitter the hexgrid
             xy_jitter = (np.random.rand(2) * 2 * jitter) - jitter
@@ -664,12 +699,32 @@ def coneLocked_hexgrid_mask(all_coord, num2gen, cones2place, x_dim, y_dim, hex_r
             rot_x, rot_y = rotate_around_point(hex_coord[mos, :, :], rot, center)
             hex_coord[mos, :, 0] = rot_x
             hex_coord[mos, :, 1] = rot_y
-
             # find hexgrid points within the image bounds
             inds_in_img_bounds = in_box(hex_coord[mos, :, :], [x_dim[0], x_dim[1], y_dim[0], y_dim[1]])
             bound_hex = hex_coord[mos, inds_in_img_bounds, :]
+            #redo if there aren't enough points in the bounds
             if bound_hex.shape[0] >= cones2place:
                 enough_cones = True
+            else:
+                count_fails = count_fails + 1
+            if count_fails > 100:
+                print('SEEMS LIKE I AM STUCK IN AN INFINITE LOOP')
+                # print('hex_radius')
+                modded_hex_radius = True
+                hex_radius_decrease = hex_radius_decrease + percent_of_og_hex_radius
+                hex_radius = hex_radius - percent_of_og_hex_radius
+                # print(hex_radius)
+                # print(hex_radius_decrease)
+                # calc the offset of the hexgrid to generate
+                diff_x = hex_width - x_len
+                diff_y = hex_width - y_len
+                offset_x = -1 * (diff_x/2)
+                offset_y = -1 * (diff_y/2)
+                hex_x = [offset_x, offset_x + hex_width -1]
+                hex_y = [offset_y, offset_y + hex_width -1]
+                # generate hexgrid
+                hex_coord = hexgrid(num2gen, hex_radius, hex_x, hex_y)
+        
         
         max_hex = np.amax([max_hex, bound_hex.shape[0]])
         
@@ -679,6 +734,11 @@ def coneLocked_hexgrid_mask(all_coord, num2gen, cones2place, x_dim, y_dim, hex_r
         # for every bound hexgrid point, identify its closest cone and add to the spacified coordinates
         min_dist_cone_inds = np.argmin(dist_mat, axis=1)
         spaced_coord.append(all_coord[min_dist_cone_inds, :])
+        # print('spaced coord: size')
+        # print(spaced_coord[mos].shape)
+        # print('unique spaced coords')
+        # print(np.unique(spaced_coord[mos], axis=0).shape)
+        spaced_coord[mos]
 
         # ax = show.scatt(all_coord, 'test grid', plot_col='y', s=3)
         # ax = show.scatt(bound_hex, 'test grid', ax=ax)
@@ -687,14 +747,15 @@ def coneLocked_hexgrid_mask(all_coord, num2gen, cones2place, x_dim, y_dim, hex_r
         # ax = show.line([x_dim[1], x_dim[1]], [y_dim[0], y_dim[1]],'', ax=ax, plot_col = 'r')
         # ax = show.line([x_dim[0], x_dim[1]], [y_dim[0], y_dim[0]],'', ax=ax, plot_col = 'r')
         # ax = show.line([x_dim[0], x_dim[1]], [y_dim[1], y_dim[1]],'', ax=ax, plot_col = 'r')
-
+    if modded_hex_radius:
+        print('I AM MY OWN SAVIOR')
     temp = np.empty([num2gen, max_hex, 2])
     temp[:] = np.nan
     for mos in np.arange(0, num2gen):
         temp[mos, 0:spaced_coord[mos].shape[0], :] = spaced_coord[mos]
     spaced_coord = temp
 
-    return spaced_coord
+    return spaced_coord, modded_hex_radius, hex_radius_decrease, hex_radius
         
     
 

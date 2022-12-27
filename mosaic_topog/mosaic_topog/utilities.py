@@ -69,6 +69,7 @@ def trim_random_edge_points(coord, num_cones, img_x, img_y):
     if len(coord.shape) == 2:
         coord = np.expand_dims(coord, 0)
     diff_num_cones = coord.shape[1] - num_cones
+
     # print('trimming: num cone difference')
     # print(diff_num_cones)
     if diff_num_cones > 0:
