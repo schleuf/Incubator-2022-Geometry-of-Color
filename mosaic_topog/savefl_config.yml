@@ -162,6 +162,10 @@ voronoi:
   - num_neighbor_mean
   - num_neighbor_std
   - neighbors_cones
+  - icd
+  - icd_mean
+  - icd_std
+  - icd_regularity
   - voronoi_area_regularity
   - num_neighbor_regularity
   - density

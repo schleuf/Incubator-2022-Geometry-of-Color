@@ -423,9 +423,17 @@ def voronoi_process(param, sav_cfg):
             #     ax.fill(*zip(*poly), facecolor='r', edgecolor='k')
 
         neighbors_cones = calc.getVoronoiNeighbors(point_data, vertices, regions, ridge_vertices, ridge_points, point_region, bound_regions, bound_cones)
-
+        icd = np.empty([point_data.shape[0], point_data.shape[1], neighbors_cones.shape[2]])
+        icd_mean = np.empty([point_data.shape[0], ])
+        icd_std = np.empty([point_data.shape[0], ])
+        icd_regularity = np.empty([point_data.shape[0], ])
+        icd[:] = np.nan
+        icd_mean[:] = np.nan
+        icd_std[:] = np.nan
+        icd_regularity[:] = np.nan
         # it's possible for some cones in erratic mosaics to be bound but have no bound neighbors. get rid of those.
         for m in np.arange(point_data.shape[0]):
+            dists = calc.dist_matrices(np.squeeze(point_data[m, :, :]))
             for nc in np.arange(0, neighbors_cones.shape[1]):
                 not_nans = [~np.isnan(neighbors_cones[m, nc, x]) for x in np.arange(0, neighbors_cones.shape[2])]
                 neighb_cones = np.array(neighbors_cones[m, nc, np.nonzero(not_nans)[0]], dtype=int)
@@ -434,16 +442,50 @@ def voronoi_process(param, sav_cfg):
                     r = point_region[m][nc]
                     bound_regions[m][r] = 0
                     neighbors_cones[m, nc, :] = np.nan
-
+                else:
+                    #get ICDs while we're here
+                    icd[m, nc, np.array(np.nonzero(not_nans)[0], dtype=int)] = dists[nc, np.array(neighbors_cones[m, nc, np.nonzero(not_nans)[0]], dtype=int)]
+            icd_mean[m] = np.nanmean(icd[m, :, :])
+            icd_std[m] = np.nanstd(icd[m, :, :])
+            icd_regularity[m] = icd_mean[m]/icd_std[m]
+        # print('icd_mean')
+        # print(icd_mean)
+        # print('icd_std')
+        # print(icd_std)
+        # print('icd_regularity')
+        # print(icd_regularity)
+        # print('')
+        # print('icd size')
+        # print(icd.shape)
+        # print(icd[0,:,:])
         [voronoi_area, voronoi_area_mean,
         voronoi_area_std, voronoi_area_regularity,
         num_neighbor, num_neighbor_mean,
         num_neighbor_std, num_neighbor_regularity]  = calc.voronoi_region_metrics(bound_regions, regions, vertices, point_region)
 
+        # def convertRegion2Cone(metric, point_region):
+        #     print('CONVERT REGION TO CONE')
+        #     print(metric.shape)
+        #     print(metric)
+        #     print(point_region.shape)
+        #     print(point_region)
+        #     # temp = np.empty(np.squeeze(metric[m,:].shape))
+        #     # temp[:] = np.nan
+        #     # temp[:] = metric[m, point_region[m], :]
+
+
+        # #convert voronoi region metrics to voronoi cone metrics
+        # voronoi_area = convertRegion2Cone(voronoi_area, point_region)
+        
+        
         density = np.empty([point_data.shape[0],])
         hex_radius = np.empty([point_data.shape[0],])
 
         maxnum = int(np.nanmax([np.nanmax(num_neighbor[s]) for s in np.arange(0, len(num_neighbor))]))
+
+        if not neighbors_cones.shape[2] == maxnum:
+            print('THROW A HECKIN FIT NUM NEIGHBORS ARE COMING OUT DIFFERENT AAUUUGHGHGHH')
+
         temp_reg = np.empty([point_data.shape[0], len(regions[0]), maxnum])
         temp_reg[:] = np.nan
         temp_vert = np.empty([point_data.shape[0],
@@ -466,6 +508,7 @@ def voronoi_process(param, sav_cfg):
                     temp_reg[m, r, 0:len(reg)] = reg
 
             temp_vert[m, 0:len(vertices[m]), :] = np.array(vertices[m])
+
         regions = temp_reg
         vertices = temp_vert
 
@@ -503,6 +546,10 @@ def intracone_dist_common(coord, bin_width, dist_area_norm):
 
     mean_nearest = np.mean(np.array(nearest_dist))
     std_nearest = np.std(np.array(nearest_dist))
+    # print('mean_nearest')
+    # print(mean_nearest)
+    # print('std_nearest')
+    # print(std_nearest)
 
     hist, bin_edge = calc.distHist(dist, bin_width)
 

@@ -272,10 +272,12 @@ def getFilesByDataGroup(user_param, filetype):
 
     """
     folder = user_param['data_path'][0]
+
     subject = user_param['subject'][0]
     angle = user_param['angle'][0]
     eccentricity = user_param['eccentricity'][0]
     conetype = user_param['conetype'][0]
+
 
     # get all file paths in the directory
     fl_list = glob.glob(folder + '*')

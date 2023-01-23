@@ -106,7 +106,8 @@ def voronoi_region_metrics(bound, regions, vertices, point_region):
     num_mos = len(vertices)
     max_vertlen = np.nanmax([len(vertices[v]) for v in np.arange(0, num_mos)])
     max_reglen = np.nanmax([len(regions[r]) for r in np.arange(0, num_mos)])
-    
+    # print(max_reglen)
+    # print('max_reglen')
     num_neighbor = np.empty([num_mos, max_reglen])
     voronoi_area  = np.empty([num_mos, max_reglen])
     voronoi_area_mean = np.empty([num_mos, ])

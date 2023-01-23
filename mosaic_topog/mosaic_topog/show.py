@@ -92,7 +92,7 @@ from shapely.geometry.polygon import Polygon
         #   mpi is one approach
 
 
-def view2PC(save_name, scale_std=2, showNearestCone=False, save_things=False, save_path=''):
+def view2PC(save_name, scale_std=2, showNearestCone=False, save_things=False, save_path='', save_type='.png'):
     for fl in save_name:
         print(fl)
         # get intracone distance histogram data and plotting parameters from the save file
@@ -144,7 +144,7 @@ def view2PC(save_name, scale_std=2, showNearestCone=False, save_things=False, sa
 
                         half_cone_rad = all_cone_mean_nearest / 2
                         cone_rad_x = np.arange(half_cone_rad, half_cone_rad + (5 * all_cone_mean_nearest + 1), step=all_cone_mean_nearest)
-                        lin_extent = 1.5
+                        lin_extent = .5
 
                         # if showNearestCone:
                         #     for lin in cone_rad_x:
@@ -153,23 +153,25 @@ def view2PC(save_name, scale_std=2, showNearestCone=False, save_things=False, sa
                         #         else:
                         #             ax = show.line([lin, lin], [-1 * lin_extent, lin_extent], id='cone-dist', ax=ax, plot_col='olive')
 
-                        ax = line([hex_radius, hex_radius], [-1 * lin_extent, lin_extent], id='hex_radius', ax=ax, plot_col='firebrick')
+                        ax = line([hex_radius, hex_radius], [-1 * lin_extent, lin_extent], id='hex_radius', ax=ax, plot_col='firebrick', linewidth=3)
                         
                         ax = shadyStats(x, hist_mean, hist_std, id_str, ax = ax, scale_std=scale_std,
                                             plot_col = plot_col, label = plot_label)
+                        #ax = scatt(np.array([hex_radius, 0]), id='hex_radius', ax=ax, plot_col='firebrick', s=800, mosaic_data=False)
+
             
                 else:
                         print('no')
             
             if showNearestCone:
                 plt.xlim([0, half_cone_rad + 5 * all_cone_mean_nearest + 1])
-                plt.ylim([-1.5,10]) #plt.ylim([-0, lin_extent])
+                plt.ylim([-1.5,3]) #plt.ylim([-0, lin_extent])
 
             ax.figure
             ax.legend()
 
             if save_things:
-                savnm = save_path + id_str + '.png'
+                savnm = save_path + id_str + save_type
                 plt.savefig(savnm)
             
             if len(save_name) == 1:
@@ -224,6 +226,7 @@ def viewIntraconeDist(mos_type, save_things=False, save_name=[], prefix='',
 def viewVoronoiHistogram(mos_type, metric, save_things=False, save_name=[], prefix='',
             save_path='', id='', z_dim=0, 
             mosaic_data=True, marker='.', label=None, **kwargs):
+    print(metric)
     for fl in save_name:
         print(fl)
         # get spacified coordinate data and plotting parameters from the save file
@@ -235,6 +238,7 @@ def viewVoronoiHistogram(mos_type, metric, save_things=False, save_name=[], pref
            
             bound_regions = file[mos_type+'_voronoi']['bound_regions'][()][z_dim]
             metric_data = file[mos_type+'_voronoi'][metric][()][z_dim]
+            print(metric_data.shape)
             metric_mean = file[mos_type+'_voronoi'][metric+'_mean'][()][z_dim]
             metric_std = file[mos_type+'_voronoi'][metric+'_std'][()][z_dim]
             metric_regularity = file[mos_type+'_voronoi'][metric+'_regularity'][()][z_dim]
@@ -337,8 +341,8 @@ def viewVoronoiDiagram(mos_type, save_things=False, save_name=[], prefix='',
 
 
 def viewMosaic(mos_type, save_things=False, save_name=[], prefix='',
-            save_path='', id='', z_dim=0, 
-            mosaic_data=True, marker='.', label=None, **kwargs):
+            save_path='',save_type='.png', id='', z_dim=0, plot_col='w',
+            mosaic_data=True, marker='.', s=30, label=None, **kwargs):
 
     for fl in save_name:
         print(fl)
@@ -377,12 +381,12 @@ def viewMosaic(mos_type, save_things=False, save_name=[], prefix='',
                 else: 
                     this_coord = coord
 
-                ax = scatt(this_coord, id_str, plot_col=conetype_color, xlabel=xlab, ylabel=ylab, mosaic_data = mosaic_data, z_dim=z_dim, marker=marker, label=label)
+                ax = scatt(this_coord, id_str, s=s, plot_col=plot_col, xlabel=xlab, ylabel=ylab, mosaic_data= mosaic_data, z_dim=z_dim, marker=marker, label=label)
 
                 ax.figure
 
                 if save_things:
-                    savnm = save_path + mosaic + '_' + str(mos) + '_' + conetype + '.png'
+                    savnm = save_path + mosaic + '_' + str(mos) + '_' + conetype + save_type
                     plt.savefig(savnm)
 
         else:
@@ -654,7 +658,7 @@ def shadyStats(x, mean, std, id, scale_std=1, plot_col='w',
 
     ax = plotKwargs(kwargs, id)
     ax.set_facecolor(bckg_col)
-    ax.plot(x, mean, color=plot_col, linewidth = 1, label = label)
+    ax.plot(x, mean, color=plot_col, linewidth = 3, label = label)
     ax.fill_between(x, err_low, err_high, color=plot_col, alpha=.7)
 
     return ax
