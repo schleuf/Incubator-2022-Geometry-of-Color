@@ -12,6 +12,7 @@ import mosaic_topog.show as show
 import mosaic_topog.utilities as util
 from py import process
 from shapely.geometry.polygon import Polygon
+from scipy import spatial
 
 import random
 
@@ -274,60 +275,127 @@ def metrics_of_2PC_process(param, sav_cfg):
 def two_point_correlation_process(param, sav_cfg):
     proc = 'two_point_correlation'
     proc_vars = sav_cfg[proc]['variables']
-
     sav_fl = param['sav_fl']
     bin_width = param['bin_width']
-    # print("bin_width")
-    # print(bin_width)
-    corr_by = param['corr_by']
     to_be_corr = param['to_be_corr']
-
-    # pull the data that is requested for corr_by and to_be_corr
-
-    maxbins = 0 
-
+    sim_to_gen = param['sim_to_gen']
     with h5py.File(sav_fl, 'r') as file:
-        corr_by_hist = file[corr_by + '_intracone_dist']['hist_mean'][()]
-        bin_edge = file[corr_by + '_intracone_dist']['bin_edge'][()]
-        all_coord = file['input_data']['cone_coord'][()]
-        maxbins = np.amax([corr_by_hist.shape[0], maxbins])
+        img_x = file['input_data']['img_x'][()]
+        img_y = file['input_data']['img_y'][()]
+    num2gen = util.numSim('monteCarlo_uniform', param['num_sim'], param['sim_to_gen'])
 
-        to_be_corr_hists = []
-        for vect in to_be_corr:
-            proc_to_get = vect + '_intracone_dist'
-            try:
-                all_coord = file[vect]['all_coord'][()]
-            except:
-                print('no all_coord key found in ' + vect)
-            to_be_corr_hists.append([file[proc_to_get]['hist_mean'][()], file[proc_to_get]['hist_std'][()]])
-            maxbins = np.amax([file[proc_to_get]['hist_mean'][()].shape[0], maxbins])
+    coord, PD_string = getDataForPrimaryProcess(sav_fl)
+    numcones = coord[0].shape[1]
+    print('numcones: ' + str(numcones))
+    dist_area_norm = False
+    
 
-    corr_by_hist = util.vector_zeroPad(corr_by_hist, 0, maxbins - corr_by_hist.shape[0])
-    for ind1, to_be_corr in enumerate(to_be_corr_hists):
-        for ind2, vect in enumerate(to_be_corr):
-            to_be_corr_hists[ind1][ind2] = util.vector_zeroPad(to_be_corr_hists[ind1][ind2], 0, maxbins-to_be_corr_hists[ind1][ind2].shape[0])
+
+    # if binwidth = -1, we need to set it to the mean inctracone distance of the total mosaic.
+    # get the mean intracone distance from the total cone mosaic's save file (should already have been run)
+    # in the future, could add something that computes it if not found in the save file
+    if bin_width == -1:
+        save_path = os.path.dirname(sav_fl)
+        all_coord_fl = save_path + '\\' + param['mosaic'] + '_all.hdf5'
+
+        try:
+            with h5py.File(all_coord_fl, 'r') as file:
+                bin_width = file['measured_voronoi']['icd_mean'][()]
+        except:
+            print('could not pull mean if from ' + all_coord_fl)
+
+    # create a population of random-uniform mosaics
+    xlim = [0, img_x]
+    ylim = [0, img_y]
+    rand_coord = calc.monteCarlo_uniform(numcones, num2gen, xlim, ylim)
+    rand_dist_hist_list = []
+    rand_maxbin = 0
+
+    # compute each of their intracone dist histograms, and their first order statistics
+
+    for r in np.arange(0, num2gen):
+        # axZ = show.plotKwargs({}, '')
+        # axZ = show.scatt(np.squeeze(rand_coord[r,:,:]), '', axZ = axZ)
+        rand_dist = spatial.distance_matrix(np.squeeze(rand_coord[r,:,:]),
+                                            np.squeeze(rand_coord[r,:,:]))
+        # axy = show.plotKwargs({}, '')
+        # axy = plt.imshow(rand_dist)
+        for c in np.arange(0, 80):
+            rand_dist[c,c] = np.nan
+        hist, bin_edges = np.histogram(rand_dist, bins = np.arange(0, (bin_width * np.floor(np.nanmax(rand_dist) / bin_width)) + bin_width, bin_width))
+        # axX = show.plotKwargs({}, '')
+        # axX = plt.stairs(hist, bin_edges)
+        rand_dist_hist_list.append(hist)
+        if rand_dist_hist_list[r].shape[0] > rand_maxbin:
+            rand_maxbin = rand_dist_hist_list[r].shape[0]   
+            rand_bin_edges = bin_edges 
+    rand_dist_hist = np.empty([num2gen, rand_maxbin])
+    rand_dist_hist[:] = np.nan
+    for r in np.arange(0, num2gen):
+        rand_dist_hist[r, np.nonzero(~np.isnan(rand_dist_hist_list[r]))[0]] = rand_dist_hist_list[r] 
+
+    rand_dist_hist_mean = np.nanmean(rand_dist_hist, axis=0) 
+    rand_dist_hist_std = np.nanstd(rand_dist_hist, axis=0)
+    print(rand_maxbin)
+
+    ax = show.plotKwargs({}, '')
+    hist_x = np.empty(rand_dist_hist_mean.shape[0]*2+1)
+    hist_y = np.empty(rand_dist_hist_mean.shape[0]*2+1)
+    hist_y_plus = np.empty(rand_dist_hist_mean.shape[0]*2+1)
+    hist_y_minus = np.empty(rand_dist_hist_mean.shape[0]*2+1)
+    hist_x[0] = 0
+    hist_y[0] = 0
+    hist_y_plus[0] = 0
+    hist_y_minus[0] = 0
+    for ind,bin in enumerate(np.arange(0,rand_dist_hist_mean.shape[0]-1)):
+        hist_x[ind*2+1:ind*2+3] = [rand_bin_edges[ind], rand_bin_edges[ind]]
+        hist_y[ind*2+1:ind*2+3] = [rand_dist_hist_mean[ind], rand_dist_hist_mean[ind+1]]
+
+        hist_y_plus[ind*2+1:ind*2+3] = [rand_dist_hist_mean[ind]+rand_dist_hist_std[ind], rand_dist_hist_mean[ind+1]+rand_dist_hist_std[ind+1]]
+        hist_y_minus[ind*2+1:ind*2+3] = [rand_dist_hist_mean[ind]-rand_dist_hist_std[ind], rand_dist_hist_mean[ind+1]-rand_dist_hist_std[ind+1]]
+    ax = show.line(hist_x, hist_y, '', plot_col='w', ax=ax)
+    ax.fill_between(hist_x, 
+                    hist_y_plus, 
+                    hist_y_minus, color='royalblue', alpha=.7)
+    corr_by_hist = rand_dist_hist_mean
+    # for each mosaic to be correlated against the msoaics
+    for ind, point_data in enumerate(coord):
+        # if this is a valid coordinate dataset for this process...
+        if len(point_data.shape) == 3:
+            num_mosaic = point_data.shape[0]
+            points_per_mos = point_data.shape[1]
+            dist = np.zeros((num_mosaic, points_per_mos, points_per_mos))
+            hist = np.empty(num_mosaic, dtype=np.ndarray)
+            max_hist_bin = 0
+            print('     Running 2PC on ' + str(num_mosaic) + " " + PD_string[ind] + ' mosaics...') 
+            for mos in np.arange(0, num_mosaic):
+                this_coord = point_data[mos, :, :]
+                dist[mos, :, :], mean_nearest, std_nearest, hist[mos], bin_edge, annulus_area = intracone_dist_common(this_coord.squeeze(), bin_width, dist_area_norm)
+                if hist[mos].shape[0] > max_hist_bin:
+                    max_hist_bin = hist[mos].shape[0]
+ 
+            # this is just to convert the returned histograms into a rectangular array
+            # (this can't be done in advance because of slight variability in the number of bins returned (for randomized mosaics))
+            hist_mat = np.zeros([num_mosaic, rand_maxbin])
+            for mos in np.arange(0, num_mosaic):
+                hist_mat[mos, 0:hist[mos].shape[0]] = hist[mos]
+
+            hist = hist_mat
+
+            #preallocation for new 2PC matrix
+            twoPC = np.empty(hist.shape)
+            twoPC[:] = np.nan
+            for mos in np.arange(0, num_mosaic):
+                #new 2PC calculation
+                twoPC[mos,:] = calc.corr(hist[mos,:], corr_by_hist)
+
 
     if not np.isnan(corr_by_hist).any():
-        while bin_edge.shape[0] <= maxbins:
+        # THOU SHALT NOT HAVE NANS
+        while bin_edge.shape[0] <= max_hist_bin:
             bin_edge = np.append(bin_edge, max(bin_edge)+bin_width)
         x = bin_edge[1:]-(bin_width/2)
-        # Hey Sierra this section shouldn't need to be heeeere ***
-        # get average nearest cone in the overall mosaic
-        all_cone_dist = calc.dist_matrices(all_coord)
 
-        # get avg and std of nearest cone distance in the mosaic
-        nearest_dist = []
-        for cone in np.arange(0, all_cone_dist.shape[0]):
-            # get row for this cone's distance to every other cone
-            row = all_cone_dist[cone, :]
-            # find the index where the distance = -1 if it exists - this is self
-            # and shouldn't be included
-            row = np.delete(row, np.nonzero(row == -1))
-            # get the minimum value in the row
-            nearest_dist.append(row.min())
-
-        all_cone_mean_nearest = np.mean(np.array(nearest_dist))
-        all_cone_std_nearest = np.std(np.array(nearest_dist))
 
         corred = []
         ax = show.plotKwargs({},'')
@@ -357,8 +425,7 @@ def two_point_correlation_process(param, sav_cfg):
     else:
         data_to_set = util.mapStringToNan(proc_vars)
 
-    flsyst.setProcessVarsFromDict(param, sav_cfg, proc, data_to_set)
-
+    flsyst.setProcessVarsFromDict(param, sav_cfg, proc, data_to_set, prefix=PD_string[ind])
 
 ## --------------------------------PRIMARY ANALYSIS FUNCTIONS--------------------------------------
 
@@ -565,7 +632,7 @@ def intracone_dist_common(coord, bin_width, dist_area_norm):
 
 
 def getDataForPrimaryProcess(sav_fl):
-   # get any needed info from the save file
+    # get any needed info from the save file
     # this handling of the different types of point-data shouldn't be within the intracone
     with h5py.File(sav_fl, 'r') as file:
         all_coord = file['input_data']['cone_coord'][()]
@@ -622,6 +689,18 @@ def intracone_dist_process(param, sav_cfg):
     dist_area_norm = param['dist_area_norm']
     sim_to_gen = param['sim_to_gen']
 
+    if bin_width == -1:
+         # look for all cone mosaic for this data
+        save_path = os.path.dirname(sav_fl)
+        all_coord_fl = save_path + '\\' + param['mosaic'] + '_all.hdf5'
+        try:
+            with h5py.File(all_coord_fl, 'r') as file:
+                all_cone_mean_icd   = file['measured_voronoi']['icd_mean'][()]
+        except:
+            print('could not pull mean nearest from ' + all_coord_fl)
+        bin_width = all_cone_mean_icd
+    print('bin width')
+    print(bin_width)
     coord, PD_string = getDataForPrimaryProcess(sav_fl)
     
     for ind, point_data in enumerate(coord):

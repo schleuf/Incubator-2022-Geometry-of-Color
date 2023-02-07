@@ -131,7 +131,6 @@ hexgrid_by_density:
   - cone_density
 
 # Primary Analysis Processes
-
 intracone_dist:
   process: intracone_dist_process
   process_type: analysis
@@ -177,7 +176,7 @@ voronoi:
 two_point_correlation:
   process: two_point_correlation_process
   process_type: analysis
-  analysis_tier: 2
+  analysis_tier: 1
   dependencies:
   - intracone_dist
   variables:
