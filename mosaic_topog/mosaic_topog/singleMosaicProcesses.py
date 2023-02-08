@@ -288,139 +288,164 @@ def two_point_correlation_process(param, sav_cfg):
     numcones = coord[0].shape[1]
     print('numcones: ' + str(numcones))
     dist_area_norm = False
-    
 
+    if coord:
+        # if binwidth = -1, we need to set it to the mean inctracone distance of the total mosaic.
+        # get the mean intracone distance from the total cone mosaic's save file (should already have been run)
+        # in the future, could add something that computes it if not found in the save file
+        if bin_width == -1:
+            save_path = os.path.dirname(sav_fl)
+            all_coord_fl = save_path + '\\' + param['mosaic'] + '_all.hdf5'
 
-    # if binwidth = -1, we need to set it to the mean inctracone distance of the total mosaic.
-    # get the mean intracone distance from the total cone mosaic's save file (should already have been run)
-    # in the future, could add something that computes it if not found in the save file
-    if bin_width == -1:
-        save_path = os.path.dirname(sav_fl)
-        all_coord_fl = save_path + '\\' + param['mosaic'] + '_all.hdf5'
+            try:
+                with h5py.File(all_coord_fl, 'r') as file:
+                    bin_width = file['measured_voronoi']['icd_mean'][()]
+            except:
+                print('could not pull mean if from ' + all_coord_fl)
 
-        try:
-            with h5py.File(all_coord_fl, 'r') as file:
-                bin_width = file['measured_voronoi']['icd_mean'][()]
-        except:
-            print('could not pull mean if from ' + all_coord_fl)
+        # create a population of random-uniform mosaics
+        xlim = [0, img_x]
+        ylim = [0, img_y]
+        rand_coord = calc.monteCarlo_uniform(numcones, num2gen, xlim, ylim)
+        rand_dist_hist_list = []
+        rand_maxbin = 0
 
-    # create a population of random-uniform mosaics
-    xlim = [0, img_x]
-    ylim = [0, img_y]
-    rand_coord = calc.monteCarlo_uniform(numcones, num2gen, xlim, ylim)
-    rand_dist_hist_list = []
-    rand_maxbin = 0
+        # compute each of their intracone dist histograms, and their first order statistics
 
-    # compute each of their intracone dist histograms, and their first order statistics
+        for r in np.arange(0, num2gen):
+            # axZ = show.plotKwargs({}, '')
+            # axZ = show.scatt(np.squeeze(rand_coord[r,:,:]), '', axZ = axZ)
+            rand_dist = spatial.distance_matrix(np.squeeze(rand_coord[r,:,:]),
+                                                np.squeeze(rand_coord[r,:,:]))
+            # axy = show.plotKwargs({}, '')
+            # axy = plt.imshow(rand_dist)
+            for c in np.arange(0, 80):
+                rand_dist[c,c] = np.nan
+            hist, bin_edges = np.histogram(rand_dist, bins = np.arange(0, (bin_width * np.floor(np.nanmax(rand_dist) / bin_width)) + bin_width, bin_width))
+            # axX = show.plotKwargs({}, '')
+            # axX = plt.stairs(hist, bin_edges)
+            rand_dist_hist_list.append(hist)
+            if rand_dist_hist_list[r].shape[0] > rand_maxbin:
+                rand_maxbin = rand_dist_hist_list[r].shape[0]   
+                rand_bin_edges = bin_edges 
+        rand_dist_hist = np.empty([num2gen, rand_maxbin])
+        rand_dist_hist[:] = np.nan
+        for r in np.arange(0, num2gen):
+            rand_dist_hist[r, np.nonzero(~np.isnan(rand_dist_hist_list[r]))[0]] = rand_dist_hist_list[r] 
 
-    for r in np.arange(0, num2gen):
-        # axZ = show.plotKwargs({}, '')
-        # axZ = show.scatt(np.squeeze(rand_coord[r,:,:]), '', axZ = axZ)
-        rand_dist = spatial.distance_matrix(np.squeeze(rand_coord[r,:,:]),
-                                            np.squeeze(rand_coord[r,:,:]))
-        # axy = show.plotKwargs({}, '')
-        # axy = plt.imshow(rand_dist)
-        for c in np.arange(0, 80):
-            rand_dist[c,c] = np.nan
-        hist, bin_edges = np.histogram(rand_dist, bins = np.arange(0, (bin_width * np.floor(np.nanmax(rand_dist) / bin_width)) + bin_width, bin_width))
-        # axX = show.plotKwargs({}, '')
-        # axX = plt.stairs(hist, bin_edges)
-        rand_dist_hist_list.append(hist)
-        if rand_dist_hist_list[r].shape[0] > rand_maxbin:
-            rand_maxbin = rand_dist_hist_list[r].shape[0]   
-            rand_bin_edges = bin_edges 
-    rand_dist_hist = np.empty([num2gen, rand_maxbin])
-    rand_dist_hist[:] = np.nan
-    for r in np.arange(0, num2gen):
-        rand_dist_hist[r, np.nonzero(~np.isnan(rand_dist_hist_list[r]))[0]] = rand_dist_hist_list[r] 
+        rand_dist_hist_mean = np.nanmean(rand_dist_hist, axis=0) 
+        rand_dist_hist_std = np.nanstd(rand_dist_hist, axis=0)
 
-    rand_dist_hist_mean = np.nanmean(rand_dist_hist, axis=0) 
-    rand_dist_hist_std = np.nanstd(rand_dist_hist, axis=0)
-    print(rand_maxbin)
+        ax = show.plotKwargs({}, '')
+        hist_x = np.empty(rand_dist_hist_mean.shape[0]*2+1)
+        hist_y = np.empty(rand_dist_hist_mean.shape[0]*2+1)
+        hist_y_plus = np.empty(rand_dist_hist_mean.shape[0]*2+1)
+        hist_y_minus = np.empty(rand_dist_hist_mean.shape[0]*2+1)
+        hist_x[:] = np.nan
+        hist_y[:] = np.nan
+        hist_y_plus[:] = np.nan
+        hist_y_plus[:] = np.nan
+        hist_x[0] = 0
+        hist_y[0] = 0
+        hist_y_plus[0] = 0
+        hist_y_minus[0] = 0
 
-    ax = show.plotKwargs({}, '')
-    hist_x = np.empty(rand_dist_hist_mean.shape[0]*2+1)
-    hist_y = np.empty(rand_dist_hist_mean.shape[0]*2+1)
-    hist_y_plus = np.empty(rand_dist_hist_mean.shape[0]*2+1)
-    hist_y_minus = np.empty(rand_dist_hist_mean.shape[0]*2+1)
-    hist_x[0] = 0
-    hist_y[0] = 0
-    hist_y_plus[0] = 0
-    hist_y_minus[0] = 0
-    for ind,bin in enumerate(np.arange(0,rand_dist_hist_mean.shape[0]-1)):
-        hist_x[ind*2+1:ind*2+3] = [rand_bin_edges[ind], rand_bin_edges[ind]]
-        hist_y[ind*2+1:ind*2+3] = [rand_dist_hist_mean[ind], rand_dist_hist_mean[ind+1]]
+        for ind,bin in enumerate(np.arange(0,rand_dist_hist_mean.shape[0]-1)):
+            hist_x[ind*2+1:ind*2+3] = [rand_bin_edges[ind], rand_bin_edges[ind]]
+            hist_y[ind*2+1:ind*2+3] = [rand_dist_hist_mean[ind], rand_dist_hist_mean[ind+1]]
 
-        hist_y_plus[ind*2+1:ind*2+3] = [rand_dist_hist_mean[ind]+rand_dist_hist_std[ind], rand_dist_hist_mean[ind+1]+rand_dist_hist_std[ind+1]]
-        hist_y_minus[ind*2+1:ind*2+3] = [rand_dist_hist_mean[ind]-rand_dist_hist_std[ind], rand_dist_hist_mean[ind+1]-rand_dist_hist_std[ind+1]]
-    ax = show.line(hist_x, hist_y, '', plot_col='w', ax=ax)
-    ax.fill_between(hist_x, 
-                    hist_y_plus, 
-                    hist_y_minus, color='royalblue', alpha=.7)
-    corr_by_hist = rand_dist_hist_mean
-    # for each mosaic to be correlated against the msoaics
-    for ind, point_data in enumerate(coord):
-        # if this is a valid coordinate dataset for this process...
-        if len(point_data.shape) == 3:
-            num_mosaic = point_data.shape[0]
-            points_per_mos = point_data.shape[1]
-            dist = np.zeros((num_mosaic, points_per_mos, points_per_mos))
-            hist = np.empty(num_mosaic, dtype=np.ndarray)
-            max_hist_bin = 0
-            print('     Running 2PC on ' + str(num_mosaic) + " " + PD_string[ind] + ' mosaics...') 
-            for mos in np.arange(0, num_mosaic):
-                this_coord = point_data[mos, :, :]
-                dist[mos, :, :], mean_nearest, std_nearest, hist[mos], bin_edge, annulus_area = intracone_dist_common(this_coord.squeeze(), bin_width, dist_area_norm)
-                if hist[mos].shape[0] > max_hist_bin:
-                    max_hist_bin = hist[mos].shape[0]
- 
-            # this is just to convert the returned histograms into a rectangular array
-            # (this can't be done in advance because of slight variability in the number of bins returned (for randomized mosaics))
-            hist_mat = np.zeros([num_mosaic, rand_maxbin])
-            for mos in np.arange(0, num_mosaic):
-                hist_mat[mos, 0:hist[mos].shape[0]] = hist[mos]
+            hist_y_plus[ind*2+1:ind*2+3] = [rand_dist_hist_mean[ind]+rand_dist_hist_std[ind], rand_dist_hist_mean[ind+1]+rand_dist_hist_std[ind+1]]
+            hist_y_minus[ind*2+1:ind*2+3] = [rand_dist_hist_mean[ind]-rand_dist_hist_std[ind], rand_dist_hist_mean[ind+1]-rand_dist_hist_std[ind+1]]
 
-            hist = hist_mat
+        ax = show.line(hist_x, hist_y, '', plot_col='w', ax=ax)
+        ax.fill_between(hist_x, 
+                        hist_y_plus, 
+                        hist_y_minus, color='royalblue', alpha=.7)
 
-            #preallocation for new 2PC matrix
-            twoPC = np.empty(hist.shape)
-            twoPC[:] = np.nan
-            for mos in np.arange(0, num_mosaic):
-                #new 2PC calculation
-                twoPC[mos,:] = calc.corr(hist[mos,:], corr_by_hist)
+        corr_by_hist = rand_dist_hist_mean
 
-
-    if not np.isnan(corr_by_hist).any():
-        # THOU SHALT NOT HAVE NANS
-        while bin_edge.shape[0] <= max_hist_bin:
-            bin_edge = np.append(bin_edge, max(bin_edge)+bin_width)
-        x = bin_edge[1:]-(bin_width/2)
-
-
+        # for each mosaic to be correlated against the msoaics
         corred = []
-        ax = show.plotKwargs({},'')
-        for to_be_corr_set in to_be_corr_hists:
-            corred_set = []
-            for ind, vect in enumerate(to_be_corr_set):
-                if not all(x == 0 for x in vect):
-                    # print('points in intrapoint distance hist: ' + str(np.nansum(vect)))
-                    if ind == 0: #mean
-                        corred_set.append(calc.corr(vect, corr_by_hist))
-                    elif ind == 1: 
-                        corred_set.append(vect/corr_by_hist)
-                else: 
-                    temp = np.empty((len(vect)))
-                    temp[:] = np.NaN
-                    corred_set.append(temp)
-            
-            corred.append(np.float64(corred_set))
-            # print('hist_std for 2pc')
-            # print(corred_set[1])
-            ax = show.shadyStats(x, corred_set[0], corred_set[1], '', scale_std=2, ax=ax)
-        plt.xlim([0, 31])
-        plt.ylim([-2, 5])
-        corred = np.float64(corred)
-        
+        for ind, point_data in enumerate(coord):
+            print('how many sims')
+            print(len(coord))
+            print(point_data.shape)
+            # if this is a valid coordinate dataset for this process...
+            if len(point_data.shape) == 3:
+                num_mosaic = point_data.shape[0]
+                points_per_mos = point_data.shape[1]
+                dist = np.zeros((num_mosaic, points_per_mos, points_per_mos))
+                hist = np.empty(num_mosaic, dtype=np.ndarray)
+                max_hist_bin = 0
+                max_hist_bins = np.empty([0,])
+                print('     Running 2PC on ' + str(num_mosaic) + " " + PD_string[ind] + ' mosaics...') 
+                for mos in np.arange(0, num_mosaic):
+                    this_coord = point_data[mos, :, :]
+                    dist[mos, :, :], mean_nearest, std_nearest, hist[mos], bin_edge, annulus_area = intracone_dist_common(this_coord.squeeze(), bin_width, dist_area_norm)
+                    if hist[mos].shape[0] > max_hist_bin:
+                        max_hist_bin = hist[mos].shape[0]
+                        max_hist_bins = bin_edge
+                # this is just to convert the returned histograms into a rectangular array
+                # (this can't be done in advance because of slight variability in the number of bins returned (for randomized mosaics))
+
+                mb = np.max([max_hist_bin, rand_maxbin])
+                if max_hist_bins.shape[0] > rand_bin_edges.shape[0]:
+                    use_bins = bin_edge
+                else:
+                    use_bins = rand_bin_edges
+                if mb > corr_by_hist.shape[0]:
+                    corr_by_hist = util.vector_zeroPad(corr_by_hist, 0, mb-corr_by_hist.shape[0])
+                hist_mat = np.zeros([num_mosaic, mb])
+                for mos in np.arange(0, num_mosaic):
+                    hist_mat[mos, 0:hist[mos].shape[0]] = hist[mos]
+
+                hist = hist_mat
+
+                #preallocation for new 2PC matrix
+                twoPC = np.empty([num_mosaic,mb])
+                twoPC[:] = np.nan
+                print('twoPC')
+                print(twoPC.shape)
+                ax = show.plotKwargs({},'')
+                for mos in np.arange(0, num_mosaic):
+                    #new 2PC calculation
+                    print(hist[mos,:].shape)
+                    print(corr_by_hist.shape)
+                    print(use_bins.shape)
+                    twoPC[mos,:] = calc.corr(hist[mos,:], corr_by_hist)
+                    ax.stairs(twoPC[mos,:], use_bins)
+                corred.append(twoPC)
+
+        # if not np.isnan(corr_by_hist).any():
+        #     # THOU SHALT NOT HAVE NANS
+        #     while bin_edge.shape[0] <= max_hist_bin:
+        #         bin_edge = np.append(bin_edge, max(bin_edge)+bin_width)
+        #     x = bin_edge[1:]-(bin_width/2)
+
+
+        #     corred = []
+        #     ax = show.plotKwargs({},'')
+        #     for to_be_corr_set in to_be_corr_hists:
+        #         corred_set = []
+        #         for ind, vect in enumerate(to_be_corr_set):
+        #             if not all(x == 0 for x in vect):
+        #                 # print('points in intrapoint distance hist: ' + str(np.nansum(vect)))
+        #                 if ind == 0: #mean
+        #                     corred_set.append(calc.corr(vect, corr_by_hist))
+        #                 elif ind == 1: 
+        #                     corred_set.append(vect/corr_by_hist)
+        #             else: 
+        #                 temp = np.empty((len(vect)))
+        #                 temp[:] = np.NaN
+        #                 corred_set.append(temp)
+                
+            #     corred.append(np.float64(corred_set))
+            #     # print('hist_std for 2pc')
+            #     # print(corred_set[1])
+            #     ax = show.shadyStats(x, corred_set[0], corred_set[1], '', scale_std=2, ax=ax)
+            # plt.xlim([0, 31])
+            # plt.ylim([-2, 5])
+            # corred = np.float64(corred)
         data_to_set = util.mapStringToLocal(proc_vars, locals())
     else:
         data_to_set = util.mapStringToNan(proc_vars)

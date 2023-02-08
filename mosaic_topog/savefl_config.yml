@@ -180,8 +180,6 @@ two_point_correlation:
   dependencies:
   - intracone_dist
   variables:
-  - all_cone_mean_nearest
-  - all_cone_std_nearest
   - corred
   - maxbins
   - bin_edge
