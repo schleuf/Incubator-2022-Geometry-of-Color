@@ -23,6 +23,38 @@ import pytest
 #
 
 
+def reformat_stat_hists_for_plot(bin_edges, hist_mean, hist_std):
+    hist_x = np.empty(hist_mean.shape[0]*2+1)
+    hist_y = np.empty(hist_mean.shape[0]*2+1)
+    hist_y_plus = np.empty(hist_mean.shape[0]*2+1)
+    hist_y_minus = np.empty(hist_mean.shape[0]*2+1)
+
+    hist_x[:] = np.nan
+    hist_y[:] = np.nan
+    hist_y_plus[:] = np.nan
+    hist_y_plus[:] = np.nan
+
+    hist_x[0] = 0
+    hist_y[0] = 0
+    hist_y_plus[0] = 0
+    hist_y_minus[0] = 0
+
+    for ind, bin in enumerate(np.arange(0, hist_mean.shape[0]-1)):
+        if ind < hist_mean.shape[0]-1:
+            hist_x[ind*2+1:ind*2+3] = [bin_edges[ind], bin_edges[ind]]
+            hist_y[ind*2+1:ind*2+3] = [hist_mean[ind], hist_mean[ind+1]]
+
+            hist_y_plus[ind*2+1:ind*2+3] = [hist_mean[ind] + hist_std[ind], hist_mean[ind+1] + hist_std[ind+1]]
+            hist_y_minus[ind*2+1:ind*2+3] = [hist_mean[ind] - hist_std[ind], hist_mean[ind+1] - hist_std[ind+1]]
+        else:
+            hist_x[ind*2+1] = bin_edges[ind]
+            hist_y[ind*2+1] = hist_mean[ind]
+            hist_y_plus[ind*2+1] = hist_mean[ind] + hist_std[ind]
+            hist_y_minus[ind*2+1] = hist_mean[ind] - hist_std[ind]
+            
+    return hist_x, hist_y, hist_y_plus, hist_y_minus
+
+
 def numSim(process, num_sim, sim_to_gen):
     """
     return the number of simulations to be generated

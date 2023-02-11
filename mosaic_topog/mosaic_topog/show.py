@@ -5,6 +5,7 @@ import random
 from scipy.spatial import voronoi_plot_2d
 from shapely.geometry import Point
 from shapely.geometry.polygon import Polygon
+import mosaic_topog.utilities as util
 
 # --------------------------data viewing and saving functions--------------------------
 
@@ -92,7 +93,7 @@ from shapely.geometry.polygon import Polygon
         #   mpi is one approach
 
 
-def view2PC(save_name, scale_std=2, showNearestCone=False, save_things=False, save_path='', save_type='.png'):
+def view2PC(mos_type, save_name, scale_std=2, showNearestCone=False, save_things=False, save_path='', save_type='.png'):
     for fl in save_name:
         print(fl)
         # get intracone distance histogram data and plotting parameters from the save file
@@ -103,69 +104,62 @@ def view2PC(save_name, scale_std=2, showNearestCone=False, save_things=False, sa
             coord_unit = bytes(file['input_data']['coord_unit'][()]).decode("utf8")
             conetype_color = bytes(file['input_data']['conetype_color'][()]).decode("utf8")
             bin_width = file['input_data']['bin_width'][()]
-            bin_edge = file['two_point_correlation']['bin_edge'][()]
-            corred = file['two_point_correlation']['corred'][()]
-            all_cone_mean_nearest = file['two_point_correlation']['all_cone_mean_nearest'][()]
-            to_be_corr_colors = [bytes(n).decode('utf8') for n in file['input_data']['to_be_corr_colors'][()]]
-            to_be_corr = [bytes(n).decode('utf8') for n in file['input_data']['to_be_corr'][()]]
+            bin_edge = file[mos_type + '_' + 'two_point_correlation']['max_bin_edges'][()]
+            corred = file[mos_type + '_' + 'two_point_correlation']['corred'][()]
+            # to_be_corr_colors = [bytes(n).decode('utf8') for n in file['input_data']['to_be_corr_colors'][()]]
+            # to_be_corr = [bytes(n).decode('utf8') for n in file['input_data']['to_be_corr'][()]]
             sim_hexgrid_by = bytes(file['input_data']['sim_hexgrid_by'][()]).decode("utf8")
+            
             if sim_hexgrid_by == 'rectangular':
                 hex_radius = file['basic_stats']['hex_radius_of_this_density'][()]
+
             elif sim_hexgrid_by == 'voronoi':
                 hex_radius = file['measured_voronoi']['hex_radius'][()]
+
             else:
                 print('ack!!! problem getting hex_radius in view_2PC')
 
-            # *** shouldn't need to get this this way, save it in meta data
-            num_cone = coord.shape[0]
             id_str = mosaic + '_' + conetype
-
-            fig, ax = plt.subplots(1, 1, figsize = [10,10])
             
             maxY = 0
 
-            for ind, corr_set in enumerate(corred):
-                if not np.isnan(corr_set[0].all()):
-                    if corr_set[0].shape[0] > 1:
-                        hist_mean = corr_set[0]
-                        hist_std = corr_set[1]
-                        plot_label = to_be_corr[ind]
-                        plot_col = to_be_corr_colors[ind]
-                        if not to_be_corr[ind] == 'hexgrid_by_density':
-                            maxY = np.nanmax([maxY,np.nanmax(hist_mean)])
+            fig, ax = plt.subplots(1, 1, figsize = [10,10])
 
-                        # set up inputs to plot
-                        xlab = 'distance, ' + coord_unit
-                        ylab = 'bin count (binsize = ' + str(bin_width)
+            if not np.isnan(corred.all()):
+                if len(corred.shape) >=2:
+                    hist_mean = np.nanmean(corred, axis=0)
+                    hist_std = np.nanstd(corred, axis=0)
 
-                        # *** SS fix this to pull the string from inputs
-                        tit = 'two-point_correlation' # (' + str(num_cone) + " cones, " + str(num_mc) + " MCs)"
-                        x = bin_edge[1:]-(bin_width/2)
+                else: 
+                    hist_mean = corred
+                    hist_std = np.zeros([corred.shape[0],])
 
-                        half_cone_rad = all_cone_mean_nearest / 2
-                        cone_rad_x = np.arange(half_cone_rad, half_cone_rad + (5 * all_cone_mean_nearest + 1), step=all_cone_mean_nearest)
-                        lin_extent = .5
+                plot_label = mos_type
+                plot_col = conetype_color
 
-                        # if showNearestCone:
-                        #     for lin in cone_rad_x:
-                        #         if lin == cone_rad_x[0]:
-                        #             ax = show.line([lin, lin], [-1 * lin_extent, lin_extent], id='cone-dist', ax=ax, plot_col='olive')
-                        #         else:
-                        #             ax = show.line([lin, lin], [-1 * lin_extent, lin_extent], id='cone-dist', ax=ax, plot_col='olive')
+                maxY = np.nanmax(hist_mean)
 
-                        ax = line([hex_radius, hex_radius], [-1 * lin_extent, lin_extent], id='hex_radius', ax=ax, plot_col='firebrick', linewidth=3)
-                        
-                        ax = shadyStats(x, hist_mean, hist_std, id_str, ax = ax, scale_std=scale_std,
-                                            plot_col = plot_col, label = plot_label)
-                        #ax = scatt(np.array([hex_radius, 0]), id='hex_radius', ax=ax, plot_col='firebrick', s=800, mosaic_data=False)
+                # set up inputs to plot
+                xlab = 'distance, ' + coord_unit
+                ylab = 'bin count (binsize = ' + str(bin_width)
 
-            
-                else:
-                        print('no')
-            
-            if showNearestCone:
-                plt.xlim([0, half_cone_rad + 5 * all_cone_mean_nearest + 1])
-                plt.ylim([-1.5,3]) #plt.ylim([-0, lin_extent])
+                # *** SS fix this to pull the string from inputs
+                tit = 'two-point_correlation' # (' + str(num_cone) + " cones, " + str(num_mc) + " MCs)"
+
+                lin_extent = .5
+                print(hist_mean)
+                print(hist_std)
+                hist_x, hist_y, hist_y_plus, hist_y_minus = util.reformat_stat_hists_for_plot(bin_edge, hist_mean, hist_std)
+
+                ax = line([hex_radius, hex_radius], [-1 * lin_extent, lin_extent], id='hex_radius', ax=ax, plot_col='firebrick', linewidth=3)
+                ax = line(hist_x, hist_y, '', plot_col=plot_col, ax=ax)
+                ax.fill_between(hist_x, 
+                                hist_y_plus, 
+                                hist_y_minus, color=plot_col, alpha=.7)
+                ax.set_label = tit
+                ax.set_xlabel = xlab
+                ax.set_ylabel = ylab
+
 
             ax.figure
             ax.legend()

@@ -25,7 +25,10 @@ def setProcessByType(file, proc, var, data, prefix=''):
     sets individual vars of a process in a read-in .hdf5 file open for writing or reading+writing
 
     """
+    
     proc_to_set = prefix + proc
+
+    print(proc_to_set)
 
     if isinstance(data, str):
         file[proc_to_set][var] = np.string_(data)

@@ -140,6 +140,7 @@ intracone_dist:
   - std_nearest
   - hist_mean
   - hist_std
+  - hist_mat
   - bin_edge
   - annulus_area
 
@@ -181,13 +182,13 @@ two_point_correlation:
   - intracone_dist
   variables:
   - corred
-  - maxbins
-  - bin_edge
+  - max_bins
+  - max_bin_edges
 
 metrics_of_2PC:
   process: metrics_of_2PC_process
   process_type: analysis
-  analysis_tier: 2
+  analysis_tier: 1
   dependencies:
   - two_point_correlation
   variables:

@@ -242,7 +242,7 @@ def get_bound_voronoi_cells(coord, img_x, img_y):
     bound_cones = np.ones([num_mos, coord.shape[1]])
     bound_cones = np.array(bound_cones, dtype=int)
     bounding_box = np.array([img_x[0], img_x[1], img_y[0], img_y[1]])
-    buffer = eps*30
+    buffer = eps*50
     for m in np.arange(0, num_mos):
         points_center = coord[m, :, :]
 

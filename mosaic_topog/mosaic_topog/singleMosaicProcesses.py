@@ -42,230 +42,228 @@ def metrics_of_2PC_process(param, sav_cfg):
             print('ack!!! problem getting hex_radius in metrics_of_2PC_process')
 
     analysis_x_cutoff = int(np.ceil((2 * hex_radius) / bin_width))   
-    crop_corr = corred[:,:,0:analysis_x_cutoff]
-    print('crop_corr')
-    print(crop_corr)
-
-    x = bin_edge[1:analysis_x_cutoff+1]-(bin_width/2)
-
-    #M = measured
-    M_ind = int(np.nonzero([d =='measured' for d in to_be_corr])[0])
-    #Sr = spaced, restricted
-    Sr_ind = int(np.nonzero([d =='coneLocked_maxSpacing' for d in to_be_corr])[0])
-    #Rr = randomized, restricted
-    Rr_ind = int(np.nonzero([d =='monteCarlo_coneLocked' for d in to_be_corr])[0])
-    #Ru = randomized, unrestricted
-    Ru_ind = int(np.nonzero([d =='monteCarlo_uniform' for d in to_be_corr])[0])
+    crop_corr = corred[:, :, 0:analysis_x_cutoff]
     
-    #---------------------------------PEAKS----------------------------------------------
+    # x = bin_edge[1:analysis_x_cutoff+1]-(bin_width/2)
 
-    x_peaks = np.array([np.nanargmax(crop_corr[d, 0, :]) for d in np.arange(0,crop_corr.shape[0])])
-    ax = show.view2PC([sav_fl], scale_std=2, showNearestCone=False)
-    plt.xlim([0, 2 * hex_radius])
-    print('amax')
-    print(crop_corr[Sr_ind, 0, :])
-    print(np.nanmax(crop_corr[Sr_ind, 0, :]))
-    plt.ylim([-1.5, np.nanmax(crop_corr[Sr_ind, 0, :])+1])
-
-    # coneLocked maximally spaced peak
-    Sr_x_peak_ind = x_peaks[Sr_ind]
-    Sr_y_peak = crop_corr[Sr_ind, 0, Sr_x_peak_ind]
-    Sr_std_peak = crop_corr[Sr_ind, 1, Sr_x_peak_ind]
-    Rr_y_at_Sr_peak = crop_corr[Rr_ind, 0, Sr_x_peak_ind]
-    Rr_std_at_Sr_peak = crop_corr[Rr_ind, 1, Sr_x_peak_ind]
-    if Sr_y_peak - Sr_std_peak > Rr_y_at_Sr_peak + Rr_std_at_Sr_peak:
-        Sr_x_peak = bin_edge[0] + Sr_x_peak_ind * bin_width + (bin_width/2)
-        Sr_peak = np.array([Sr_x_peak, Sr_y_peak])
-    else:
-        Sr_peak = np.array([np.nan, np.nan])
-    diff_Sr_peak_from_hex_radius = Sr_x_peak - hex_radius
-
-    ax = show.scatt(Sr_peak, '', ax=ax, plot_col ='darkorange', s=600, marker='x', mosaic_data=False)
+    # #M = measured
+    # M_ind = int(np.nonzero([d =='measured' for d in to_be_corr])[0])
+    # #Sr = spaced, restricted
+    # Sr_ind = int(np.nonzero([d =='coneLocked_maxSpacing' for d in to_be_corr])[0])
+    # #Rr = randomized, restricted
+    # Rr_ind = int(np.nonzero([d =='monteCarlo_coneLocked' for d in to_be_corr])[0])
+    # #Ru = randomized, unrestricted
+    # Ru_ind = int(np.nonzero([d =='monteCarlo_uniform' for d in to_be_corr])[0])
     
-    # measured peak
-    M_x_peak_ind = x_peaks[M_ind]
-    M_y_peak = crop_corr[M_ind, 0, M_x_peak_ind]
-    M_std_peak = crop_corr[M_ind, 1, M_x_peak_ind]
-    Rr_y_at_M_peak = crop_corr[Rr_ind, 0, M_x_peak_ind]
-    Rr_std_at_M_peak = crop_corr[Rr_ind, 1, M_x_peak_ind]
-    if M_y_peak - M_std_peak > Rr_y_at_M_peak + Rr_std_at_M_peak:
-        M_x_peak = bin_edge[0] + M_x_peak_ind * bin_width + (bin_width/2)
-        M_peak = np.array([M_x_peak, M_y_peak])
-    else: 
-        M_peak = np.array([np.nan, np.nan])
+    # #---------------------------------PEAKS----------------------------------------------
 
-    ax = show.scatt(M_peak, '', ax=ax, plot_col = 'white', s=600, marker='x', mosaic_data=False)
+    # x_peaks = np.array([np.nanargmax(crop_corr[d, 0, :]) for d in np.arange(0,crop_corr.shape[0])])
+    # ax = show.view2PC([sav_fl], scale_std=2, showNearestCone=False)
+    # plt.xlim([0, 2 * hex_radius])
+    # print('amax')
+    # print(crop_corr[Sr_ind, 0, :])
+    # print(np.nanmax(crop_corr[Sr_ind, 0, :]))
+    # plt.ylim([-1.5, np.nanmax(crop_corr[Sr_ind, 0, :])+1])
+
+    # # coneLocked maximally spaced peak
+    # Sr_x_peak_ind = x_peaks[Sr_ind]
+    # Sr_y_peak = crop_corr[Sr_ind, 0, Sr_x_peak_ind]
+    # Sr_std_peak = crop_corr[Sr_ind, 1, Sr_x_peak_ind]
+    # Rr_y_at_Sr_peak = crop_corr[Rr_ind, 0, Sr_x_peak_ind]
+    # Rr_std_at_Sr_peak = crop_corr[Rr_ind, 1, Sr_x_peak_ind]
+    # if Sr_y_peak - Sr_std_peak > Rr_y_at_Sr_peak + Rr_std_at_Sr_peak:
+    #     Sr_x_peak = bin_edge[0] + Sr_x_peak_ind * bin_width + (bin_width/2)
+    #     Sr_peak = np.array([Sr_x_peak, Sr_y_peak])
+    # else:
+    #     Sr_peak = np.array([np.nan, np.nan])
+    # diff_Sr_peak_from_hex_radius = Sr_x_peak - hex_radius
+
+    # ax = show.scatt(Sr_peak, '', ax=ax, plot_col ='darkorange', s=600, marker='x', mosaic_data=False)
     
-    #  random peak
-    Rr_x_peak_ind = x_peaks[Rr_ind]
-    Rr_y_peak = crop_corr[Rr_ind, 0, Rr_x_peak_ind]
-    Rr_std_peak = crop_corr[Rr_ind, 1, Rr_x_peak_ind]
-    Ru_y_at_Rr_peak = crop_corr[Ru_ind, 0, Rr_x_peak_ind]
-    Ru_std_at_Rr_peak = crop_corr[Ru_ind, 1, Rr_x_peak_ind]
-    if Rr_y_peak - Rr_std_peak > Ru_y_at_Rr_peak + Ru_std_at_Rr_peak:
-        Rr_x_peak = bin_edge[0] + (Rr_x_peak_ind * bin_width) + (bin_width/2)
-        Rr_peak = np.array([Rr_x_peak, Rr_y_peak])
-    else: 
-        Rr_peak = np.array([np.nan, np.nan])
+    # # measured peak
+    # M_x_peak_ind = x_peaks[M_ind]
+    # M_y_peak = crop_corr[M_ind, 0, M_x_peak_ind]
+    # M_std_peak = crop_corr[M_ind, 1, M_x_peak_ind]
+    # Rr_y_at_M_peak = crop_corr[Rr_ind, 0, M_x_peak_ind]
+    # Rr_std_at_M_peak = crop_corr[Rr_ind, 1, M_x_peak_ind]
+    # if M_y_peak - M_std_peak > Rr_y_at_M_peak + Rr_std_at_M_peak:
+    #     M_x_peak = bin_edge[0] + M_x_peak_ind * bin_width + (bin_width/2)
+    #     M_peak = np.array([M_x_peak, M_y_peak])
+    # else: 
+    #     M_peak = np.array([np.nan, np.nan])
 
-    ax = show.scatt(Rr_peak, '', ax=ax, plot_col = 'royalblue', s=600, marker='x', mosaic_data=False)
+    # ax = show.scatt(M_peak, '', ax=ax, plot_col = 'white', s=600, marker='x', mosaic_data=False)
     
-    #-----------------------------MEASURED EXCLUSION RADIUS & AREA----------------------------------------------
-    ax2 = show.view2PC([sav_fl], scale_std=2, showNearestCone=False)
-    plt.xlim([0, 2 * hex_radius])
-    plt.ylim([-1.5, np.nanmax(crop_corr[Sr_ind, 0, :])+1])
+    # #  random peak
+    # Rr_x_peak_ind = x_peaks[Rr_ind]
+    # Rr_y_peak = crop_corr[Rr_ind, 0, Rr_x_peak_ind]
+    # Rr_std_peak = crop_corr[Rr_ind, 1, Rr_x_peak_ind]
+    # Ru_y_at_Rr_peak = crop_corr[Ru_ind, 0, Rr_x_peak_ind]
+    # Ru_std_at_Rr_peak = crop_corr[Ru_ind, 1, Rr_x_peak_ind]
+    # if Rr_y_peak - Rr_std_peak > Ru_y_at_Rr_peak + Ru_std_at_Rr_peak:
+    #     Rr_x_peak = bin_edge[0] + (Rr_x_peak_ind * bin_width) + (bin_width/2)
+    #     Rr_peak = np.array([Rr_x_peak, Rr_y_peak])
+    # else: 
+    #     Rr_peak = np.array([np.nan, np.nan])
 
-    # Rr_min_dist = distance where mean Rr deviates first deviates from -1
-    lower_Rr = crop_corr[Rr_ind, 0, :] - (2 * crop_corr[Rr_ind, 1, :])
-    Rr_above_neg1_ind = np.nonzero([p > -1 for p in lower_Rr])[0][0]
-    Rr_above_neg1 = bin_edge[0] + (Rr_above_neg1_ind * bin_width) + (bin_width/2)
-    ax2 = show.scatt(np.array([Rr_above_neg1, 0]), '', plot_col = 'r', ax=ax2, s=600, marker='x', mosaic_data=False)
-    if Rr_above_neg1_ind > 0:
-        line_inds = [Rr_above_neg1_ind - 1, Rr_above_neg1_ind]
-        Rr_cross_neg1 = np.array(calc.line_intersection(x[line_inds], lower_Rr[line_inds], x[line_inds], [-1, -1]))
-        if np.any(np.isnan(Rr_cross_neg1)):
-            Rr_cross_neg1 = np.array([0,lower_Rr[0]])
-    else:
-        Rr_cross_neg1 = np.array([0,lower_Rr[0]])
-    ax2 = show.scatt(np.array(Rr_cross_neg1), '', plot_col = 'y', ax=ax2, s=600, marker='x', mosaic_data=False)
-
-    # M_meets_Rr_dist
-    upper_M = crop_corr[M_ind, 0, :]
-    M_meets_Rr_ind = (Rr_above_neg1_ind + 
-                       np.nonzero([upper_M[x] >= lower_Rr[x] 
-                                   for x in np.arange(Rr_above_neg1_ind,
-                                                      upper_M.shape[0])])[0][0])
-    M_meets_Rr = bin_edge[0] + (M_meets_Rr_ind * bin_width) + (bin_width/2)
-    ax2 = show.scatt(np.array([M_meets_Rr, 0]), '', plot_col = 'r', ax=ax2, s=600, marker='x', mosaic_data=False)
-    if M_meets_Rr > 0:
-        line_inds = [M_meets_Rr_ind - 1, M_meets_Rr_ind]
-        M_cross_Rr = np.array(calc.line_intersection(x[line_inds], upper_M[line_inds], x[line_inds], lower_Rr[line_inds]))
-    else:
-        M_cross_Rr = np.array([x[0],upper_M[0]])
-    ax2 = show.scatt(np.array(M_cross_Rr), '', plot_col = 'y', ax=ax2, s=600, marker='x', mosaic_data=False)
-
-    # M_exclusion_radius
-    M_exclusion_radius = M_cross_Rr[0] - Rr_cross_neg1[0]
-    ax2 = show.line([Rr_cross_neg1[0], M_cross_Rr[0]], [1, 1], '', ax=ax2, plot_col='b', linewidth=3)
+    # ax = show.scatt(Rr_peak, '', ax=ax, plot_col = 'royalblue', s=600, marker='x', mosaic_data=False)
     
-    # M_exclusion_area
-    len_radius = M_meets_Rr_ind - Rr_above_neg1_ind + 1
-    points = np.empty([len_radius * 2, 2])
-    points[:] = np.nan
-    points[0, :] = Rr_cross_neg1
-    print(Rr_cross_neg1)
-    points[1:len_radius, 0] = x[Rr_above_neg1_ind:M_meets_Rr_ind]
-    points[1:len_radius, 1] = lower_Rr[Rr_above_neg1_ind:M_meets_Rr_ind]
-    points[len_radius, :] = M_cross_Rr
-    points[len_radius+1:points.shape[0], 0] = np.flip(x[Rr_above_neg1_ind:M_meets_Rr_ind])
-    points[len_radius+1:points.shape[0], 1] = np.flip(upper_M[Rr_above_neg1_ind:M_meets_Rr_ind])
-    if points.shape[0] <= 2:
-        M_exclusion_area = np.nan
-    else:
-        print('points')
-        print(points)
-        poly = Polygon(points)
-        M_exclusion_area = poly.area
-        ax2.fill(*zip(*points), facecolor = 'b', edgecolor='b')
-    print('M_exclusion_area')
-    print(M_exclusion_area)
+    # #-----------------------------MEASURED EXCLUSION RADIUS & AREA----------------------------------------------
+    # ax2 = show.view2PC([sav_fl], scale_std=2, showNearestCone=False)
+    # plt.xlim([0, 2 * hex_radius])
+    # plt.ylim([-1.5, np.nanmax(crop_corr[Sr_ind, 0, :])+1])
 
-    #-----------------------------SPACED RESTRICTED EXCLUSION RADIUS & AREA----------------------------------------------
-    ax3 = show.view2PC([sav_fl], scale_std=2, showNearestCone=False)
-    plt.xlim([0, 2 * hex_radius])
-    plt.ylim([-1.5, np.amax(crop_corr[Sr_ind, :])+1])
+    # # Rr_min_dist = distance where mean Rr deviates first deviates from -1
+    # lower_Rr = crop_corr[Rr_ind, 0, :] - (2 * crop_corr[Rr_ind, 1, :])
+    # Rr_above_neg1_ind = np.nonzero([p > -1 for p in lower_Rr])[0][0]
+    # Rr_above_neg1 = bin_edge[0] + (Rr_above_neg1_ind * bin_width) + (bin_width/2)
+    # ax2 = show.scatt(np.array([Rr_above_neg1, 0]), '', plot_col = 'r', ax=ax2, s=600, marker='x', mosaic_data=False)
+    # if Rr_above_neg1_ind > 0:
+    #     line_inds = [Rr_above_neg1_ind - 1, Rr_above_neg1_ind]
+    #     Rr_cross_neg1 = np.array(calc.line_intersection(x[line_inds], lower_Rr[line_inds], x[line_inds], [-1, -1]))
+    #     if np.any(np.isnan(Rr_cross_neg1)):
+    #         Rr_cross_neg1 = np.array([0,lower_Rr[0]])
+    # else:
+    #     Rr_cross_neg1 = np.array([0,lower_Rr[0]])
+    # ax2 = show.scatt(np.array(Rr_cross_neg1), '', plot_col = 'y', ax=ax2, s=600, marker='x', mosaic_data=False)
 
-    # Sr_meets_Rr_ind
-    upper_Sr = crop_corr[Sr_ind, 0, :] + (2 * crop_corr[Sr_ind, 1, :])
-    lower_Rr = crop_corr[Rr_ind, 0, :] - (2 * crop_corr[Rr_ind, 1, :])
-    Sr_meets_Rr_ind = (Rr_above_neg1_ind + 
-                       np.nonzero([upper_Sr[x] >= lower_Rr[x] 
-                                   for x in np.arange(Rr_above_neg1_ind,
-                                                      upper_Sr.shape[0])])[0][0])
-    Sr_meets_Rr = bin_edge[0] + (Sr_meets_Rr_ind * bin_width) + (bin_width/2)
-    ax3 = show.scatt(np.array([Sr_meets_Rr, 0]), '', plot_col = 'r', ax=ax3, s=600, marker='x', mosaic_data=False)
-    if Sr_meets_Rr > 0:
-        line_inds = [Sr_meets_Rr_ind - 1, Sr_meets_Rr_ind]
-        Sr_cross_Rr = np.array(calc.line_intersection(x[line_inds], upper_Sr[line_inds], x[line_inds], lower_Rr[line_inds]))
-    else:
-        Sr_cross_Rr = np.array([x[0],upper_Sr[0]])
-    ax3 = show.scatt(np.array(Sr_cross_Rr), '', plot_col = 'y', ax=ax3, s=600, marker='x', mosaic_data=False)
+    # # M_meets_Rr_dist
+    # upper_M = crop_corr[M_ind, 0, :]
+    # M_meets_Rr_ind = (Rr_above_neg1_ind + 
+    #                    np.nonzero([upper_M[x] >= lower_Rr[x] 
+    #                                for x in np.arange(Rr_above_neg1_ind,
+    #                                                   upper_M.shape[0])])[0][0])
+    # M_meets_Rr = bin_edge[0] + (M_meets_Rr_ind * bin_width) + (bin_width/2)
+    # ax2 = show.scatt(np.array([M_meets_Rr, 0]), '', plot_col = 'r', ax=ax2, s=600, marker='x', mosaic_data=False)
+    # if M_meets_Rr > 0:
+    #     line_inds = [M_meets_Rr_ind - 1, M_meets_Rr_ind]
+    #     M_cross_Rr = np.array(calc.line_intersection(x[line_inds], upper_M[line_inds], x[line_inds], lower_Rr[line_inds]))
+    # else:
+    #     M_cross_Rr = np.array([x[0],upper_M[0]])
+    # ax2 = show.scatt(np.array(M_cross_Rr), '', plot_col = 'y', ax=ax2, s=600, marker='x', mosaic_data=False)
 
-    # Sr_exclusion_radius
-    Sr_exclusion_radius = Sr_cross_Rr[0] - Rr_cross_neg1[0]
-    ax3 = show.line([Rr_cross_neg1[0], Sr_cross_Rr[0]], [.75, .75], '', ax=ax3, plot_col = 'b', linewidth=3)
-    print('Sr_exclusion_radius')
-    print(Sr_exclusion_radius)
+    # # M_exclusion_radius
+    # M_exclusion_radius = M_cross_Rr[0] - Rr_cross_neg1[0]
+    # ax2 = show.line([Rr_cross_neg1[0], M_cross_Rr[0]], [1, 1], '', ax=ax2, plot_col='b', linewidth=3)
+    
+    # # M_exclusion_area
+    # len_radius = M_meets_Rr_ind - Rr_above_neg1_ind + 1
+    # points = np.empty([len_radius * 2, 2])
+    # points[:] = np.nan
+    # points[0, :] = Rr_cross_neg1
+    # print(Rr_cross_neg1)
+    # points[1:len_radius, 0] = x[Rr_above_neg1_ind:M_meets_Rr_ind]
+    # points[1:len_radius, 1] = lower_Rr[Rr_above_neg1_ind:M_meets_Rr_ind]
+    # points[len_radius, :] = M_cross_Rr
+    # points[len_radius+1:points.shape[0], 0] = np.flip(x[Rr_above_neg1_ind:M_meets_Rr_ind])
+    # points[len_radius+1:points.shape[0], 1] = np.flip(upper_M[Rr_above_neg1_ind:M_meets_Rr_ind])
+    # if points.shape[0] <= 2:
+    #     M_exclusion_area = np.nan
+    # else:
+    #     print('points')
+    #     print(points)
+    #     poly = Polygon(points)
+    #     M_exclusion_area = poly.area
+    #     ax2.fill(*zip(*points), facecolor = 'b', edgecolor='b')
+    # print('M_exclusion_area')
+    # print(M_exclusion_area)
 
-    # # Sr_exclusion_area
-    len_radius = Sr_meets_Rr_ind - Rr_above_neg1_ind + 1
-    points = np.empty([len_radius * 2, 2])
-    points[:] = np.nan
-    points[0, :] = Rr_cross_neg1
-    points[1:len_radius, 0] = x[Rr_above_neg1_ind:Sr_meets_Rr_ind]
-    points[1:len_radius, 1] = lower_Rr[Rr_above_neg1_ind:Sr_meets_Rr_ind]
-    points[len_radius, :] = Sr_cross_Rr
-    points[len_radius+1:points.shape[0], 0] = np.flip(x[Rr_above_neg1_ind:Sr_meets_Rr_ind])
-    points[len_radius+1:points.shape[0], 1] = np.flip(upper_Sr[Rr_above_neg1_ind:Sr_meets_Rr_ind])
-    if points.shape[0] <= 2:
-        Sr_exclusion_area = np.nan
-    else:
-        poly = Polygon(points)
-        Sr_exclusion_area = poly.area
-        ax3.fill(*zip(*points), facecolor = 'b', edgecolor='b')
-    print('Sr_exclusion_area')
-    print(Sr_exclusion_area)
+    # #-----------------------------SPACED RESTRICTED EXCLUSION RADIUS & AREA----------------------------------------------
+    # ax3 = show.view2PC([sav_fl], scale_std=2, showNearestCone=False)
+    # plt.xlim([0, 2 * hex_radius])
+    # plt.ylim([-1.5, np.amax(crop_corr[Sr_ind, :])+1])
 
-    #-----------------------------EXCLUSIONARY OBEDIENCE---------------------------------------------
-    ax4 = show.view2PC([sav_fl], scale_std=2, showNearestCone=False)
-    plt.xlim([0, 2 * hex_radius])
-    plt.ylim([-1.5, np.amax(crop_corr[Sr_ind, :])+1])
+    # # Sr_meets_Rr_ind
+    # upper_Sr = crop_corr[Sr_ind, 0, :] + (2 * crop_corr[Sr_ind, 1, :])
+    # lower_Rr = crop_corr[Rr_ind, 0, :] - (2 * crop_corr[Rr_ind, 1, :])
+    # Sr_meets_Rr_ind = (Rr_above_neg1_ind + 
+    #                    np.nonzero([upper_Sr[x] >= lower_Rr[x] 
+    #                                for x in np.arange(Rr_above_neg1_ind,
+    #                                                   upper_Sr.shape[0])])[0][0])
+    # Sr_meets_Rr = bin_edge[0] + (Sr_meets_Rr_ind * bin_width) + (bin_width/2)
+    # ax3 = show.scatt(np.array([Sr_meets_Rr, 0]), '', plot_col = 'r', ax=ax3, s=600, marker='x', mosaic_data=False)
+    # if Sr_meets_Rr > 0:
+    #     line_inds = [Sr_meets_Rr_ind - 1, Sr_meets_Rr_ind]
+    #     Sr_cross_Rr = np.array(calc.line_intersection(x[line_inds], upper_Sr[line_inds], x[line_inds], lower_Rr[line_inds]))
+    # else:
+    #     Sr_cross_Rr = np.array([x[0],upper_Sr[0]])
+    # ax3 = show.scatt(np.array(Sr_cross_Rr), '', plot_col = 'y', ax=ax3, s=600, marker='x', mosaic_data=False)
 
-    print('xy of lower Rr where M would cross if fully obedient to the max')
-    print(x[line_inds])
-    print(lower_Rr[line_inds])
-    if M_meets_Rr > 0:
-        line_inds = [M_meets_Rr_ind-1, M_meets_Rr_ind]
+    # # Sr_exclusion_radius
+    # Sr_exclusion_radius = Sr_cross_Rr[0] - Rr_cross_neg1[0]
+    # ax3 = show.line([Rr_cross_neg1[0], Sr_cross_Rr[0]], [.75, .75], '', ax=ax3, plot_col = 'b', linewidth=3)
+    # print('Sr_exclusion_radius')
+    # print(Sr_exclusion_radius)
 
-        M_maxObed_cross_Rr = np.array(calc.line_intersection(x[line_inds], [-1, upper_M[M_meets_Rr_ind]], x[line_inds], lower_Rr[line_inds]))
-    else:
-        M_maxObed_cross_Rr = np.array([x[0], upper_M[0]])
-    print('M_maxObed_cross_Rr')
-    print(M_maxObed_cross_Rr)
-    # ax4 = show.line(x[line_inds], [-1, upper_M[M_meets_Rr_ind]],'',plot_col='b',ax=ax4, linewidth=3)
-    # ax4 = show.line(x[line_inds], lower_Rr[line_inds],'',plot_col='b',ax=ax4, linewidth=3)
-    ax4 = show.scatt(np.array(M_maxObed_cross_Rr), '', plot_col = 'y', ax=ax4, s=400, marker='x', mosaic_data=False)
-    ax4 = show.scatt(np.array(M_cross_Rr), '', plot_col = 'r', ax=ax4, s=400, marker='x', mosaic_data=False)
+    # # # Sr_exclusion_area
+    # len_radius = Sr_meets_Rr_ind - Rr_above_neg1_ind + 1
+    # points = np.empty([len_radius * 2, 2])
+    # points[:] = np.nan
+    # points[0, :] = Rr_cross_neg1
+    # points[1:len_radius, 0] = x[Rr_above_neg1_ind:Sr_meets_Rr_ind]
+    # points[1:len_radius, 1] = lower_Rr[Rr_above_neg1_ind:Sr_meets_Rr_ind]
+    # points[len_radius, :] = Sr_cross_Rr
+    # points[len_radius+1:points.shape[0], 0] = np.flip(x[Rr_above_neg1_ind:Sr_meets_Rr_ind])
+    # points[len_radius+1:points.shape[0], 1] = np.flip(upper_Sr[Rr_above_neg1_ind:Sr_meets_Rr_ind])
+    # if points.shape[0] <= 2:
+    #     Sr_exclusion_area = np.nan
+    # else:
+    #     poly = Polygon(points)
+    #     Sr_exclusion_area = poly.area
+    #     ax3.fill(*zip(*points), facecolor = 'b', edgecolor='b')
+    # print('Sr_exclusion_area')
+    # print(Sr_exclusion_area)
 
-    len_radius = M_meets_Rr_ind - Rr_above_neg1_ind + 1
-    points = np.empty([len_radius * 2, 2])
-    points[:] = np.nan
-    points[0, :] = Rr_cross_neg1
-    points[1:len_radius, 0] = x[Rr_above_neg1_ind:M_meets_Rr_ind]
-    points[1:len_radius, 1] = lower_Rr[Rr_above_neg1_ind:M_meets_Rr_ind]
-    points[len_radius, :] = M_maxObed_cross_Rr
-    points[len_radius+1:points.shape[0], 0] = np.flip(x[Rr_above_neg1_ind:M_meets_Rr_ind])
-    points[len_radius+1:points.shape[0], 1] = -1
-    if points.shape[0] <= 2:
-        M_maxObed_exclusion_area = np.nan
-    else:
-        poly = Polygon(points)
-        M_maxObed_exclusion_area = poly.area
-        ax4.fill(*zip(*points), facecolor = 'r', edgecolor='r')
-    print('M_maxObed_exclusion_area')
-    print(M_maxObed_exclusion_area)
+    # #-----------------------------EXCLUSIONARY OBEDIENCE---------------------------------------------
+    # ax4 = show.view2PC([sav_fl], scale_std=2, showNearestCone=False)
+    # plt.xlim([0, 2 * hex_radius])
+    # plt.ylim([-1.5, np.amax(crop_corr[Sr_ind, :])+1])
 
-    exclusion_obedience = M_exclusion_area / M_maxObed_exclusion_area
-    print('exclusion_obedience')
-    print(exclusion_obedience)
+    # print('xy of lower Rr where M would cross if fully obedient to the max')
+    # print(x[line_inds])
+    # print(lower_Rr[line_inds])
+    # if M_meets_Rr > 0:
+    #     line_inds = [M_meets_Rr_ind-1, M_meets_Rr_ind]
 
-    #-----------------------------asdl;kfj---------------------------------------------
-    relative_structure_to_max = np.empty([2,])
-    relative_structure_to_max[0] = M_exclusion_radius/Sr_exclusion_radius
-    relative_structure_to_max[1] = M_exclusion_area/Sr_exclusion_area
-    print('relative_structure_to_max')
-    print(relative_structure_to_max)
-    print('')
+    #     M_maxObed_cross_Rr = np.array(calc.line_intersection(x[line_inds], [-1, upper_M[M_meets_Rr_ind]], x[line_inds], lower_Rr[line_inds]))
+    # else:
+    #     M_maxObed_cross_Rr = np.array([x[0], upper_M[0]])
+    # print('M_maxObed_cross_Rr')
+    # print(M_maxObed_cross_Rr)
+    # # ax4 = show.line(x[line_inds], [-1, upper_M[M_meets_Rr_ind]],'',plot_col='b',ax=ax4, linewidth=3)
+    # # ax4 = show.line(x[line_inds], lower_Rr[line_inds],'',plot_col='b',ax=ax4, linewidth=3)
+    # ax4 = show.scatt(np.array(M_maxObed_cross_Rr), '', plot_col = 'y', ax=ax4, s=400, marker='x', mosaic_data=False)
+    # ax4 = show.scatt(np.array(M_cross_Rr), '', plot_col = 'r', ax=ax4, s=400, marker='x', mosaic_data=False)
+
+    # len_radius = M_meets_Rr_ind - Rr_above_neg1_ind + 1
+    # points = np.empty([len_radius * 2, 2])
+    # points[:] = np.nan
+    # points[0, :] = Rr_cross_neg1
+    # points[1:len_radius, 0] = x[Rr_above_neg1_ind:M_meets_Rr_ind]
+    # points[1:len_radius, 1] = lower_Rr[Rr_above_neg1_ind:M_meets_Rr_ind]
+    # points[len_radius, :] = M_maxObed_cross_Rr
+    # points[len_radius+1:points.shape[0], 0] = np.flip(x[Rr_above_neg1_ind:M_meets_Rr_ind])
+    # points[len_radius+1:points.shape[0], 1] = -1
+    # if points.shape[0] <= 2:
+    #     M_maxObed_exclusion_area = np.nan
+    # else:
+    #     poly = Polygon(points)
+    #     M_maxObed_exclusion_area = poly.area
+    #     ax4.fill(*zip(*points), facecolor = 'r', edgecolor='r')
+    # print('M_maxObed_exclusion_area')
+    # print(M_maxObed_exclusion_area)
+
+    # exclusion_obedience = M_exclusion_area / M_maxObed_exclusion_area
+    # print('exclusion_obedience')
+    # print(exclusion_obedience)
+
+    # #-----------------------------asdl;kfj---------------------------------------------
+    # relative_structure_to_max = np.empty([2,])
+    # relative_structure_to_max[0] = M_exclusion_radius/Sr_exclusion_radius
+    # relative_structure_to_max[1] = M_exclusion_area/Sr_exclusion_area
+    # print('relative_structure_to_max')
+    # print(relative_structure_to_max)
+    # print('')
 
     data_to_set = util.mapStringToLocal(proc_vars, locals())
 
@@ -279,181 +277,75 @@ def two_point_correlation_process(param, sav_cfg):
     bin_width = param['bin_width']
     to_be_corr = param['to_be_corr']
     sim_to_gen = param['sim_to_gen']
-    with h5py.File(sav_fl, 'r') as file:
-        img_x = file['input_data']['img_x'][()]
-        img_y = file['input_data']['img_y'][()]
-    num2gen = util.numSim('monteCarlo_uniform', param['num_sim'], param['sim_to_gen'])
+    corr_by = param['corr_by']
 
+    #need this for the PD_string that will sort the 2PC results to each mosaic types save spot
     coord, PD_string = getDataForPrimaryProcess(sav_fl)
-    numcones = coord[0].shape[1]
-    print('numcones: ' + str(numcones))
-    dist_area_norm = False
+
+    dist_hists = []
+    max_bins = 0
+    with h5py.File(sav_fl, 'r') as file:
+        
+        for ind, PD in enumerate(PD_string):
+            if PD == corr_by + '_':
+                corr_by_ind = ind
+                corr_by_mean = file[PD + 'intracone_dist']['hist_mean'][()]
+                corr_by_std = file[PD + 'intracone_dist']['hist_std'][()]
+
+            dist_hists.append(file[PD + 'intracone_dist']['hist_mat'][()])
+            temp_edges = file[PD + 'intracone_dist']['bin_edge'][()]
+            num_bins = temp_edges.shape[0]
+
+            ax = show.plotKwargs({}, '')
+
+            for m in np.arange(0, dist_hists[ind].shape[0]):
+                plt.stairs(dist_hists[ind][m,:], temp_edges)
+
+            if num_bins > max_bins:
+                max_bins = num_bins
+                max_bin_edges = temp_edges
+
+    if corr_by_mean.shape[0] < max_bins:
+        corr_by_mean = util.vector_zeroPad(corr_by_mean, 0, max_bins-corr_by_mean.shape[0]-1)
+        corr_by_std = util.vector_zeroPad(corr_by_std, 0, max_bins-corr_by_std.shape[0]-1)
 
     if coord:
-        # if binwidth = -1, we need to set it to the mean inctracone distance of the total mosaic.
-        # get the mean intracone distance from the total cone mosaic's save file (should already have been run)
-        # in the future, could add something that computes it if not found in the save file
-        if bin_width == -1:
-            save_path = os.path.dirname(sav_fl)
-            all_coord_fl = save_path + '\\' + param['mosaic'] + '_all.hdf5'
-
-            try:
-                with h5py.File(all_coord_fl, 'r') as file:
-                    bin_width = file['measured_voronoi']['icd_mean'][()]
-            except:
-                print('could not pull mean if from ' + all_coord_fl)
-
-        # create a population of random-uniform mosaics
-        xlim = [0, img_x]
-        ylim = [0, img_y]
-        rand_coord = calc.monteCarlo_uniform(numcones, num2gen, xlim, ylim)
-        rand_dist_hist_list = []
-        rand_maxbin = 0
-
-        # compute each of their intracone dist histograms, and their first order statistics
-
-        for r in np.arange(0, num2gen):
-            # axZ = show.plotKwargs({}, '')
-            # axZ = show.scatt(np.squeeze(rand_coord[r,:,:]), '', axZ = axZ)
-            rand_dist = spatial.distance_matrix(np.squeeze(rand_coord[r,:,:]),
-                                                np.squeeze(rand_coord[r,:,:]))
-            # axy = show.plotKwargs({}, '')
-            # axy = plt.imshow(rand_dist)
-            for c in np.arange(0, 80):
-                rand_dist[c,c] = np.nan
-            hist, bin_edges = np.histogram(rand_dist, bins = np.arange(0, (bin_width * np.floor(np.nanmax(rand_dist) / bin_width)) + bin_width, bin_width))
-            # axX = show.plotKwargs({}, '')
-            # axX = plt.stairs(hist, bin_edges)
-            rand_dist_hist_list.append(hist)
-            if rand_dist_hist_list[r].shape[0] > rand_maxbin:
-                rand_maxbin = rand_dist_hist_list[r].shape[0]   
-                rand_bin_edges = bin_edges 
-        rand_dist_hist = np.empty([num2gen, rand_maxbin])
-        rand_dist_hist[:] = np.nan
-        for r in np.arange(0, num2gen):
-            rand_dist_hist[r, np.nonzero(~np.isnan(rand_dist_hist_list[r]))[0]] = rand_dist_hist_list[r] 
-
-        rand_dist_hist_mean = np.nanmean(rand_dist_hist, axis=0) 
-        rand_dist_hist_std = np.nanstd(rand_dist_hist, axis=0)
+        hist_x, hist_y, hist_y_plus, hist_y_minus =  util.reformat_stat_hists_for_plot(max_bin_edges, corr_by_mean, corr_by_std)
 
         ax = show.plotKwargs({}, '')
-        hist_x = np.empty(rand_dist_hist_mean.shape[0]*2+1)
-        hist_y = np.empty(rand_dist_hist_mean.shape[0]*2+1)
-        hist_y_plus = np.empty(rand_dist_hist_mean.shape[0]*2+1)
-        hist_y_minus = np.empty(rand_dist_hist_mean.shape[0]*2+1)
-        hist_x[:] = np.nan
-        hist_y[:] = np.nan
-        hist_y_plus[:] = np.nan
-        hist_y_plus[:] = np.nan
-        hist_x[0] = 0
-        hist_y[0] = 0
-        hist_y_plus[0] = 0
-        hist_y_minus[0] = 0
-
-        for ind,bin in enumerate(np.arange(0,rand_dist_hist_mean.shape[0]-1)):
-            hist_x[ind*2+1:ind*2+3] = [rand_bin_edges[ind], rand_bin_edges[ind]]
-            hist_y[ind*2+1:ind*2+3] = [rand_dist_hist_mean[ind], rand_dist_hist_mean[ind+1]]
-
-            hist_y_plus[ind*2+1:ind*2+3] = [rand_dist_hist_mean[ind]+rand_dist_hist_std[ind], rand_dist_hist_mean[ind+1]+rand_dist_hist_std[ind+1]]
-            hist_y_minus[ind*2+1:ind*2+3] = [rand_dist_hist_mean[ind]-rand_dist_hist_std[ind], rand_dist_hist_mean[ind+1]-rand_dist_hist_std[ind+1]]
-
         ax = show.line(hist_x, hist_y, '', plot_col='w', ax=ax)
         ax.fill_between(hist_x, 
                         hist_y_plus, 
                         hist_y_minus, color='royalblue', alpha=.7)
 
-        corr_by_hist = rand_dist_hist_mean
+        corr_by_hist = corr_by_mean
 
         # for each mosaic to be correlated against the msoaics
-        corred = []
-        for ind, point_data in enumerate(coord):
-            print('how many sims')
-            print(len(coord))
-            print(point_data.shape)
-            # if this is a valid coordinate dataset for this process...
-            if len(point_data.shape) == 3:
-                num_mosaic = point_data.shape[0]
-                points_per_mos = point_data.shape[1]
-                dist = np.zeros((num_mosaic, points_per_mos, points_per_mos))
-                hist = np.empty(num_mosaic, dtype=np.ndarray)
-                max_hist_bin = 0
-                max_hist_bins = np.empty([0,])
-                print('     Running 2PC on ' + str(num_mosaic) + " " + PD_string[ind] + ' mosaics...') 
-                for mos in np.arange(0, num_mosaic):
-                    this_coord = point_data[mos, :, :]
-                    dist[mos, :, :], mean_nearest, std_nearest, hist[mos], bin_edge, annulus_area = intracone_dist_common(this_coord.squeeze(), bin_width, dist_area_norm)
-                    if hist[mos].shape[0] > max_hist_bin:
-                        max_hist_bin = hist[mos].shape[0]
-                        max_hist_bins = bin_edge
-                # this is just to convert the returned histograms into a rectangular array
-                # (this can't be done in advance because of slight variability in the number of bins returned (for randomized mosaics))
+        for ind, dist_mat in enumerate(dist_hists):
 
-                mb = np.max([max_hist_bin, rand_maxbin])
-                if max_hist_bins.shape[0] > rand_bin_edges.shape[0]:
-                    use_bins = bin_edge
-                else:
-                    use_bins = rand_bin_edges
-                if mb > corr_by_hist.shape[0]:
-                    corr_by_hist = util.vector_zeroPad(corr_by_hist, 0, mb-corr_by_hist.shape[0])
-                hist_mat = np.zeros([num_mosaic, mb])
-                for mos in np.arange(0, num_mosaic):
-                    hist_mat[mos, 0:hist[mos].shape[0]] = hist[mos]
+            # preallocation for new 2PC matrix
+            corred = np.empty([dist_mat.shape[0],max_bins-1])
+            corred[:] = np.nan
+            ax = show.plotKwargs({},'')
 
-                hist = hist_mat
+            for mos in np.arange(0, dist_mat.shape[0]):
+                hist = dist_mat[mos,:]
 
-                #preallocation for new 2PC matrix
-                twoPC = np.empty([num_mosaic,mb])
-                twoPC[:] = np.nan
-                print('twoPC')
-                print(twoPC.shape)
-                ax = show.plotKwargs({},'')
-                for mos in np.arange(0, num_mosaic):
-                    #new 2PC calculation
-                    print(hist[mos,:].shape)
-                    print(corr_by_hist.shape)
-                    print(use_bins.shape)
-                    twoPC[mos,:] = calc.corr(hist[mos,:], corr_by_hist)
-                    ax.stairs(twoPC[mos,:], use_bins)
-                corred.append(twoPC)
+                if hist.shape[0] < max_bins:
+                    hist = util.vector_zeroPad(hist, 0, max_bins - hist.shape[0] - 1)
 
-        # if not np.isnan(corr_by_hist).any():
-        #     # THOU SHALT NOT HAVE NANS
-        #     while bin_edge.shape[0] <= max_hist_bin:
-        #         bin_edge = np.append(bin_edge, max(bin_edge)+bin_width)
-        #     x = bin_edge[1:]-(bin_width/2)
+                # new 2PC calculation
+                corred[mos,:] = calc.corr(hist, corr_by_hist)
+                ax.stairs(corred[mos,:], max_bin_edges)
 
+            corred = np.float64(corred)
 
-        #     corred = []
-        #     ax = show.plotKwargs({},'')
-        #     for to_be_corr_set in to_be_corr_hists:
-        #         corred_set = []
-        #         for ind, vect in enumerate(to_be_corr_set):
-        #             if not all(x == 0 for x in vect):
-        #                 # print('points in intrapoint distance hist: ' + str(np.nansum(vect)))
-        #                 if ind == 0: #mean
-        #                     corred_set.append(calc.corr(vect, corr_by_hist))
-        #                 elif ind == 1: 
-        #                     corred_set.append(vect/corr_by_hist)
-        #             else: 
-        #                 temp = np.empty((len(vect)))
-        #                 temp[:] = np.NaN
-        #                 corred_set.append(temp)
-                
-            #     corred.append(np.float64(corred_set))
-            #     # print('hist_std for 2pc')
-            #     # print(corred_set[1])
-            #     ax = show.shadyStats(x, corred_set[0], corred_set[1], '', scale_std=2, ax=ax)
-            # plt.xlim([0, 31])
-            # plt.ylim([-2, 5])
-            # corred = np.float64(corred)
-        data_to_set = util.mapStringToLocal(proc_vars, locals())
-    else:
-        data_to_set = util.mapStringToNan(proc_vars)
+            data_to_set = util.mapStringToLocal(proc_vars, locals())
+            flsyst.setProcessVarsFromDict(param, sav_cfg, proc, data_to_set, prefix=PD_string[ind])
 
-    flsyst.setProcessVarsFromDict(param, sav_cfg, proc, data_to_set, prefix=PD_string[ind])
+    
 
 ## --------------------------------PRIMARY ANALYSIS FUNCTIONS--------------------------------------
-
 
 def voronoi_process(param, sav_cfg):
     """
@@ -1129,6 +1021,8 @@ def runSingleMosaicProcess(user_param, sav_cfg):
     # this needs to updated, needs to error if the layer doesn't exist
     for layer in sav_cfg['process_hierarchy']['content']:
         globals()[sav_cfg[layer]['process']](user_param, sav_cfg)
+
+
 def default_processes_process(user_param, sav_cfg):
     """
     Inputs
@@ -1253,11 +1147,12 @@ def secondary_analyses_process(user_param, sav_cfg):
     tiers = getAnalysisTiers(sav_cfg)
 
     # perform on data
-    for proc in tiers[1]:
-        if proc in user_param['analyses_to_run'][0]:
-            print('Running process "' + proc + '" on ' + str(len(processes[proc])) + ' mosaic coordinate files...') 
-            for ind in processes[proc]:
-                param = unpackThisParam(user_param, ind)
-                globals()[sav_cfg[proc]['process']](param, sav_cfg)
+    if len(tiers) >= 2:
+        for proc in tiers[1]:
+            if proc in user_param['analyses_to_run'][0]:
+                print('Running process "' + proc + '" on ' + str(len(processes[proc])) + ' mosaic coordinate files...') 
+                for ind in processes[proc]:
+                    param = unpackThisParam(user_param, ind)
+                    globals()[sav_cfg[proc]['process']](param, sav_cfg)
 
 
