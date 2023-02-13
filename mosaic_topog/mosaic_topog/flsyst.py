@@ -28,8 +28,6 @@ def setProcessByType(file, proc, var, data, prefix=''):
     
     proc_to_set = prefix + proc
 
-    print(proc_to_set)
-
     if isinstance(data, str):
         file[proc_to_set][var] = np.string_(data)
     elif isinstance(data, float):

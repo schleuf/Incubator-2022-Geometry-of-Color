@@ -193,28 +193,15 @@ metrics_of_2PC:
   - two_point_correlation
   variables:
   - analysis_x_cutoff
-  - M_peak
-  - M_x_peak_ind
-  - Sr_peak
-  - Sr_x_peak_ind
-  - diff_Sr_peak_from_hex_radius
-  - Rr_peak
-  - Rr_x_peak_ind
-  - Rr_above_neg1
-  - Rr_above_neg1_ind
-  - Rr_cross_neg1
-  - M_meets_Rr
-  - M_meets_Rr_ind
-  - M_cross_Rr
-  - M_exclusion_radius
-  - M_exclusion_area
-  - Sr_meets_Rr
-  - Sr_meets_Rr_ind
-  - Sr_cross_Rr
-  - Sr_exclusion_radius
-  - Sr_exclusion_area
-  - exclusion_obedience
-  - relative_structure_to_max
+  - corr_by_mean
+  - corr_by_std
+  - mean_corr
+  - std_corr
+  - dearth_bins
+  - peak_bins
+  - exclusion_radius
+  - exclusion_bins
+  - exclusion_area
 
 
   

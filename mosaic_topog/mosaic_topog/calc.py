@@ -426,7 +426,7 @@ def dist_matrices(coords, dist_self=-1):
     return dists
 
 
-def distHist(dists, bin_width):
+def distHist(dists, bin_width, offset_bin = False):
     # vectorize the matrix of distances
     dists = np.sort(np.reshape(dists, -1))
 
@@ -435,8 +435,13 @@ def distHist(dists, bin_width):
 
     # calculate bin stuff
     # bin_edges = np.arange(0, np.ceil(max(dists) + bin_width), bin_width)
-    num_bins = int(np.ceil((max(dists))/bin_width))
-    bins = np.arange(0, num_bins * bin_width, step = bin_width)
+    if offset_bin:
+        offset = bin_width/2
+    else:
+        offset = 0
+
+    num_bins = int(np.ceil((max(dists)) / bin_width))
+    bins = np.arange(0 + offset, (num_bins * bin_width) + offset, step = bin_width)
 
     hist, bin_edges = np.histogram(dists, bins=bins)
     return hist, bin_edges

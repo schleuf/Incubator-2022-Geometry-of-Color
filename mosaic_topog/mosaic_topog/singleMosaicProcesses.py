@@ -20,19 +20,32 @@ import random
 ## --------------------------------SECONDARY ANALYSIS FUNCTIONS--------------------------------------
 
 def metrics_of_2PC_process(param, sav_cfg):
-    """ assumes that the data has been run on measured data and my 4 simulated popualtions"""
+    """ assumes that the data has been run on measured data and my 4 simulated populations"""
     proc = 'metrics_of_2PC'
     proc_vars = sav_cfg[proc]['variables']
     sav_fl = param['sav_fl']
     corr_by = param['corr_by']
     to_be_corr = param['to_be_corr']
     bin_width = param['bin_width']
+
+    coord, PD_string = getDataForPrimaryProcess(sav_fl)
+
+    if bin_width == -1:
+        save_path = os.path.dirname(sav_fl)
+        all_coord_fl = save_path + '\\' + param['mosaic'] + '_all.hdf5'
+
+        try:
+            with h5py.File(all_coord_fl, 'r') as file2:
+                all_cone_mean_icd   = file2['measured_voronoi']['icd_mean'][()]
+        except:
+            print('could not pull mean nearest from ' + all_coord_fl)
+
+        bin_width = all_cone_mean_icd
+
     with h5py.File(sav_fl, 'r') as file:
-        all_cone_mean_nearest = file['two_point_correlation']['all_cone_mean_nearest'][()]
-        all_cone_std_nearest = file['two_point_correlation']['all_cone_std_nearest'][()]
-        corred = file['two_point_correlation']['corred'][()]
-        maxbins = file['two_point_correlation']['maxbins'][()]
-        bin_edge = file['two_point_correlation']['bin_edge'][()]
+        corr_by_corr = file[corr_by + '_' + 'two_point_correlation']['corred'][()]
+        max_bins = file[corr_by + '_' + 'two_point_correlation']['max_bins'][()]
+        bin_edge = file[corr_by + '_' + 'two_point_correlation']['max_bin_edges'][()]
         sim_hexgrid_by = bytes(file['input_data']['sim_hexgrid_by'][()]).decode("utf8")
         if sim_hexgrid_by == 'rectangular':
             hex_radius = file['basic_stats']['hex_radius_of_this_density'][()]
@@ -40,234 +53,72 @@ def metrics_of_2PC_process(param, sav_cfg):
             hex_radius = file['measured_voronoi']['hex_radius'][()]
         else:
             print('ack!!! problem getting hex_radius in metrics_of_2PC_process')
-
-    analysis_x_cutoff = int(np.ceil((2 * hex_radius) / bin_width))   
-    crop_corr = corred[:, :, 0:analysis_x_cutoff]
+        
     
-    # x = bin_edge[1:analysis_x_cutoff+1]-(bin_width/2)
+    analysis_x_cutoff = int(np.argmin(np.abs((bin_edge - (2 * hex_radius)))))
 
-    # #M = measured
-    # M_ind = int(np.nonzero([d =='measured' for d in to_be_corr])[0])
-    # #Sr = spaced, restricted
-    # Sr_ind = int(np.nonzero([d =='coneLocked_maxSpacing' for d in to_be_corr])[0])
-    # #Rr = randomized, restricted
-    # Rr_ind = int(np.nonzero([d =='monteCarlo_coneLocked' for d in to_be_corr])[0])
-    # #Ru = randomized, unrestricted
-    # Ru_ind = int(np.nonzero([d =='monteCarlo_uniform' for d in to_be_corr])[0])
-    
-    # #---------------------------------PEAKS----------------------------------------------
+    corr_by_corr = corr_by_corr[:, 0:analysis_x_cutoff]
+    corr_by_mean = np.nanmean(corr_by_corr, axis=0)
+    corr_by_std = np.nanstd(corr_by_corr, axis=0)
 
-    # x_peaks = np.array([np.nanargmax(crop_corr[d, 0, :]) for d in np.arange(0,crop_corr.shape[0])])
-    # ax = show.view2PC([sav_fl], scale_std=2, showNearestCone=False)
-    # plt.xlim([0, 2 * hex_radius])
-    # print('amax')
-    # print(crop_corr[Sr_ind, 0, :])
-    # print(np.nanmax(crop_corr[Sr_ind, 0, :]))
-    # plt.ylim([-1.5, np.nanmax(crop_corr[Sr_ind, 0, :])+1])
+    for ind, PD in enumerate(PD_string):
 
-    # # coneLocked maximally spaced peak
-    # Sr_x_peak_ind = x_peaks[Sr_ind]
-    # Sr_y_peak = crop_corr[Sr_ind, 0, Sr_x_peak_ind]
-    # Sr_std_peak = crop_corr[Sr_ind, 1, Sr_x_peak_ind]
-    # Rr_y_at_Sr_peak = crop_corr[Rr_ind, 0, Sr_x_peak_ind]
-    # Rr_std_at_Sr_peak = crop_corr[Rr_ind, 1, Sr_x_peak_ind]
-    # if Sr_y_peak - Sr_std_peak > Rr_y_at_Sr_peak + Rr_std_at_Sr_peak:
-    #     Sr_x_peak = bin_edge[0] + Sr_x_peak_ind * bin_width + (bin_width/2)
-    #     Sr_peak = np.array([Sr_x_peak, Sr_y_peak])
-    # else:
-    #     Sr_peak = np.array([np.nan, np.nan])
-    # diff_Sr_peak_from_hex_radius = Sr_x_peak - hex_radius
+        with h5py.File(sav_fl, 'r') as file:
+            corred = file[PD + 'two_point_correlation']['corred'][()]
 
-    # ax = show.scatt(Sr_peak, '', ax=ax, plot_col ='darkorange', s=600, marker='x', mosaic_data=False)
-    
-    # # measured peak
-    # M_x_peak_ind = x_peaks[M_ind]
-    # M_y_peak = crop_corr[M_ind, 0, M_x_peak_ind]
-    # M_std_peak = crop_corr[M_ind, 1, M_x_peak_ind]
-    # Rr_y_at_M_peak = crop_corr[Rr_ind, 0, M_x_peak_ind]
-    # Rr_std_at_M_peak = crop_corr[Rr_ind, 1, M_x_peak_ind]
-    # if M_y_peak - M_std_peak > Rr_y_at_M_peak + Rr_std_at_M_peak:
-    #     M_x_peak = bin_edge[0] + M_x_peak_ind * bin_width + (bin_width/2)
-    #     M_peak = np.array([M_x_peak, M_y_peak])
-    # else: 
-    #     M_peak = np.array([np.nan, np.nan])
+        crop_corr = corred[:, 0:analysis_x_cutoff]
+        
+        mean_corr = np.nanmean(crop_corr, axis=0)
+        std_corr = np.nanstd(crop_corr, axis=0)  
 
-    # ax = show.scatt(M_peak, '', ax=ax, plot_col = 'white', s=600, marker='x', mosaic_data=False)
-    
-    # #  random peak
-    # Rr_x_peak_ind = x_peaks[Rr_ind]
-    # Rr_y_peak = crop_corr[Rr_ind, 0, Rr_x_peak_ind]
-    # Rr_std_peak = crop_corr[Rr_ind, 1, Rr_x_peak_ind]
-    # Ru_y_at_Rr_peak = crop_corr[Ru_ind, 0, Rr_x_peak_ind]
-    # Ru_std_at_Rr_peak = crop_corr[Ru_ind, 1, Rr_x_peak_ind]
-    # if Rr_y_peak - Rr_std_peak > Ru_y_at_Rr_peak + Ru_std_at_Rr_peak:
-    #     Rr_x_peak = bin_edge[0] + (Rr_x_peak_ind * bin_width) + (bin_width/2)
-    #     Rr_peak = np.array([Rr_x_peak, Rr_y_peak])
-    # else: 
-    #     Rr_peak = np.array([np.nan, np.nan])
+        dearth_bins = np.nonzero(mean_corr + (2 * std_corr) < corr_by_mean - (2 * corr_by_std))[0]
+        peak_bins = np.nonzero(mean_corr - (2 * std_corr) > corr_by_mean + (2 * corr_by_std))[0]
 
-    # ax = show.scatt(Rr_peak, '', ax=ax, plot_col = 'royalblue', s=600, marker='x', mosaic_data=False)
-    
-    # #-----------------------------MEASURED EXCLUSION RADIUS & AREA----------------------------------------------
-    # ax2 = show.view2PC([sav_fl], scale_std=2, showNearestCone=False)
-    # plt.xlim([0, 2 * hex_radius])
-    # plt.ylim([-1.5, np.nanmax(crop_corr[Sr_ind, 0, :])+1])
+        ax = show.plotKwargs({'figsize':10}, '')
 
-    # # Rr_min_dist = distance where mean Rr deviates first deviates from -1
-    # lower_Rr = crop_corr[Rr_ind, 0, :] - (2 * crop_corr[Rr_ind, 1, :])
-    # Rr_above_neg1_ind = np.nonzero([p > -1 for p in lower_Rr])[0][0]
-    # Rr_above_neg1 = bin_edge[0] + (Rr_above_neg1_ind * bin_width) + (bin_width/2)
-    # ax2 = show.scatt(np.array([Rr_above_neg1, 0]), '', plot_col = 'r', ax=ax2, s=600, marker='x', mosaic_data=False)
-    # if Rr_above_neg1_ind > 0:
-    #     line_inds = [Rr_above_neg1_ind - 1, Rr_above_neg1_ind]
-    #     Rr_cross_neg1 = np.array(calc.line_intersection(x[line_inds], lower_Rr[line_inds], x[line_inds], [-1, -1]))
-    #     if np.any(np.isnan(Rr_cross_neg1)):
-    #         Rr_cross_neg1 = np.array([0,lower_Rr[0]])
-    # else:
-    #     Rr_cross_neg1 = np.array([0,lower_Rr[0]])
-    # ax2 = show.scatt(np.array(Rr_cross_neg1), '', plot_col = 'y', ax=ax2, s=600, marker='x', mosaic_data=False)
+        corr_by_x, corr_by_y, corr_by_y_plus, corr_by_y_minus = util.reformat_stat_hists_for_plot(bin_edge, corr_by_mean, corr_by_std*2)
+        ax = show.line(corr_by_x, corr_by_y, '', ax=ax, plot_col = 'firebrick')
+        ax.fill_between(corr_by_x, corr_by_y_plus, corr_by_y_minus, color='firebrick', alpha=.7)
 
-    # # M_meets_Rr_dist
-    # upper_M = crop_corr[M_ind, 0, :]
-    # M_meets_Rr_ind = (Rr_above_neg1_ind + 
-    #                    np.nonzero([upper_M[x] >= lower_Rr[x] 
-    #                                for x in np.arange(Rr_above_neg1_ind,
-    #                                                   upper_M.shape[0])])[0][0])
-    # M_meets_Rr = bin_edge[0] + (M_meets_Rr_ind * bin_width) + (bin_width/2)
-    # ax2 = show.scatt(np.array([M_meets_Rr, 0]), '', plot_col = 'r', ax=ax2, s=600, marker='x', mosaic_data=False)
-    # if M_meets_Rr > 0:
-    #     line_inds = [M_meets_Rr_ind - 1, M_meets_Rr_ind]
-    #     M_cross_Rr = np.array(calc.line_intersection(x[line_inds], upper_M[line_inds], x[line_inds], lower_Rr[line_inds]))
-    # else:
-    #     M_cross_Rr = np.array([x[0],upper_M[0]])
-    # ax2 = show.scatt(np.array(M_cross_Rr), '', plot_col = 'y', ax=ax2, s=600, marker='x', mosaic_data=False)
+        hist_x, hist_y, hist_y_plus, hist_y_minus = util.reformat_stat_hists_for_plot(bin_edge, mean_corr, std_corr*2)
+        ax = show.line(hist_x, hist_y, '', ax=ax, plot_col = 'w')
+        ax.fill_between(hist_x, hist_y_plus, hist_y_minus, color='royalblue', alpha=.7)
 
-    # # M_exclusion_radius
-    # M_exclusion_radius = M_cross_Rr[0] - Rr_cross_neg1[0]
-    # ax2 = show.line([Rr_cross_neg1[0], M_cross_Rr[0]], [1, 1], '', ax=ax2, plot_col='b', linewidth=3)
-    
-    # # M_exclusion_area
-    # len_radius = M_meets_Rr_ind - Rr_above_neg1_ind + 1
-    # points = np.empty([len_radius * 2, 2])
-    # points[:] = np.nan
-    # points[0, :] = Rr_cross_neg1
-    # print(Rr_cross_neg1)
-    # points[1:len_radius, 0] = x[Rr_above_neg1_ind:M_meets_Rr_ind]
-    # points[1:len_radius, 1] = lower_Rr[Rr_above_neg1_ind:M_meets_Rr_ind]
-    # points[len_radius, :] = M_cross_Rr
-    # points[len_radius+1:points.shape[0], 0] = np.flip(x[Rr_above_neg1_ind:M_meets_Rr_ind])
-    # points[len_radius+1:points.shape[0], 1] = np.flip(upper_M[Rr_above_neg1_ind:M_meets_Rr_ind])
-    # if points.shape[0] <= 2:
-    #     M_exclusion_area = np.nan
-    # else:
-    #     print('points')
-    #     print(points)
-    #     poly = Polygon(points)
-    #     M_exclusion_area = poly.area
-    #     ax2.fill(*zip(*points), facecolor = 'b', edgecolor='b')
-    # print('M_exclusion_area')
-    # print(M_exclusion_area)
+        ax.scatter(bin_edge[dearth_bins] + bin_width/2, mean_corr[dearth_bins], color='g')
+        ax.scatter(bin_edge[peak_bins] + bin_width/2, mean_corr[peak_bins], color='y')
 
-    # #-----------------------------SPACED RESTRICTED EXCLUSION RADIUS & AREA----------------------------------------------
-    # ax3 = show.view2PC([sav_fl], scale_std=2, showNearestCone=False)
-    # plt.xlim([0, 2 * hex_radius])
-    # plt.ylim([-1.5, np.amax(crop_corr[Sr_ind, :])+1])
+        if len(dearth_bins) > 0:
+            diff_dearth = np.diff(dearth_bins)
+            diff1 = [d == 1 for d in diff_dearth]
+            zeros = np.nonzero([d == 0 for d in diff1])[0]
 
-    # # Sr_meets_Rr_ind
-    # upper_Sr = crop_corr[Sr_ind, 0, :] + (2 * crop_corr[Sr_ind, 1, :])
-    # lower_Rr = crop_corr[Rr_ind, 0, :] - (2 * crop_corr[Rr_ind, 1, :])
-    # Sr_meets_Rr_ind = (Rr_above_neg1_ind + 
-    #                    np.nonzero([upper_Sr[x] >= lower_Rr[x] 
-    #                                for x in np.arange(Rr_above_neg1_ind,
-    #                                                   upper_Sr.shape[0])])[0][0])
-    # Sr_meets_Rr = bin_edge[0] + (Sr_meets_Rr_ind * bin_width) + (bin_width/2)
-    # ax3 = show.scatt(np.array([Sr_meets_Rr, 0]), '', plot_col = 'r', ax=ax3, s=600, marker='x', mosaic_data=False)
-    # if Sr_meets_Rr > 0:
-    #     line_inds = [Sr_meets_Rr_ind - 1, Sr_meets_Rr_ind]
-    #     Sr_cross_Rr = np.array(calc.line_intersection(x[line_inds], upper_Sr[line_inds], x[line_inds], lower_Rr[line_inds]))
-    # else:
-    #     Sr_cross_Rr = np.array([x[0],upper_Sr[0]])
-    # ax3 = show.scatt(np.array(Sr_cross_Rr), '', plot_col = 'y', ax=ax3, s=600, marker='x', mosaic_data=False)
+            if not np.any(zeros):
+                exclusion_bins = dearth_bins[np.nonzero(d==False for d in diff1)[0][0]] + 1
+            else:
+                first_zero = zeros[0] + 1
 
-    # # Sr_exclusion_radius
-    # Sr_exclusion_radius = Sr_cross_Rr[0] - Rr_cross_neg1[0]
-    # ax3 = show.line([Rr_cross_neg1[0], Sr_cross_Rr[0]], [.75, .75], '', ax=ax3, plot_col = 'b', linewidth=3)
-    # print('Sr_exclusion_radius')
-    # print(Sr_exclusion_radius)
+                exclusion_bins = first_zero
+        else:
+            exclusion_bins = 0
+        exclusion_bins = int(exclusion_bins)
 
-    # # # Sr_exclusion_area
-    # len_radius = Sr_meets_Rr_ind - Rr_above_neg1_ind + 1
-    # points = np.empty([len_radius * 2, 2])
-    # points[:] = np.nan
-    # points[0, :] = Rr_cross_neg1
-    # points[1:len_radius, 0] = x[Rr_above_neg1_ind:Sr_meets_Rr_ind]
-    # points[1:len_radius, 1] = lower_Rr[Rr_above_neg1_ind:Sr_meets_Rr_ind]
-    # points[len_radius, :] = Sr_cross_Rr
-    # points[len_radius+1:points.shape[0], 0] = np.flip(x[Rr_above_neg1_ind:Sr_meets_Rr_ind])
-    # points[len_radius+1:points.shape[0], 1] = np.flip(upper_Sr[Rr_above_neg1_ind:Sr_meets_Rr_ind])
-    # if points.shape[0] <= 2:
-    #     Sr_exclusion_area = np.nan
-    # else:
-    #     poly = Polygon(points)
-    #     Sr_exclusion_area = poly.area
-    #     ax3.fill(*zip(*points), facecolor = 'b', edgecolor='b')
-    # print('Sr_exclusion_area')
-    # print(Sr_exclusion_area)
+        exclusion_radius = bin_edge[exclusion_bins]
 
-    # #-----------------------------EXCLUSIONARY OBEDIENCE---------------------------------------------
-    # ax4 = show.view2PC([sav_fl], scale_std=2, showNearestCone=False)
-    # plt.xlim([0, 2 * hex_radius])
-    # plt.ylim([-1.5, np.amax(crop_corr[Sr_ind, :])+1])
-
-    # print('xy of lower Rr where M would cross if fully obedient to the max')
-    # print(x[line_inds])
-    # print(lower_Rr[line_inds])
-    # if M_meets_Rr > 0:
-    #     line_inds = [M_meets_Rr_ind-1, M_meets_Rr_ind]
-
-    #     M_maxObed_cross_Rr = np.array(calc.line_intersection(x[line_inds], [-1, upper_M[M_meets_Rr_ind]], x[line_inds], lower_Rr[line_inds]))
-    # else:
-    #     M_maxObed_cross_Rr = np.array([x[0], upper_M[0]])
-    # print('M_maxObed_cross_Rr')
-    # print(M_maxObed_cross_Rr)
-    # # ax4 = show.line(x[line_inds], [-1, upper_M[M_meets_Rr_ind]],'',plot_col='b',ax=ax4, linewidth=3)
-    # # ax4 = show.line(x[line_inds], lower_Rr[line_inds],'',plot_col='b',ax=ax4, linewidth=3)
-    # ax4 = show.scatt(np.array(M_maxObed_cross_Rr), '', plot_col = 'y', ax=ax4, s=400, marker='x', mosaic_data=False)
-    # ax4 = show.scatt(np.array(M_cross_Rr), '', plot_col = 'r', ax=ax4, s=400, marker='x', mosaic_data=False)
-
-    # len_radius = M_meets_Rr_ind - Rr_above_neg1_ind + 1
-    # points = np.empty([len_radius * 2, 2])
-    # points[:] = np.nan
-    # points[0, :] = Rr_cross_neg1
-    # points[1:len_radius, 0] = x[Rr_above_neg1_ind:M_meets_Rr_ind]
-    # points[1:len_radius, 1] = lower_Rr[Rr_above_neg1_ind:M_meets_Rr_ind]
-    # points[len_radius, :] = M_maxObed_cross_Rr
-    # points[len_radius+1:points.shape[0], 0] = np.flip(x[Rr_above_neg1_ind:M_meets_Rr_ind])
-    # points[len_radius+1:points.shape[0], 1] = -1
-    # if points.shape[0] <= 2:
-    #     M_maxObed_exclusion_area = np.nan
-    # else:
-    #     poly = Polygon(points)
-    #     M_maxObed_exclusion_area = poly.area
-    #     ax4.fill(*zip(*points), facecolor = 'r', edgecolor='r')
-    # print('M_maxObed_exclusion_area')
-    # print(M_maxObed_exclusion_area)
-
-    # exclusion_obedience = M_exclusion_area / M_maxObed_exclusion_area
-    # print('exclusion_obedience')
-    # print(exclusion_obedience)
-
-    # #-----------------------------asdl;kfj---------------------------------------------
-    # relative_structure_to_max = np.empty([2,])
-    # relative_structure_to_max[0] = M_exclusion_radius/Sr_exclusion_radius
-    # relative_structure_to_max[1] = M_exclusion_area/Sr_exclusion_area
-    # print('relative_structure_to_max')
-    # print(relative_structure_to_max)
-    # print('')
-
-    data_to_set = util.mapStringToLocal(proc_vars, locals())
-
-    flsyst.setProcessVarsFromDict(param, sav_cfg, proc, data_to_set)
+        # ax = show.line([exclusion_radius, exclusion_radius], [-1, 1], '', plot_col = 'g', ax=ax)
+        exclusion_area = 0
+        if (exclusion_bins > 0):
+            for b in np.arange(0, exclusion_bins):
+                exclusion_area = exclusion_area + (bin_width * ((corr_by_mean[b] - (2 * corr_by_std[b])) - (mean_corr[b] + (2 * std_corr[b]))))
+                ax.fill_between(bin_edge[b:b+2],
+                                [mean_corr[b] + (2 * std_corr[b]), mean_corr[b] + (2 * std_corr[b])],
+                                [corr_by_mean[b] - (2 * corr_by_std[b]), corr_by_mean[b] - (2 * corr_by_std[b])], 
+                                color='g', alpha=.5)
+        ax.set_title(PD)
+        ax.set_xticks(bin_edge[0:analysis_x_cutoff])
+        ax.set_ylim([-1.5, 4])
+        
+        data_to_set = util.mapStringToLocal(proc_vars, locals())
+        flsyst.setProcessVarsFromDict(param, sav_cfg, proc, data_to_set, prefix=PD_string[ind])
 
 
 def two_point_correlation_process(param, sav_cfg):
@@ -324,7 +175,7 @@ def two_point_correlation_process(param, sav_cfg):
         for ind, dist_mat in enumerate(dist_hists):
 
             # preallocation for new 2PC matrix
-            corred = np.empty([dist_mat.shape[0],max_bins-1])
+            corred = np.empty([dist_mat.shape[0], max_bins-1])
             corred[:] = np.nan
             ax = show.plotKwargs({},'')
 
@@ -506,7 +357,7 @@ def voronoi_process(param, sav_cfg):
                                       prefix=PD_string[ind])
 
 
-def intracone_dist_common(coord, bin_width, dist_area_norm):
+def intracone_dist_common(coord, bin_width, dist_area_norm, offset_bin = False):
     """
     intracone_dist code shared for true and mc coordinate processes
 
@@ -530,12 +381,8 @@ def intracone_dist_common(coord, bin_width, dist_area_norm):
 
     mean_nearest = np.mean(np.array(nearest_dist))
     std_nearest = np.std(np.array(nearest_dist))
-    # print('mean_nearest')
-    # print(mean_nearest)
-    # print('std_nearest')
-    # print(std_nearest)
 
-    hist, bin_edge = calc.distHist(dist, bin_width)
+    hist, bin_edge = calc.distHist(dist, bin_width, offset_bin)
 
     annulus_area = calc.annulusArea(bin_edge)
 
@@ -610,14 +457,17 @@ def intracone_dist_process(param, sav_cfg):
          # look for all cone mosaic for this data
         save_path = os.path.dirname(sav_fl)
         all_coord_fl = save_path + '\\' + param['mosaic'] + '_all.hdf5'
+
         try:
             with h5py.File(all_coord_fl, 'r') as file:
                 all_cone_mean_icd   = file['measured_voronoi']['icd_mean'][()]
         except:
             print('could not pull mean nearest from ' + all_coord_fl)
         bin_width = all_cone_mean_icd
-    print('bin width')
-    print(bin_width)
+        offset_bin = True
+    else:
+        offset_bin = False
+
     coord, PD_string = getDataForPrimaryProcess(sav_fl)
     
     for ind, point_data in enumerate(coord):
@@ -631,9 +481,10 @@ def intracone_dist_process(param, sav_cfg):
             hist = np.empty(num_mosaic, dtype=np.ndarray)
             max_hist_bin = 0
             print('     Running intracone distances on ' + str(num_mosaic) + " " + PD_string[ind] + ' mosaics...') 
+
             for mos in np.arange(0, num_mosaic):
                 this_coord = point_data[mos, :, :]
-                dist[mos, :, :], mean_nearest[mos], std_nearest[mos], hist[mos], bin_edge, annulus_area = intracone_dist_common(this_coord.squeeze(), bin_width, dist_area_norm)
+                dist[mos, :, :], mean_nearest[mos], std_nearest[mos], hist[mos], bin_edge, annulus_area = intracone_dist_common(this_coord.squeeze(), bin_width, dist_area_norm, offset_bin)
                 if hist[mos].shape[0] > max_hist_bin:
                     max_hist_bin = hist[mos].shape[0]
 
