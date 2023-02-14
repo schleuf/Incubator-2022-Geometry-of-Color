@@ -138,7 +138,7 @@ def voronoi_region_metrics(bound, regions, vertices, point_region):
                     poly = Polygon(cell_verts)
                     voronoi_area[m, r] = poly.area
                     num_neighbor[m, r] = int(np.unique(reg).shape[0])
-
+        
         voronoi_area_mean[m] = (np.nanmean(voronoi_area[m, :]))
         voronoi_area_std[m] = (np.nanstd(voronoi_area[m, :]))     
 
@@ -156,6 +156,7 @@ def voronoi_region_metrics(bound, regions, vertices, point_region):
             num_neighbor_regularity[m] = (num_neighbor_mean[m]/num_neighbor_std[m])
      
         max_neighbors = int(np.nanmax([max_neighbors, np.nanmax(num_neighbor[m])]))
+
 
     return [voronoi_area, voronoi_area_mean,
             voronoi_area_std, voronoi_area_regularity,
@@ -242,7 +243,7 @@ def get_bound_voronoi_cells(coord, img_x, img_y):
     bound_cones = np.ones([num_mos, coord.shape[1]])
     bound_cones = np.array(bound_cones, dtype=int)
     bounding_box = np.array([img_x[0], img_x[1], img_y[0], img_y[1]])
-    buffer = eps*50
+    buffer = eps*100
     for m in np.arange(0, num_mos):
         points_center = coord[m, :, :]
 

@@ -71,52 +71,113 @@ def metrics_of_2PC_process(param, sav_cfg):
         mean_corr = np.nanmean(crop_corr, axis=0)
         std_corr = np.nanstd(crop_corr, axis=0)  
 
-        dearth_bins = np.nonzero(mean_corr + (2 * std_corr) < corr_by_mean - (2 * corr_by_std))[0]
-        peak_bins = np.nonzero(mean_corr - (2 * std_corr) > corr_by_mean + (2 * corr_by_std))[0]
+        dearth_bins = []
+        peak_bins = []
+        first_peak_rad = np.empty([crop_corr.shape[0],])
+        exclusion_bins = np.empty([crop_corr.shape[0],])
+        exclusion_radius = np.empty([crop_corr.shape[0],])
+        exclusion_area = np.empty([crop_corr.shape[0],])
+        first_peak_rad[:] = np.nan
+        exclusion_bins[:] = np.nan
+        exclusion_radius[:] = np.nan
+        exclusion_area[:] = np.nan
+ 
+        for m in np.arange(0,crop_corr.shape[0]):
 
-        ax = show.plotKwargs({'figsize':10}, '')
+            dearth_bins.append(np.nonzero(crop_corr[m,:]  < corr_by_mean - (2 * corr_by_std))[0])
+            peak_bins.append(np.nonzero(crop_corr[m,:] > corr_by_mean + (2 * corr_by_std))[0])
 
-        corr_by_x, corr_by_y, corr_by_y_plus, corr_by_y_minus = util.reformat_stat_hists_for_plot(bin_edge, corr_by_mean, corr_by_std*2)
-        ax = show.line(corr_by_x, corr_by_y, '', ax=ax, plot_col = 'firebrick')
-        ax.fill_between(corr_by_x, corr_by_y_plus, corr_by_y_minus, color='firebrick', alpha=.7)
+            first_peak_rad[m] = np.nan
+            if len(peak_bins[m]) > 0:
 
-        hist_x, hist_y, hist_y_plus, hist_y_minus = util.reformat_stat_hists_for_plot(bin_edge, mean_corr, std_corr*2)
-        ax = show.line(hist_x, hist_y, '', ax=ax, plot_col = 'w')
-        ax.fill_between(hist_x, hist_y_plus, hist_y_minus, color='royalblue', alpha=.7)
+                first_peak_rad[m] = bin_edge[peak_bins[m][0]+1]
 
-        ax.scatter(bin_edge[dearth_bins] + bin_width/2, mean_corr[dearth_bins], color='g')
-        ax.scatter(bin_edge[peak_bins] + bin_width/2, mean_corr[peak_bins], color='y')
+            ax = show.plotKwargs({'figsize':10}, '')
 
-        if len(dearth_bins) > 0:
-            diff_dearth = np.diff(dearth_bins)
-            diff1 = [d == 1 for d in diff_dearth]
-            zeros = np.nonzero([d == 0 for d in diff1])[0]
+            corr_by_x, corr_by_y, corr_by_y_plus, corr_by_y_minus = util.reformat_stat_hists_for_plot(bin_edge, corr_by_mean, corr_by_std*2)
+            ax = show.line(corr_by_x, corr_by_y, '', ax=ax, plot_col = 'firebrick')
+            ax.fill_between(corr_by_x, corr_by_y_plus, corr_by_y_minus, color='firebrick', alpha=.7)
 
-            if not np.any(zeros):
-                exclusion_bins = dearth_bins[np.nonzero(d==False for d in diff1)[0][0]] + 1
+            hist_x, hist_y, hist_y_plus, hist_y_minus = util.reformat_stat_hists_for_plot(bin_edge, crop_corr[m,:], np.zeros([crop_corr.shape[1],]))
+            ax = show.line(hist_x, hist_y, '', ax=ax, plot_col = 'w')
+            ax.fill_between(hist_x, hist_y_plus, hist_y_minus, color='royalblue', alpha=.7)
+
+            ax.scatter(bin_edge[dearth_bins[m]] + bin_width/2, crop_corr[m, dearth_bins[m]], color='g')
+            ax.scatter(bin_edge[peak_bins[m]] + bin_width/2, crop_corr[m, peak_bins[m]], color='y')
+
+            if dearth_bins[m].shape[0] > 0:
+                diff_dearth = np.diff(dearth_bins[m])
+
+                diff1 = [d == 1 for d in diff_dearth.tolist()]
+                zeros = np.nonzero([d == 0 for d in diff1])[0]
+
+                if not np.any(zeros):
+                    if len(diff1) == 0:
+                        exclusion_bins[m] = 0
+                    else:
+                        exclusion_bins[m] = dearth_bins[m][np.nonzero(d==False for d in diff1)[0][0]] + 1
+                else:
+                    first_zero = zeros[0] + 1
+
+                    exclusion_bins[m] = first_zero
             else:
-                first_zero = zeros[0] + 1
+                exclusion_bins[m] = 0
 
-                exclusion_bins = first_zero
-        else:
-            exclusion_bins = 0
-        exclusion_bins = int(exclusion_bins)
+            exclusion_bins[m] = int(exclusion_bins[m])
 
-        exclusion_radius = bin_edge[exclusion_bins]
+            if exclusion_bins [m] > 0:
+                exclusion_radius[m] = bin_edge[int(exclusion_bins[m])]-bin_edge[0]
+            else: 
+                exclusion_radius[m] = 0
 
-        # ax = show.line([exclusion_radius, exclusion_radius], [-1, 1], '', plot_col = 'g', ax=ax)
-        exclusion_area = 0
-        if (exclusion_bins > 0):
-            for b in np.arange(0, exclusion_bins):
-                exclusion_area = exclusion_area + (bin_width * ((corr_by_mean[b] - (2 * corr_by_std[b])) - (mean_corr[b] + (2 * std_corr[b]))))
-                ax.fill_between(bin_edge[b:b+2],
-                                [mean_corr[b] + (2 * std_corr[b]), mean_corr[b] + (2 * std_corr[b])],
-                                [corr_by_mean[b] - (2 * corr_by_std[b]), corr_by_mean[b] - (2 * corr_by_std[b])], 
-                                color='g', alpha=.5)
-        ax.set_title(PD)
-        ax.set_xticks(bin_edge[0:analysis_x_cutoff])
-        ax.set_ylim([-1.5, 4])
+            # ax = show.line([exclusion_radius, exclusion_radius], [-1, 1], '', plot_col = 'g', ax=ax)
+            exclusion_area[m] = 0
+            # print('exclusionary radius)')
+            # print(exclusion_radius[m])
+            
+            if (exclusion_radius[m] > 0):
+                # print('exclusionary bins')
+                # print(exclusion_bins[m])
+                for b in np.arange(0, int(exclusion_bins[m])):
+
+                    # print('            ' + str(exclusion_area[m]))
+                    # print('                   ' + str((corr_by_mean[b] + (2 * corr_by_std))-crop_corr[m, b]))
+                    # print(corr_by_mean[b] + (2 * corr_by_std[b]))
+                    # print(crop_corr[m, b])
+                    exclusion_area[m] = exclusion_area[m] + (bin_width * ((corr_by_mean[b] + (2 * corr_by_std[b]))-crop_corr[m, b]))
+                    ax.fill_between(bin_edge[b:b+2],
+                                    [crop_corr[m,b], crop_corr[m,b]],
+                                    [corr_by_mean[b] - (2 * corr_by_std[b]), corr_by_mean[b] - (2 * corr_by_std[b])], 
+                                    color='g', alpha=.5)
+            ax.set_title(PD + ' mosaic #' + str(m))
+            ax.set_xticks(bin_edge[0:analysis_x_cutoff])
+            ax.set_ylim([-1.5, 4])
         
+        print(PD)
+        print('radii')
+        print(exclusion_radius)
+        print('bins1')
+        print(exclusion_radius/bin_width)
+        print('bins2')
+        print(exclusion_bins)
+        print('EXCLUSION AREA')
+        print(exclusion_area)
+        print('')
+
+        longest_dearth_list = np.amax([dearth_bins[x].shape[0] for x in np.arange(0,crop_corr.shape[0])])
+        longest_peak_list= np.amax([x.shape[0] for x in peak_bins])
+
+        temp_dearth = np.empty([crop_corr.shape[0], longest_dearth_list])
+        temp_peak = np.empty([crop_corr.shape[0], longest_peak_list])
+        temp_dearth[:] = np.nan
+        temp_peak[:] = np.nan
+        for m in np.arange(0,crop_corr.shape[0]):
+            temp_dearth[m,0:dearth_bins[m].shape[0]] = dearth_bins[m]
+            temp_peak[m,0:peak_bins[m].shape[0]] = peak_bins[m]
+
+        dearth_bins = temp_dearth
+        peak_bins = temp_dearth
+
         data_to_set = util.mapStringToLocal(proc_vars, locals())
         flsyst.setProcessVarsFromDict(param, sav_cfg, proc, data_to_set, prefix=PD_string[ind])
 
@@ -321,7 +382,9 @@ def voronoi_process(param, sav_cfg):
         if not neighbors_cones.shape[2] == maxnum:
             print('THROW A HECKIN FIT NUM NEIGHBORS ARE COMING OUT DIFFERENT AAUUUGHGHGHH')
 
-        temp_reg = np.empty([point_data.shape[0], len(regions[0]), maxnum])
+        temp_reg = np.empty([point_data.shape[0], 
+                            int(np.nanmax([len(regions[m]) for m in np.arange(0, len(regions))])), 
+                            maxnum])
         temp_reg[:] = np.nan
         temp_vert = np.empty([point_data.shape[0],
                     int(np.nanmax([len(vertices[m]) for m in np.arange(0, len(vertices))])),
