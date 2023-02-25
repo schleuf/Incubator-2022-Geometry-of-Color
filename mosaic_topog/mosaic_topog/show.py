@@ -193,13 +193,25 @@ def mosaic_set_ViewVoronoiHistogram(metric, save_name, save_things=False, save_p
             plt.savefig(savnm)
 
 
-def view2PCmetric(mos_type, save_name, scale_std=2, showNearestCone=False, save_things=False, save_path='', save_type='.png'):
+def view2PCmetric(mos_type, save_name, z_dim = 0, scale_std=2, showNearestCone=False, save_things=False, save_path='', save_type='.png'):
     for fl in save_name:
         print(fl)
 
-        with h5py.File(fl, 'r') as file:
+        with h5py.File(fl, 'r') as file: 
+            analysis_x_cutoff = file[mos_type + '_' + 'metrics_of_2PC']['analysis_x_cutoff'][()]
+            corred = file[mos_type + '_' + 'two_point_correlation']['corred'][()][z_dim, 0:analysis_x_cutoff]
+            corr_by_mean = file[mos_type + '_' + 'metrics_of_2PC']['corr_by_mean'][()]
+            corr_by_std = file[mos_type + '_' + 'metrics_of_2PC']['corr_by_std'][()]
+            mean_corr = file[mos_type + '_' + 'metrics_of_2PC']['mean_corr'][()]
+            std_corr = file[mos_type + '_' + 'metrics_of_2PC']['std_corr'][()]
+            dearth_bins = file[mos_type + '_' + 'metrics_of_2PC']['dearth_bins'][()]
+            peak_bins = file[mos_type + '_' + 'metrics_of_2PC']['peak_bins'][()]
+            exclusion_bins = file[mos_type + '_' + 'metrics_of_2PC']['exclusion_bins'][()]
+            exclusion_radius = file[mos_type + '_' + 'metrics_of_2PC']['exclusion_radius'][()]
+            exclusion_area = file[mos_type + '_' + 'metrics_of_2PC']['exclusion_area'][()]
+
             corr_by = bytes(file['input_data']['corr_by'][()]).decode("utf8")
-            corr_by_corr = file[corr_by + '_' + 'two_point_correlation']['corred'][()]
+            corr_by_corr = file[corr_by + '_' + 'two_point_correlation']['corred'][()][:, 0:analysis_x_cutoff]
             max_bins = file[corr_by + '_' + 'two_point_correlation']['max_bins'][()]
             bin_edge = file[corr_by + '_' + 'two_point_correlation']['max_bin_edges'][()]
             
@@ -210,17 +222,6 @@ def view2PCmetric(mos_type, save_name, scale_std=2, showNearestCone=False, save_
                 hex_radius = file['measured_voronoi']['hex_radius'][()]
             else:
                 print('ack!!! problem getting hex_radius in metrics_of_2PC_process')
-            
-            analysis_x_cutoff = file[mos_type + '_' + 'metrics_of_2PC']['analysis_x_cutoff'][()]
-            corr_by_mean = file[mos_type + '_' + 'metrics_of_2PC']['corr_by_mean'][()]
-            corr_by_std = file[mos_type + '_' + 'metrics_of_2PC']['corr_by_std'][()]
-            mean_corr = file[mos_type + '_' + 'metrics_of_2PC']['mean_corr'][()]
-            std_corr = file[mos_type + '_' + 'metrics_of_2PC']['std_corr'][()]
-            dearth_bins = file[mos_type + '_' + 'metrics_of_2PC']['dearth_bins'][()]
-            peak_bins = file[mos_type + '_' + 'metrics_of_2PC']['peak_bins'][()]
-            exclusion_bins = file[mos_type + '_' + 'metrics_of_2PC']['exclusion_bins'][()]
-            exclusion_radius = file[mos_type + '_' + 'metrics_of_2PC']['exclusion_radius'][()]
-            exclusion_area = file[mos_type + '_' + 'metrics_of_2PC']['exclusion_area'][()]
             
             mosaic = bytes(file['mosaic_meta']['mosaic'][()]).decode("utf8")
             bin_width = file['input_data']['bin_width'][()]
@@ -236,35 +237,47 @@ def view2PCmetric(mos_type, save_name, scale_std=2, showNearestCone=False, save_
                 bin_width = all_cone_mean_icd
 
     ax = plotKwargs({'figsize':10}, '')
+    
+    c = 'y'
+    plt.boxplot(corr_by_corr, positions=bin_edge[1:analysis_x_cutoff+1]-(bin_width/2),
+                boxprops=dict({'color': c}),
+                capprops=dict({'color': c}),
+                whiskerprops=dict({'color': c}),
+                flierprops=dict({'color': c}),
+                )
+    # plt.violinplot(corr_by_corr, bin_edge[1:analysis_x_cutoff+1]-(bin_width/2), showmeans=True)
+    # corr_by_x, corr_by_y, corr_by_y_plus, corr_by_y_minus = util.reformat_stat_hists_for_plot(bin_edge, corr_by_mean, corr_by_std*2)
+    # ax = line(corr_by_x, corr_by_y, '', ax=ax, plot_col = 'firebrick')
+    # ax.fill_between(corr_by_x, corr_by_y_plus, corr_by_y_minus, color='firebrick', alpha=.7)
 
-    corr_by_x, corr_by_y, corr_by_y_plus, corr_by_y_minus = util.reformat_stat_hists_for_plot(bin_edge, corr_by_mean, corr_by_std*2)
-    ax = line(corr_by_x, corr_by_y, '', ax=ax, plot_col = 'firebrick')
-    ax.fill_between(corr_by_x, corr_by_y_plus, corr_by_y_minus, color='firebrick', alpha=.7)
-
-    hist_x, hist_y, hist_y_plus, hist_y_minus = util.reformat_stat_hists_for_plot(bin_edge, mean_corr, std_corr*2)
+    hist_x, hist_y, hist_y_plus, hist_y_minus = util.reformat_stat_hists_for_plot(bin_edge, corred, np.zeros(corred.shape[0],))
     ax = line(hist_x, hist_y, '', ax=ax, plot_col = 'w')
-    ax.fill_between(hist_x, hist_y_plus, hist_y_minus, color='royalblue', alpha=.7)
+    # ax.fill_between(hist_x, hist_y_plus, hist_y_minus, color='royalblue', alpha=.7)
 
-    ax.scatter(bin_edge[dearth_bins] + bin_width/2, mean_corr[dearth_bins], color='g')
-    ax.scatter(bin_edge[peak_bins] + bin_width/2, mean_corr[peak_bins], color='y')
-
-    exclusion_area = 0
+    # if dearth_bins.shape[0] > 0:
+    #     ax.scatter(bin_edge[dearth_bins] + bin_width/2, mean_corr[dearth_bins], color='g')
+    # if peak_bins.shape[0] > 0:
+    #     ax.scatter(bin_edge[peak_bins] + bin_width/2, mean_corr[peak_bins], color='y')
     
     if (exclusion_bins > 0):
-        for b in np.arange(0, exclusion_bins):
-            exclusion_area = exclusion_area + (bin_width * ((corr_by_mean[b] - (2 * corr_by_std[b])) - (mean_corr[b] + (2 * std_corr[b]))))
+        for b, ind in enumerate(np.arange(0, exclusion_bins)):
+
             ax.fill_between(bin_edge[b:b+2],
-                            [mean_corr[b] + (2 * std_corr[b]), mean_corr[b] + (2 * std_corr[b])],
+                            [corred[b], corred[b]],
                             [corr_by_mean[b] - (2 * corr_by_std[b]), corr_by_mean[b] - (2 * corr_by_std[b])], 
                             color='g', alpha=.5)
-    print(bin_width)
-    print(exclusion_radius)
-    print(exclusion_area)
+
     title = ['bin width: ' + str(bin_width) + ', excl rad: ' + str(exclusion_radius) + ', excl area: ' + str(exclusion_area)]
     print(title)
     ax.set_title(title)
     ax.set_xticks(bin_edge[0:analysis_x_cutoff])
     ax.set_ylim([-1.5, 4])
+
+    # for b in np.arange(0, analysis_x_cutoff):
+    #     ax = plotKwargs({'figsize':10}, '')
+    #     binhist, binhistedge = np.histogram(corr_by_corr[:,b])
+    #     plt.stairs(binhist, binhistedge)
+    #     title = ['bin ' + str(b)]
 
 
 def view2PC(mos_type, save_name, scale_std=2, showNearestCone=False, save_things=False, save_path='', save_type='.png'):

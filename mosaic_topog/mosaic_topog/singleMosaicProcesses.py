@@ -92,18 +92,18 @@ def metrics_of_2PC_process(param, sav_cfg):
 
                 first_peak_rad[m] = bin_edge[peak_bins[m][0]+1]
 
-            ax = show.plotKwargs({'figsize':10}, '')
+            # ax = show.plotKwargs({'figsize':10}, '')
 
-            corr_by_x, corr_by_y, corr_by_y_plus, corr_by_y_minus = util.reformat_stat_hists_for_plot(bin_edge, corr_by_mean, corr_by_std*2)
-            ax = show.line(corr_by_x, corr_by_y, '', ax=ax, plot_col = 'firebrick')
-            ax.fill_between(corr_by_x, corr_by_y_plus, corr_by_y_minus, color='firebrick', alpha=.7)
+            # corr_by_x, corr_by_y, corr_by_y_plus, corr_by_y_minus = util.reformat_stat_hists_for_plot(bin_edge, corr_by_mean, corr_by_std*2)
+            # ax = show.line(corr_by_x, corr_by_y, '', ax=ax, plot_col = 'firebrick')
+            # ax.fill_between(corr_by_x, corr_by_y_plus, corr_by_y_minus, color='firebrick', alpha=.7)
 
-            hist_x, hist_y, hist_y_plus, hist_y_minus = util.reformat_stat_hists_for_plot(bin_edge, crop_corr[m,:], np.zeros([crop_corr.shape[1],]))
-            ax = show.line(hist_x, hist_y, '', ax=ax, plot_col = 'w')
-            ax.fill_between(hist_x, hist_y_plus, hist_y_minus, color='royalblue', alpha=.7)
+            # hist_x, hist_y, hist_y_plus, hist_y_minus = util.reformat_stat_hists_for_plot(bin_edge, crop_corr[m,:], np.zeros([crop_corr.shape[1],]))
+            # ax = show.line(hist_x, hist_y, '', ax=ax, plot_col = 'w')
+            # ax.fill_between(hist_x, hist_y_plus, hist_y_minus, color='royalblue', alpha=.7)
 
-            ax.scatter(bin_edge[dearth_bins[m]] + bin_width/2, crop_corr[m, dearth_bins[m]], color='g')
-            ax.scatter(bin_edge[peak_bins[m]] + bin_width/2, crop_corr[m, peak_bins[m]], color='y')
+            # ax.scatter(bin_edge[dearth_bins[m]] + bin_width/2, crop_corr[m, dearth_bins[m]], color='g')
+            # ax.scatter(bin_edge[peak_bins[m]] + bin_width/2, crop_corr[m, peak_bins[m]], color='y')
 
             if dearth_bins[m].shape[0] > 0:
                 diff_dearth = np.diff(dearth_bins[m])
@@ -145,24 +145,24 @@ def metrics_of_2PC_process(param, sav_cfg):
                     # print(corr_by_mean[b] + (2 * corr_by_std[b]))
                     # print(crop_corr[m, b])
                     exclusion_area[m] = exclusion_area[m] + (bin_width * ((corr_by_mean[b] + (2 * corr_by_std[b]))-crop_corr[m, b]))
-                    ax.fill_between(bin_edge[b:b+2],
-                                    [crop_corr[m,b], crop_corr[m,b]],
-                                    [corr_by_mean[b] - (2 * corr_by_std[b]), corr_by_mean[b] - (2 * corr_by_std[b])], 
-                                    color='g', alpha=.5)
-            ax.set_title(PD + ' mosaic #' + str(m))
-            ax.set_xticks(bin_edge[0:analysis_x_cutoff])
-            ax.set_ylim([-1.5, 4])
+            #         ax.fill_between(bin_edge[b:b+2],
+            #                         [crop_corr[m,b], crop_corr[m,b]],
+            #                         [corr_by_mean[b] - (2 * corr_by_std[b]), corr_by_mean[b] - (2 * corr_by_std[b])], 
+            #                         color='g', alpha=.5)
+            # ax.set_title(PD + ' mosaic #' + str(m))
+            # ax.set_xticks(bin_edge[0:analysis_x_cutoff])
+            # ax.set_ylim([-1.5, 4])
         
-        print(PD)
-        print('radii')
-        print(exclusion_radius)
-        print('bins1')
-        print(exclusion_radius/bin_width)
-        print('bins2')
-        print(exclusion_bins)
-        print('EXCLUSION AREA')
-        print(exclusion_area)
-        print('')
+        # print(PD)
+        # print('radii')
+        # print(exclusion_radius)
+        # print('bins1')
+        # print(exclusion_radius/bin_width)
+        # print('bins2')
+        # print(exclusion_bins)
+        # print('EXCLUSION AREA')
+        # print(exclusion_area)
+        # print('')
 
         longest_dearth_list = np.amax([dearth_bins[x].shape[0] for x in np.arange(0,crop_corr.shape[0])])
         longest_peak_list= np.amax([x.shape[0] for x in peak_bins])
@@ -179,7 +179,10 @@ def metrics_of_2PC_process(param, sav_cfg):
         peak_bins = temp_dearth
 
         data_to_set = util.mapStringToLocal(proc_vars, locals())
-        flsyst.setProcessVarsFromDict(param, sav_cfg, proc, data_to_set, prefix=PD_string[ind])
+        print('BEEEEP')
+        #print(data_to_set)
+        print(PD)
+        flsyst.setProcessVarsFromDict(param, sav_cfg, proc, data_to_set, prefix=PD)
 
 
 def two_point_correlation_process(param, sav_cfg):
@@ -429,7 +432,7 @@ def intracone_dist_common(coord, bin_width, dist_area_norm, offset_bin = False):
     # print('bin_width in intracone distance')
     # print(bin_width)
     # get intracone distances
-    dist = calc.dist_matrices(coord)
+    dist = calc.dist_matrices(coord, dist_self=np.nan)
 
     # get avg and std of nearest cone distance in the mosaic
     nearest_dist = []
@@ -438,7 +441,7 @@ def intracone_dist_common(coord, bin_width, dist_area_norm, offset_bin = False):
         row = dist[cone, :]
         # find the index where the distance = -1 if it exists - this is self
         # and shouldn't be included
-        row = np.delete(row, np.nonzero(row == -1))
+        row = np.delete(row, np.nonzero(np.isnan(row))[0])
         # get the minimum value in the row
         nearest_dist.append(row.min())
 
@@ -616,17 +619,53 @@ def hexgrid_by_density_process(param, sav_cfg):
             print(sim_hexgrid_by)
 
     if num_cones > 1:  # otherwise why bother
-        coord = calc.hexgrid(num2gen,
-                             hex_radius,
-                             [0, img_x],
-                             [0, img_y])
+        
+        temp = []
+        maxipad = 0
+        for m in np.arange(0,num2gen):
+            print('UNIFORM')
+            t, modded_hexradius, hexgrid_radius_decrease, hex_radius = calc.hexgrid(1,
+                                                                hex_radius,
+                                                                [0, img_x],
+                                                                [0, img_y],
+                                                                randomize=True,
+                                                                min_cones=num_cones
+                                                                )
+            temp.append(t)
+            maxipad = np.amax([maxipad, temp[m].shape[1]])
+        print('maxipad')
+        print(maxipad)
+        coord = np.empty([num2gen,maxipad,2])
+        coord[:] = np.nan
+        print('coord shape')
+        print(coord.shape)
+        for m in np.arange(0,num2gen):
+            #non_nan = np.nonzero(np.isnan([temp[m][0,z,0] for z in np.arange(0,temp[m].shape[1])]))[0]
+            coord[m, 0:temp[m].shape[1], :] = temp[m]
+        # coord, modded_hexradius, hexgrid_radius_decrease, hex_radius = calc.hexgrid(num2gen,
+        #                                                                 hex_radius,
+        #                                                                 [0, img_x],
+        #                                                                 [0, img_y],
+        #                                                                 randomize=True,
+        #                                                                 min_cones=num_cones
+        #                                                                 )
 
         num_cones_placed = coord.shape[1]
         cone_density = num_cones_placed / (img_x * img_y)
 
-        # before = show.scatt(np.squeeze(coord[0, :, :]), id +' before')
-        coord = util.trim_random_edge_points(coord, num_cones, [0, img_x], [0, img_y])
-        # after = show.scatt(np.squeeze(coord[0, :, :]), id + ' after')
+        temp = np.empty([num2gen, num_cones, 2])
+        for m in np.arange(0,num2gen):
+            # print(['HEX COORD ' + str(m)])
+            # print(coord[m, :, :])
+            # print(np.nonzero([np.isnan(coord[m,a,0]) for a in np.arange(0,coord.shape[1])])[0].shape[0])
+            non_nan = np.array(np.nonzero(~np.isnan(coord[m,:,0]))[0], dtype=int)
+            ax = show.plotKwargs({},'')
+            before = show.scatt(np.squeeze(coord[m, :, :]), id + ' ' + str(m) + ' before', ax=ax)
+            temp[m,:,:] = util.trim_random_edge_points(coord[m, non_nan, :], num_cones, [0, img_x], [0, img_y])
+            ax1 = show.plotKwargs({},'')
+            after = show.scatt(np.squeeze(coord[m, :, :]), id + ' ' + str(m) + ' after', ax=ax1)
+
+        coord = temp
 
         data_to_set = util.mapStringToLocal(proc_vars, locals())
     else:
@@ -661,35 +700,31 @@ def coneLocked_maxSpacing_process(param, sav_cfg):
         # cones per mosaic to generate
         cones2place = og_coord.shape[0]
         spaced_coord, modded_hex_radius, hex_radius_decrease, hex_radius = calc.coneLocked_hexgrid_mask(all_coord, num2gen, cones2place, x_dim, y_dim, hex_radius)
+        
         # trim excess cones
         temp = np.empty([num2gen, cones2place, 2])
-        # ax = show.plotKwargs({},'')
+        ax = show.plotKwargs({},'')
         for mos in np.arange(0, num2gen):
             # print('num hexgrid pre trim')
             # print(spaced_coord[mos,:,:].shape)
             # print('num unique hexgrid')
             # print(np.unique(np.squeeze(spaced_coord[mos,:,:]), axis=0).shape)
             non_nan = np.array(np.nonzero(~np.isnan(spaced_coord[mos,:,0]))[0], dtype=int)
-            # print('num spaced pre-trim')
-            # print(non_nan.shape)
-            # ax0 = show.scatt(all_coord, 'trim test: before', plot_col = 'y')
-            # ax0 = show.scatt(spaced_coord[mos,:,:], 'trim test: before', plot_col = 'r', ax=ax0)
-            # print('size pre-trimmed edge points')
-            # print(spaced_coord[mos, non_nan, :].shape)
+            ax0 = show.scatt(all_coord, 'trim test: before', plot_col = 'y')
+            ax0 = show.scatt(spaced_coord[mos,:,:], 'trim test: before', plot_col = 'r', ax=ax0)
             beep = np.unique(np.squeeze(spaced_coord[mos, non_nan, :]), axis=0)
             # print('num unique coords')
             # print(beep.shape)
             temp[mos, :, :] = util.trim_random_edge_points(spaced_coord[mos, non_nan, :], cones2place, x_dim, y_dim)
-            # ax2 = show.scatt(all_coord, '', plot_col='y')
-            # ax2 = show.scatt(temp[mos, :, :], 'coneLocked maximally spaced',plot_col='r', ax=ax2)
-            # col = util.randCol()
-            # print(temp[mos,:,:].shape)
-            # ax = show.scatt(temp[mos,:,:], 'conelocked spacified overlay', plot_col = col, ax=ax)
+            ax2 = show.scatt(all_coord, '', plot_col='y')
+            ax2 = show.scatt(temp[mos, :, :], 'trim test: after',plot_col='r', ax=ax2)
+            col = util.randCol()
+            #print(temp[mos,:,:].shape)
+            ax = show.scatt(temp[mos,:,:], 'conelocked spacified overlay', plot_col = col, ax=ax)
             
-
         coord = temp
         # print('size of spaced coordinates saved')
-        # print(coord.shape)
+        # print(coord.shape)q
         # print('')
         data_to_set = util.mapStringToLocal(proc_vars, locals())
     else:

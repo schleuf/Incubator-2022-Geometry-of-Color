@@ -543,7 +543,7 @@ def printSaveFile(sav_fl):
                         print(data.shape)
                     except:
                         print('-')
-                    print(data)
+                    #print(data)
                     print('')
     else:
         print('printSaveFile cannot print "' + sav_fl + '" because it does not exist')
