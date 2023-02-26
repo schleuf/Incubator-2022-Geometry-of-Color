@@ -273,11 +273,11 @@ def view2PCmetric(mos_type, save_name, z_dim = 0, scale_std=2, showNearestCone=F
     ax.set_xticks(bin_edge[0:analysis_x_cutoff])
     ax.set_ylim([-1.5, 4])
 
-    # for b in np.arange(0, analysis_x_cutoff):
-    #     ax = plotKwargs({'figsize':10}, '')
-    #     binhist, binhistedge = np.histogram(corr_by_corr[:,b])
-    #     plt.stairs(binhist, binhistedge)
-    #     title = ['bin ' + str(b)]
+    for b in np.arange(0, analysis_x_cutoff):
+        ax = plotKwargs({'figsize':10}, '')
+        binhist, binhistedge = np.histogram(corr_by_corr[:,b])
+        plt.stairs(binhist, binhistedge)
+        title = ['bin ' + str(b)]
 
 
 def view2PC(mos_type, save_name, scale_std=2, showNearestCone=False, save_things=False, save_path='', save_type='.png'):
@@ -345,8 +345,7 @@ def view2PC(mos_type, save_name, scale_std=2, showNearestCone=False, save_things
                 tit = 'two-point_correlation' # (' + str(num_cone) + " cones, " + str(num_mc) + " MCs)"
 
                 lin_extent = .5
-                print(hist_mean)
-                print(hist_std)
+
                 hist_x, hist_y, hist_y_plus, hist_y_minus = util.reformat_stat_hists_for_plot(bin_edge, hist_mean, hist_std)
 
                 ax = line([hex_radius, hex_radius], [-1 * lin_extent, lin_extent], id='hex_radius', ax=ax, plot_col='firebrick', linewidth=3)
@@ -360,9 +359,12 @@ def view2PC(mos_type, save_name, scale_std=2, showNearestCone=False, save_things
 
             ax.figure
             ax.legend()
-
+            
+            print('save things??')
+            print(save_things)
             if save_things:
-                savnm = save_path + id_str + save_type
+                savnm = save_path + '\\' + mos_type + ' twoPC\\' + id_str + save_type
+                print(savnm)
                 plt.savefig(savnm)
             
             if len(save_name) == 1:

@@ -602,8 +602,7 @@ def hexgrid(num2gen, hex_radius, x_dim, y_dim, randomize=False, min_cones=0):
                 inds_in_img_bounds = in_box(np.squeeze(temp_coord[0, :, :]), [x_dim[0], x_dim[1], y_dim[0], y_dim[1]])
                 bound_hex = temp_coord[0, inds_in_img_bounds, :]
                 keep_coords = bound_hex
-                print('bound_hex')
-                print(bound_hex.shape)
+
             else:
                 keep_coords = temp_coord[0, :, :]
 
@@ -778,7 +777,6 @@ def coneLocked_hexgrid_mask(all_coord, num2gen, cones2place, x_dim, y_dim, hex_r
     spaced_coord = []
     max_coord = 0
     for mos in np.arange(0, num2gen):
-        print('CONE LOCKED')
         hex_coord, modded_hex_radius, hex_radius_decrease, hex_radius = hexgrid(1, hex_radius, x_dim, y_dim, randomize = True, min_cones = cones2place)
         
         # get intercone distance histogram for cones versus bound hexgrid points

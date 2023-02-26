@@ -623,7 +623,6 @@ def hexgrid_by_density_process(param, sav_cfg):
         temp = []
         maxipad = 0
         for m in np.arange(0,num2gen):
-            print('UNIFORM')
             t, modded_hexradius, hexgrid_radius_decrease, hex_radius = calc.hexgrid(1,
                                                                 hex_radius,
                                                                 [0, img_x],
@@ -633,12 +632,10 @@ def hexgrid_by_density_process(param, sav_cfg):
                                                                 )
             temp.append(t)
             maxipad = np.amax([maxipad, temp[m].shape[1]])
-        print('maxipad')
-        print(maxipad)
+
         coord = np.empty([num2gen,maxipad,2])
         coord[:] = np.nan
-        print('coord shape')
-        print(coord.shape)
+
         for m in np.arange(0,num2gen):
             #non_nan = np.nonzero(np.isnan([temp[m][0,z,0] for z in np.arange(0,temp[m].shape[1])]))[0]
             coord[m, 0:temp[m].shape[1], :] = temp[m]
@@ -659,11 +656,11 @@ def hexgrid_by_density_process(param, sav_cfg):
             # print(coord[m, :, :])
             # print(np.nonzero([np.isnan(coord[m,a,0]) for a in np.arange(0,coord.shape[1])])[0].shape[0])
             non_nan = np.array(np.nonzero(~np.isnan(coord[m,:,0]))[0], dtype=int)
-            ax = show.plotKwargs({},'')
-            before = show.scatt(np.squeeze(coord[m, :, :]), id + ' ' + str(m) + ' before', ax=ax)
+            # ax = show.plotKwargs({},'')
+            # before = show.scatt(np.squeeze(coord[m, :, :]), id + ' ' + str(m) + ' before', ax=ax)
             temp[m,:,:] = util.trim_random_edge_points(coord[m, non_nan, :], num_cones, [0, img_x], [0, img_y])
-            ax1 = show.plotKwargs({},'')
-            after = show.scatt(np.squeeze(coord[m, :, :]), id + ' ' + str(m) + ' after', ax=ax1)
+            # ax1 = show.plotKwargs({},'')
+            # after = show.scatt(np.squeeze(coord[m, :, :]), id + ' ' + str(m) + ' after', ax=ax1)
 
         coord = temp
 
@@ -709,18 +706,18 @@ def coneLocked_maxSpacing_process(param, sav_cfg):
             # print(spaced_coord[mos,:,:].shape)
             # print('num unique hexgrid')
             # print(np.unique(np.squeeze(spaced_coord[mos,:,:]), axis=0).shape)
-            non_nan = np.array(np.nonzero(~np.isnan(spaced_coord[mos,:,0]))[0], dtype=int)
-            ax0 = show.scatt(all_coord, 'trim test: before', plot_col = 'y')
-            ax0 = show.scatt(spaced_coord[mos,:,:], 'trim test: before', plot_col = 'r', ax=ax0)
+            # non_nan = np.array(np.nonzero(~np.isnan(spaced_coord[mos,:,0]))[0], dtype=int)
+            # ax0 = show.scatt(all_coord, 'trim test: before', plot_col = 'y')
+            # ax0 = show.scatt(spaced_coord[mos,:,:], 'trim test: before', plot_col = 'r', ax=ax0)
             beep = np.unique(np.squeeze(spaced_coord[mos, non_nan, :]), axis=0)
             # print('num unique coords')
             # print(beep.shape)
             temp[mos, :, :] = util.trim_random_edge_points(spaced_coord[mos, non_nan, :], cones2place, x_dim, y_dim)
-            ax2 = show.scatt(all_coord, '', plot_col='y')
-            ax2 = show.scatt(temp[mos, :, :], 'trim test: after',plot_col='r', ax=ax2)
-            col = util.randCol()
-            #print(temp[mos,:,:].shape)
-            ax = show.scatt(temp[mos,:,:], 'conelocked spacified overlay', plot_col = col, ax=ax)
+            # ax2 = show.scatt(all_coord, '', plot_col='y')
+            # ax2 = show.scatt(temp[mos, :, :], 'trim test: after',plot_col='r', ax=ax2)
+            # col = util.randCol()
+            # #print(temp[mos,:,:].shape)
+            # ax = show.scatt(temp[mos,:,:], 'conelocked spacified overlay', plot_col = col, ax=ax)
             
         coord = temp
         # print('size of spaced coordinates saved')
