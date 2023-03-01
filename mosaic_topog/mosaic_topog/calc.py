@@ -585,6 +585,7 @@ def hexgrid(num2gen, hex_radius, x_dim, y_dim, randomize=False, min_cones=0):
     for sp in np.arange(0, num2gen):
         enough_cones = False
         count_fails = 0
+        
         while not enough_cones:
             #enough_cones = True
             temp_coord = np.empty([1, x_vect.shape[0], 2])
@@ -781,8 +782,7 @@ def coneLocked_hexgrid_mask(all_coord, num2gen, cones2place, x_dim, y_dim, hex_r
         
         # get intercone distance histogram for cones versus bound hexgrid points
         dist_mat = distance.cdist(np.squeeze(hex_coord), all_coord, 'euclidean')
-    
-        
+
         ax = show.scatt(all_coord, 'test grid', plot_col='y')
         ax = show.scatt(np.squeeze(hex_coord), 'test grid', ax=ax)
 

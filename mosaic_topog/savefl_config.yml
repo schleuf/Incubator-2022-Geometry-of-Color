@@ -202,6 +202,7 @@ metrics_of_2PC:
   - exclusion_radius
   - exclusion_bins
   - exclusion_area
-
+  - max_obed_exclusion_area
+  - exclusion_obed
 
   

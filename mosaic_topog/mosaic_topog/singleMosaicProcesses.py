@@ -77,10 +77,14 @@ def metrics_of_2PC_process(param, sav_cfg):
         exclusion_bins = np.empty([crop_corr.shape[0],])
         exclusion_radius = np.empty([crop_corr.shape[0],])
         exclusion_area = np.empty([crop_corr.shape[0],])
+        max_obed_exclusion_area = np.empty([crop_corr.shape[0],])
+        exclusion_obed = np.empty([crop_corr.shape[0],])
         first_peak_rad[:] = np.nan
         exclusion_bins[:] = np.nan
         exclusion_radius[:] = np.nan
         exclusion_area[:] = np.nan
+        max_obed_exclusion_area[:] = np.nan
+        exclusion_obed[:] = np.nan
  
         for m in np.arange(0,crop_corr.shape[0]):
 
@@ -105,7 +109,7 @@ def metrics_of_2PC_process(param, sav_cfg):
             # ax.scatter(bin_edge[dearth_bins[m]] + bin_width/2, crop_corr[m, dearth_bins[m]], color='g')
             # ax.scatter(bin_edge[peak_bins[m]] + bin_width/2, crop_corr[m, peak_bins[m]], color='y')
 
-            if dearth_bins[m].shape[0] > 0:
+            if dearth_bins[m].shape[0] > 0 and dearth_bins[0] == 0:
                 diff_dearth = np.diff(dearth_bins[m])
 
                 diff1 = [d == 1 for d in diff_dearth.tolist()]
@@ -132,6 +136,7 @@ def metrics_of_2PC_process(param, sav_cfg):
 
             # ax = show.line([exclusion_radius, exclusion_radius], [-1, 1], '', plot_col = 'g', ax=ax)
             exclusion_area[m] = 0
+            max_obed_exclusion_area[m] = 0
             # print('exclusionary radius)')
             # print(exclusion_radius[m])
             
@@ -144,10 +149,15 @@ def metrics_of_2PC_process(param, sav_cfg):
                     # print('                   ' + str((corr_by_mean[b] + (2 * corr_by_std))-crop_corr[m, b]))
                     # print(corr_by_mean[b] + (2 * corr_by_std[b]))
                     # print(crop_corr[m, b])
-                    exclusion_area[m] = exclusion_area[m] + (bin_width * ((corr_by_mean[b] + (2 * corr_by_std[b]))-crop_corr[m, b]))
+                    exclusion_area[m] = exclusion_area[m] + (bin_width * ((corr_by_mean[b] - (2 * corr_by_std[b]))-crop_corr[m, b]))
+                    max_obed_exclusion_area[m] = max_obed_exclusion_area[m] + (bin_width * ((corr_by_mean[b] - (2 * corr_by_std[b]))-(-1)))
+                    if max_obed_exclusion_area[m] > 0:
+                        exclusion_obed[m] = exclusion_area[m] / max_obed_exclusion_area[m]
+        
+
             #         ax.fill_between(bin_edge[b:b+2],
             #                         [crop_corr[m,b], crop_corr[m,b]],
-            #                         [corr_by_mean[b] - (2 * corr_by_std[b]), corr_by_mean[b] - (2 * corr_by_std[b])], 
+            #                         [corr_by_mean[b] - (2 * corr_by_std[b]), crr_by_mean[b] - (2 * corr_by_std[b])], 
             #                         color='g', alpha=.5)
             # ax.set_title(PD + ' mosaic #' + str(m))
             # ax.set_xticks(bin_edge[0:analysis_x_cutoff])
@@ -225,7 +235,7 @@ def two_point_correlation_process(param, sav_cfg):
         corr_by_std = util.vector_zeroPad(corr_by_std, 0, max_bins-corr_by_std.shape[0]-1)
 
     if coord:
-        hist_x, hist_y, hist_y_plus, hist_y_minus =  util.reformat_stat_hists_for_plot(max_bin_edges, corr_by_mean, corr_by_std)
+        hist_x, hist_y, hist_y_plus, hist_y_minus = util.reformat_stat_hists_for_plot(max_bin_edges, corr_by_mean, corr_by_std)
 
         ax = show.plotKwargs({}, '')
         ax = show.line(hist_x, hist_y, '', plot_col='w', ax=ax)
