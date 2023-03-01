@@ -237,35 +237,75 @@ def view2PCmetric(mos_type, save_name, z_dim = 0, scale_std=2, showNearestCone=F
                 bin_width = all_cone_mean_icd
 
     ax = plotKwargs({'figsize':10}, '')
-    
+
+    bins = bin_edge[0:analysis_x_cutoff+1]
     c = 'y'
-    plt.boxplot(corr_by_corr, positions=bin_edge[1:analysis_x_cutoff+1]-(bin_width/2),
+    plt.boxplot(corr_by_corr, positions=bin_edge[0:analysis_x_cutoff]-(bin_width/2),
+                notch=True,
                 boxprops=dict({'color': c}),
                 capprops=dict({'color': c}),
                 whiskerprops=dict({'color': c}),
                 flierprops=dict({'color': c}),
                 )
-    # plt.violinplot(corr_by_corr, bin_edge[1:analysis_x_cutoff+1]-(bin_width/2), showmeans=True)
-    # corr_by_x, corr_by_y, corr_by_y_plus, corr_by_y_minus = util.reformat_stat_hists_for_plot(bin_edge, corr_by_mean, corr_by_std*2)
-    # ax = line(corr_by_x, corr_by_y, '', ax=ax, plot_col = 'firebrick')
-    # ax.fill_between(corr_by_x, corr_by_y_plus, corr_by_y_minus, color='firebrick', alpha=.7)
 
-    hist_x, hist_y, hist_y_plus, hist_y_minus = util.reformat_stat_hists_for_plot(bin_edge, corred, np.zeros(corred.shape[0],))
-    ax = line(hist_x, hist_y, '', ax=ax, plot_col = 'w')
-    # ax.fill_between(hist_x, hist_y_plus, hist_y_minus, color='royalblue', alpha=.7)
+    #plt.violinplot(corr_by_corr, bin_edge[1:analysis_x_cutoff+1]-(bin_width/2), showmeans=True)
+
+    corr_by_x, corr_by_y, corr_by_y_plus, corr_by_y_minus = util.reformat_stat_hists_for_plot(bins, corr_by_mean, corr_by_std*2)
+    ax = line(corr_by_x, corr_by_y, '', ax=ax, plot_col = 'firebrick')
+    ax.fill_between(corr_by_x, corr_by_y_plus, corr_by_y_minus, color='firebrick', alpha=.7)
+    
+    print('HIIIIIIIII')
+    print(corr_by_x.shape)
+    print(corr_by_y.shape)
+
+    if len(corred.shape) == 1:
+        corr = corred[0:analysis_x_cutoff]
+        runs = 1
+        bin_dim = 0
+        hist_x, hist_y, hist_y_plus, hist_y_minus = util.reformat_stat_hists_for_plot(bins, corr, np.zeros(corr.shape[0],))
+        ax = line(hist_x, hist_y, '', ax=ax, plot_col='w')
+        # ax.fill_between(hist_x, hist_y_plus, hist_y_minus, color='royalblue', alpha=.7)
+
+        # plt.stairs(corred -.5, bins, color='r')
+
+        print('EXCLUSION BINS')
+        print(exclusion_bins)
+        print('DEARTH BINS')
+        print(dearth_bins)
+        if (exclusion_bins > 0):
+            for b, ind in enumerate(np.arange(0, exclusion_bins)):
+
+                ax.fill_between(bin_edge[b:b+2],
+                                [corr[b], corr[b]],
+                                [corr_by_mean[b] - (2 * corr_by_std[b]), corr_by_mean[b] - (2 * corr_by_std[b])], 
+                                color='g', alpha=.5)
+    else:
+        runs = corred.shape[0]
+        bin_dim = 1
+
+        for m in np.arange(0, corred.shape[0]):
+            corr = corred[M, 0:analysis_x_cutoff]
+            hist_x, hist_y, hist_y_plus, hist_y_minus = util.reformat_stat_hists_for_plot(bins, corr, np.zeros(corr.shape[0],))
+            ax = line(hist_x, hist_y, '', ax=ax, plot_col='w')
+
+            print('EXCLUSION BINS')
+            print(exclusion_bins)
+            print('DEARTH BINS')
+            print(dearth_bins)
+            if (exclusion_bins > 0):
+                for b, ind in enumerate(np.arange(0, exclusion_bins)):
+
+                    ax.fill_between(bin_edge[b:b+2],
+                                    [corr[b], corr[b]],
+                                    [corr_by_mean[b] - (2 * corr_by_std[b]), corr_by_mean[b] - (2 * corr_by_std[b])], 
+                                    color='g', alpha=.5)
+            ax.fill_between(hist_x, hist_y_plus, hist_y_minus, color='royalblue', alpha=.7)
 
     # if dearth_bins.shape[0] > 0:
     #     ax.scatter(bin_edge[dearth_bins] + bin_width/2, mean_corr[dearth_bins], color='g')
     # if peak_bins.shape[0] > 0:
     #     ax.scatter(bin_edge[peak_bins] + bin_width/2, mean_corr[peak_bins], color='y')
-    
-    if (exclusion_bins > 0):
-        for b, ind in enumerate(np.arange(0, exclusion_bins)):
 
-            ax.fill_between(bin_edge[b:b+2],
-                            [corred[b], corred[b]],
-                            [corr_by_mean[b] - (2 * corr_by_std[b]), corr_by_mean[b] - (2 * corr_by_std[b])], 
-                            color='g', alpha=.5)
 
     title = ['bin width: ' + str(bin_width) + ', excl rad: ' + str(exclusion_radius) + ', excl area: ' + str(exclusion_area)]
     print(title)
@@ -360,11 +400,8 @@ def view2PC(mos_type, save_name, scale_std=2, showNearestCone=False, save_things
             ax.figure
             ax.legend()
             
-            print('save things??')
-            print(save_things)
             if save_things:
-                savnm = save_path + '\\' + mos_type + ' twoPC\\' + id_str + save_type
-                print(savnm)
+                savnm = save_path + '\\' + id_str + save_type
                 plt.savefig(savnm)
             
             if len(save_name) == 1:
