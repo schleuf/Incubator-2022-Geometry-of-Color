@@ -240,7 +240,7 @@ def view2PCmetric(mos_type, save_name, z_dim = 0, scale_std=2, showNearestCone=F
 
     bins = bin_edge[0:analysis_x_cutoff+1]
     c = 'y'
-    plt.boxplot(corr_by_corr, positions=bin_edge[0:analysis_x_cutoff]-(bin_width/2),
+    plt.boxplot(corr_by_corr, positions=bin_edge[1:analysis_x_cutoff+1]-(bin_width/2),
                 notch=True,
                 boxprops=dict({'color': c}),
                 capprops=dict({'color': c}),
@@ -253,10 +253,6 @@ def view2PCmetric(mos_type, save_name, z_dim = 0, scale_std=2, showNearestCone=F
     corr_by_x, corr_by_y, corr_by_y_plus, corr_by_y_minus = util.reformat_stat_hists_for_plot(bins, corr_by_mean, corr_by_std*2)
     ax = line(corr_by_x, corr_by_y, '', ax=ax, plot_col = 'firebrick')
     ax.fill_between(corr_by_x, corr_by_y_plus, corr_by_y_minus, color='firebrick', alpha=.7)
-    
-    print('HIIIIIIIII')
-    print(corr_by_x.shape)
-    print(corr_by_y.shape)
 
     if len(corred.shape) == 1:
         corr = corred[0:analysis_x_cutoff]
@@ -268,10 +264,6 @@ def view2PCmetric(mos_type, save_name, z_dim = 0, scale_std=2, showNearestCone=F
 
         # plt.stairs(corred -.5, bins, color='r')
 
-        print('EXCLUSION BINS')
-        print(exclusion_bins)
-        print('DEARTH BINS')
-        print(dearth_bins)
         if (exclusion_bins > 0):
             for b, ind in enumerate(np.arange(0, exclusion_bins)):
 
@@ -288,10 +280,6 @@ def view2PCmetric(mos_type, save_name, z_dim = 0, scale_std=2, showNearestCone=F
             hist_x, hist_y, hist_y_plus, hist_y_minus = util.reformat_stat_hists_for_plot(bins, corr, np.zeros(corr.shape[0],))
             ax = line(hist_x, hist_y, '', ax=ax, plot_col='w')
 
-            print('EXCLUSION BINS')
-            print(exclusion_bins)
-            print('DEARTH BINS')
-            print(dearth_bins)
             if (exclusion_bins > 0):
                 for b, ind in enumerate(np.arange(0, exclusion_bins)):
 
@@ -313,11 +301,11 @@ def view2PCmetric(mos_type, save_name, z_dim = 0, scale_std=2, showNearestCone=F
     ax.set_xticks(bin_edge[0:analysis_x_cutoff])
     ax.set_ylim([-1.5, 4])
 
-    for b in np.arange(0, analysis_x_cutoff):
-        ax = plotKwargs({'figsize':10}, '')
-        binhist, binhistedge = np.histogram(corr_by_corr[:,b])
-        plt.stairs(binhist, binhistedge)
-        title = ['bin ' + str(b)]
+    # for b in np.arange(0, analysis_x_cutoff):
+    #     ax = plotKwargs({'figsize':10}, '')
+    #     binhist, binhistedge = np.histogram(corr_by_corr[:,b])
+    #     plt.stairs(binhist, binhistedge)
+    #     title = ['bin ' + str(b)]
 
 
 def view2PC(mos_type, save_name, scale_std=2, showNearestCone=False, save_things=False, save_path='', save_type='.png'):
@@ -386,7 +374,7 @@ def view2PC(mos_type, save_name, scale_std=2, showNearestCone=False, save_things
 
                 lin_extent = .5
 
-                hist_x, hist_y, hist_y_plus, hist_y_minus = util.reformat_stat_hists_for_plot(bin_edge, hist_mean, hist_std)
+                hist_x, hist_y, hist_y_plus, hist_y_minus = util.reformat_stat_hists_for_plot(bin_edge, hist_mean, hist_std*2)
 
                 ax = line([hex_radius, hex_radius], [-1 * lin_extent, lin_extent], id='hex_radius', ax=ax, plot_col='firebrick', linewidth=3)
                 ax = line(hist_x, hist_y, '', plot_col=plot_col, ax=ax)
@@ -396,6 +384,18 @@ def view2PC(mos_type, save_name, scale_std=2, showNearestCone=False, save_things
                 ax.set_label = tit
                 ax.set_xlabel = xlab
                 ax.set_ylabel = ylab
+
+                # c='y'
+                # plt.boxplot(corred, positions=bin_edge[1:bin_edge.shape[0]]-(bin_width/2),
+                #     notch=True,
+                #     boxprops=dict({'color': c}),
+                #     capprops=dict({'color': c}),
+                #     whiskerprops=dict({'color': c}),
+                #     flierprops=dict({'color': c}),
+                # )
+
+            ax.set_ylim([np.nanmin(hist_y_minus) - (np.nanmax(hist_y)/5), 
+                           np.nanmax(hist_y_plus) + (np.nanmax(hist_y)/5)])
 
             ax.figure
             ax.legend()

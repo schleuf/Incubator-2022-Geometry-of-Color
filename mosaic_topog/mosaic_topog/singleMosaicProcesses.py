@@ -87,8 +87,8 @@ def metrics_of_2PC_process(param, sav_cfg):
         exclusion_obed[:] = np.nan
  
         for m in np.arange(0,crop_corr.shape[0]):
-
             dearth_bins.append(np.nonzero(crop_corr[m,:]  < corr_by_mean - (2 * corr_by_std))[0])
+
             peak_bins.append(np.nonzero(crop_corr[m,:] > corr_by_mean + (2 * corr_by_std))[0])
 
             first_peak_rad[m] = np.nan
@@ -109,15 +109,17 @@ def metrics_of_2PC_process(param, sav_cfg):
             # ax.scatter(bin_edge[dearth_bins[m]] + bin_width/2, crop_corr[m, dearth_bins[m]], color='g')
             # ax.scatter(bin_edge[peak_bins[m]] + bin_width/2, crop_corr[m, peak_bins[m]], color='y')
 
-            if dearth_bins[m].shape[0] > 0 and dearth_bins[0] == 0:
+
+            if np.all((dearth_bins[m].shape[0] > 0) and (dearth_bins[m][0] == 0)):
                 diff_dearth = np.diff(dearth_bins[m])
 
                 diff1 = [d == 1 for d in diff_dearth.tolist()]
+                
                 zeros = np.nonzero([d == 0 for d in diff1])[0]
 
                 if not np.any(zeros):
                     if len(diff1) == 0:
-                        exclusion_bins[m] = 0
+                        exclusion_bins[m] = 1
                     else:
                         exclusion_bins[m] = dearth_bins[m][np.nonzero(d==False for d in diff1)[0][0]] + 1
                 else:
@@ -129,7 +131,7 @@ def metrics_of_2PC_process(param, sav_cfg):
 
             exclusion_bins[m] = int(exclusion_bins[m])
 
-            if exclusion_bins [m] > 0:
+            if exclusion_bins[m] > 0:
                 exclusion_radius[m] = bin_edge[int(exclusion_bins[m])]-bin_edge[0]
             else: 
                 exclusion_radius[m] = 0
@@ -189,9 +191,7 @@ def metrics_of_2PC_process(param, sav_cfg):
         peak_bins = temp_dearth
 
         data_to_set = util.mapStringToLocal(proc_vars, locals())
-        print('BEEEEP')
-        #print(data_to_set)
-        print(PD)
+
         flsyst.setProcessVarsFromDict(param, sav_cfg, proc, data_to_set, prefix=PD)
 
 
