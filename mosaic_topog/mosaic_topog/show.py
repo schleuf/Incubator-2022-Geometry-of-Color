@@ -12,209 +12,142 @@ import mosaic_topog.utilities as util
 
 ## --------------------------------SMP VIEWING FUNCTIONS--------------------------------------
 
-
-def mosaic_set_View2PCmetricHistogram(metric, save_name, save_things=False, save_path=''):
-    print(metric)
+def mosaic_set_viewDegreeStructure(metric, save_name, save_things=False, save_path=''):
+    # print('check the thing')
+    # print(metric)
     for fl in save_name:
-        print(fl)
-        # get spacified coordinate data and plotting parameters from the save file
-        values = []
-        labels = []
-        colors = []
-        minval = 0
-        maxval = 0
-        with h5py.File(fl, 'r') as file:  # context manager
-            mosaic = bytes(file['mosaic_meta']['mosaic'][()]).decode("utf8")
-            conetype = bytes(file['mosaic_meta']['conetype'][()]).decode("utf8")
-            coord_unit = bytes(file['input_data']['coord_unit'][()]).decode("utf8")
-            conetype_color = bytes(file['input_data']['conetype_color'][()]).decode("utf8")
-           
-            if 'monteCarlo_uniform_metrics_of_2PC' in file:
-                values.append(file['monteCarlo_uniform_metrics_of_2PC'][metric][()])
-                labels.append('monteCarlo_uniform')
-                colors.append('rebeccapurple')
-                print(values)
-
-            if 'monteCarlo_coneLocked_metrics_of_2PC' in file:
-                values.append(file['monteCarlo_coneLocked_metrics_of_2PC'][metric][()])
-                labels.append('monteCarlo_coneLocked')
-                colors.append('royalblue')
-                minval = np.amin([minval, np.amin(values[len(values)-1])])
-                maxval = np.amax([maxval, np.amax(values[len(values)-1])])
-                print(values)
-
-            if 'coneLocked_maxSpacing_metrics_of_2PC' in file:
-                values.append(file['coneLocked_maxSpacing_metrics_of_2PC'][metric][()])
-                labels.append('coneLocked_maxSpacing')
-                colors.append('darkorange')
-                print(values)
-
-            if 'hexgrid_by_density_metrics_of_2PC' in file:
-                values.append(file['hexgrid_by_density_metrics_of_2PC'][metric][()])
-                labels.append('hexgrid_by_density')
-                colors.append('firebrick')
-                print(values)
-
-            if 'measured_metrics_of_2PC' in file:
-                values.append(file['measured_metrics_of_2PC'][metric][()])
-                labels.append('measured')
-                colors.append('white')
-                print(values)
-
-        ax = plotKwargs({'figsize':10}, '')
-
-        bin_width = int(5)
-
-        for ind, mos_type in enumerate(labels):
-            print(mos_type)
-            with h5py.File(fl, 'r') as file:  # context manager
-                metric_data = file[mos_type + '_metrics_of_2PC'][metric][()]
-                print(metric_data)
-                if mos_type == 'measured':
-                    ax.scatter(metric_data, 0, 100, c='w')
-                else:
-                    counts, bins = np.histogram(metric_data, bins=bin_width)
-                    ax.stairs(counts, bins, color=colors[ind])
+        with h5py.File(fl, 'r') as file: 
+            with h5py.File(fl, 'r') as file: 
+                metric_hists = file['mosaic_set_' + metric[1] + '_degree_structure']['metric_hists'][()]
+                bin_edge = file['mosaic_set_' + metric[1] + '_degree_structure']['bin_edge'][()]
+                degree_structure = file['mosaic_set_' + metric[1] + '_degree_structure']['degree_structure'][()]
+                percentiles_Rr = file['mosaic_set_' + metric[1] + '_degree_structure']['percentiles_Rr'][()]
+                percentiles_Sr = file['mosaic_set_' + metric[1] + '_degree_structure']['percentiles_Sr'][()]
                 
+                
+                mosaic = bytes(file['mosaic_meta']['mosaic'][()]).decode('utf8')
 
-        # if metric_std > 1:
-        #     plt.xlim([metric_mean - (4 * metric_std), metric_mean + (4 * metric_std)])
-        # else:
-        #     plt.xlim([metric_mean - 5, metric_mean + 5])
-        ax.set_facecolor('k')
-        plt.xlabel(metric)
-        plt.ylabel('count per bin')
-        ax.set_title(mosaic + ', conetype: ' + conetype + ', bin width: ' + str(bin_width))
-        ax.figure
+            bin_width = bin_edge[1] - bin_edge[0]
 
-        if save_things:
-            savnm = save_path + mosaic + '_' + conetype + '.png'
-            plt.savefig(savnm)
+            metric_colors = ['rebeccapurple', 'dodgerblue', 'white', 'darkorange', 'firebrick', 'chartreuse']
 
-
-def mosaic_set_ViewVoronoiHistogram(metric, save_name, save_things=False, save_path=''):
-    print(metric)
-    for fl in save_name:
-        print(fl)
-        # get spacified coordinate data and plotting parameters from the save file
-        values = []
-        labels = []
-        colors = []
-        minval = 0
-        maxval = 0
-        with h5py.File(fl, 'r') as file:  # context manager
-            mosaic = bytes(file['mosaic_meta']['mosaic'][()]).decode("utf8")
-            conetype = bytes(file['mosaic_meta']['conetype'][()]).decode("utf8")
-            coord_unit = bytes(file['input_data']['coord_unit'][()]).decode("utf8")
-            conetype_color = bytes(file['input_data']['conetype_color'][()]).decode("utf8")
-           
-            if 'monteCarlo_uniform_voronoi' in file:
-                values.append(file['monteCarlo_uniform_voronoi'][metric][()])
-                labels.append('monteCarlo_uniform')
-                colors.append('rebeccapurple')
-                minval = np.amin([minval, np.amin(values[len(values)-1])])
-                maxval = np.amax([maxval, np.amax(values[len(values)-1])])
-                print(values[len(values)-1].shape)
-
-            if 'monteCarlo_coneLocked_voronoi' in file:
-                values.append(file['monteCarlo_coneLocked_voronoi'][metric][()])
-                labels.append('monteCarlo_coneLocked')
-                colors.append('royalblue')
-                minval = np.amin([minval, np.amin(values[len(values)-1])])
-                maxval = np.amax([maxval, np.amax(values[len(values)-1])])
-                print(values[len(values)-1].shape)
-
-            if 'coneLocked_maxSpacing_voronoi' in file:
-                values.append(file['coneLocked_maxSpacing_voronoi'][metric][()])
-                labels.append('coneLocked_maxSpacing')
-                colors.append('darkorange')
-                minval = np.amin([minval, np.amin(values[len(values)-1])])
-                maxval = np.amax([maxval, np.amax(values[len(values)-1])])
-                print(values[len(values)-1].shape)
-
-            if 'hexgrid_by_density_voronoi' in file:
-                values.append(file['hexgrid_by_density_voronoi'][metric][()])
-                labels.append('hexgrid_by_density')
-                colors.append('firebrick')
-                minval = np.amin([minval, np.amin(values[len(values)-1])])
-                maxval = np.amax([maxval, np.amax(values[len(values)-1])])
-                print(values[len(values)-1].shape)
-
-            if 'measured_voronoi' in file:
-                values.append(file['measured_voronoi'][metric][()])
-                labels.append('measured')
-                colors.append('white')
-                minval = np.amin([minval, np.amin(values[len(values)-1])])
-                maxval = np.amax([maxval, np.amax(values[len(values)-1])])
-                print(values[len(values)-1].shape)
+            ax = plotKwargs({'figsize':10}, '')
         
-        if metric == 'voronoi_area':
-            bin_width = 15
-        if metric == 'num_neighbor':
-            bin_width = np.arange(0, 10)
-        if metric == 'icd':
-            bin_width = 10
+            constrained_inds = [1,2,3,5]
+            for ind in constrained_inds:
+                hist = metric_hists[ind,:]
+                if np.nonzero(~np.isnan(hist))[0].shape[0] > 1:
+                    hist_x, hist_y, blah, bloo = util.reformat_stat_hists_for_plot(bin_edge, hist, np.zeros([hist.shape[0],]))
+                    ax = line(hist_x, hist_y, mosaic + ' ' + metric[1], plot_col = metric_colors[ind], linewidth = 2, ax = ax)
+                else:
+                    plt.scatter(hist[0], 0, 50, 'w', 'o', 'filled')
+            
+            quant_lines_Rr = [percentiles_Rr[24], percentiles_Rr[974]]
+            quant_lines_Sr = [percentiles_Sr[24], percentiles_Sr[974]]
+
+            ax = line(np.array([quant_lines_Rr[0], 
+                                quant_lines_Rr[0]]), 
+                      np.array([-.05, .05]), 
+                      '', 
+                      ax=ax, 
+                      plot_col=metric_colors[1],
+                      linewidth=2
+                      ) 
+            
+            ax = line(np.array([quant_lines_Rr[1], 
+                                quant_lines_Rr[1]]), 
+                      np.array([-.05, .05]), 
+                      '', 
+                      ax=ax, 
+                      plot_col=metric_colors[1],
+                      linewidth=2
+                      ) 
+                    
+            ax = line(np.array([quant_lines_Sr[0], 
+                                quant_lines_Sr[0]]), 
+                      np.array([-.05, .05]), 
+                      '', 
+                      ax=ax, 
+                      plot_col=metric_colors[3],
+                      linewidth=2
+                      ) 
+            
+            ax = line(np.array([quant_lines_Sr[1], 
+                                quant_lines_Sr[1]]), 
+                      np.array([-.05, .05]), 
+                      '', 
+                      ax=ax, 
+                      plot_col=metric_colors[3],
+                      linewidth=2
+                      ) 
+
+            ax.set_facecolor('k')
+            #ax.set_xlim([np.nanmin(metric_hists[1,:])-bin_width,np.nanmax(metric_hists[3,:]) + bin_width])
+            plt.xlabel(metric)
+            plt.ylabel('count per bin')
+            ax.set_title(mosaic + ' , set, ' + metric[1] + ' degree structure: ' + str(degree_structure))
+            ax.figure
+
+            if save_things:
+                # print('saved it!')
+                savnm = save_path + mosaic + '_' + metric[1] + '_degree_structure' + '.png'
+                plt.savefig(savnm)
+
+def mosaic_set_ViewHistogram(metric, save_name, save_things=False, save_path=''):
+    # print('check the thing')
+    # print(metric)
+    for fl in save_name:
+        with h5py.File(fl, 'r') as file: 
+            metric_hists = file['mosaic_set_' + metric[1] + '_degree_structure']['metric_hists'][()]
+            bin_edge = file['mosaic_set_' + metric[1] + '_degree_structure']['bin_edge'][()]
+            mosaic = bytes(file['mosaic_meta']['mosaic'][()]).decode('utf8')
+
+        metric_colors = ['rebeccapurple', 'dodgerblue', 'white', 'darkorange', 'firebrick', 'chartreuse']
 
         ax = plotKwargs({'figsize':10}, '')
+       
+        for ind in np.arange(0, metric_hists.shape[0]):
+            hist = metric_hists[ind,:]
+            if np.nonzero(~np.isnan(hist))[0].shape[0] > 1:
+                hist_x, hist_y, blah, bloo = util.reformat_stat_hists_for_plot(bin_edge, hist, np.zeros([hist.shape[0],]))
+                ax = line(hist_x, hist_y, mosaic + ' ' + metric[1], plot_col = metric_colors[ind], linewidth = 2, ax = ax)
+            else:
+                plt.scatter(hist[0], 0, 50, 'w', 'o', 'filled')
 
-        for ind, mos_type in enumerate(labels):
-            with h5py.File(fl, 'r') as file:  # context manager
-                if metric == 'icd':
-                    bound = file[mos_type +'_voronoi']['bound_cones'][()]
-                else:
-                    bound = file[mos_type +'_voronoi']['bound_regions'][()]
-                metric_data = file[mos_type +'_voronoi'][metric][()]
-                metric_mean = file[mos_type+'_voronoi'][metric+'_mean'][()]
-                metric_std = file[mos_type+'_voronoi'][metric+'_std'][()]
-                metric_regularity = file[mos_type+'_voronoi'][metric+'_regularity'][()]
-
-            for m in np.arange(0, metric_data.shape[0]):
-                if metric == 'icd':
-                    temp = np.reshape(metric_data[m][np.nonzero(bound[m]),:], [metric_data[m][np.nonzero(bound[m]),:].size,])
-                    temp = temp[np.nonzero([not x for x in np.isnan(temp)])[0]]
-                    counts, bins = np.histogram(temp, bins=bin_width)
-                else:
-                    counts, bins = np.histogram(metric_data[m][np.nonzero(bound[m])], bins=bin_width)
-                
-                ax.stairs(counts, bins, color=colors[ind])
-
-        # if metric_std > 1:
-        #     plt.xlim([metric_mean - (4 * metric_std), metric_mean + (4 * metric_std)])
-        # else:
-        #     plt.xlim([metric_mean - 5, metric_mean + 5])
         ax.set_facecolor('k')
         plt.xlabel(metric)
         plt.ylabel('count per bin')
-        ax.set_title(mosaic + ', conetype: ' + conetype + ', bin width: ' + str(bin_width))
+        ax.set_title(mosaic + ' , set, ' + metric[1])
         ax.figure
 
         if save_things:
-            savnm = save_path + mosaic + '_' + conetype + '.png'
+            # print('saved it!')
+            savnm = save_path + mosaic + '_' + metric[1] + '_mosaic_set' + '.png'
             plt.savefig(savnm)
 
 
 def view2PCmetric(mos_type, save_name, z_dim = 0, scale_std=2, showNearestCone=False, save_things=False, save_path='', save_type='.png'):
+    print(save_path)
     for fl in save_name:
-        print(fl)
-
         with h5py.File(fl, 'r') as file: 
             analysis_x_cutoff = file[mos_type + '_' + 'metrics_of_2PC']['analysis_x_cutoff'][()]
             corred = file[mos_type + '_' + 'two_point_correlation']['corred'][()][z_dim, 0:analysis_x_cutoff]
             corr_by_mean = file[mos_type + '_' + 'metrics_of_2PC']['corr_by_mean'][()]
-            corr_by_std = file[mos_type + '_' + 'metrics_of_2PC']['corr_by_std'][()]
+            #corr_by_std = file[mos_type + '_' + 'metrics_of_2PC']['corr_by_std'][()]
+            corr_by_pi = file[mos_type + '_' + 'metrics_of_2PC']['corr_by_pi'][()]
             mean_corr = file[mos_type + '_' + 'metrics_of_2PC']['mean_corr'][()]
             std_corr = file[mos_type + '_' + 'metrics_of_2PC']['std_corr'][()]
-            dearth_bins = file[mos_type + '_' + 'metrics_of_2PC']['dearth_bins'][()]
-            peak_bins = file[mos_type + '_' + 'metrics_of_2PC']['peak_bins'][()]
-            exclusion_bins = file[mos_type + '_' + 'metrics_of_2PC']['exclusion_bins'][()]
-            exclusion_radius = file[mos_type + '_' + 'metrics_of_2PC']['exclusion_radius'][()]
-            exclusion_area = file[mos_type + '_' + 'metrics_of_2PC']['exclusion_area'][()]
+            dearth_bins = file[mos_type + '_' + 'metrics_of_2PC']['dearth_bins'][()][z_dim]
+            peak_bins = file[mos_type + '_' + 'metrics_of_2PC']['peak_bins'][()][z_dim]
+            exclusion_bins = file[mos_type + '_' + 'metrics_of_2PC']['exclusion_bins'][()][z_dim]
+            exclusion_radius = file[mos_type + '_' + 'metrics_of_2PC']['exclusion_radius'][()][z_dim]
+            # exclusion_area = file[mos_type + '_' + 'metrics_of_2PC']['exclusion_area'][()][z_dim]
 
             corr_by = bytes(file['input_data']['corr_by'][()]).decode("utf8")
             corr_by_corr = file[corr_by + '_' + 'two_point_correlation']['corred'][()][:, 0:analysis_x_cutoff]
             max_bins = file[corr_by + '_' + 'two_point_correlation']['max_bins'][()]
             bin_edge = file[corr_by + '_' + 'two_point_correlation']['max_bin_edges'][()]
-            
+
             sim_hexgrid_by = bytes(file['input_data']['sim_hexgrid_by'][()]).decode("utf8")
             if sim_hexgrid_by == 'rectangular':
                 hex_radius = file['basic_stats']['hex_radius_of_this_density'][()]
@@ -226,8 +159,8 @@ def view2PCmetric(mos_type, save_name, z_dim = 0, scale_std=2, showNearestCone=F
             mosaic = bytes(file['mosaic_meta']['mosaic'][()]).decode("utf8")
             bin_width = file['input_data']['bin_width'][()]
             if bin_width == -1:
-                save_path = os.path.dirname(fl)
-                all_coord_fl = save_path + '\\' + mosaic + '_all.hdf5'
+                save_path_h = os.path.dirname(fl)
+                all_coord_fl = save_path_h + '\\' + mosaic + '_all.hdf5'
                 try:
                     with h5py.File(all_coord_fl, 'r') as file2:
                         all_cone_mean_icd   = file2['measured_voronoi']['icd_mean'][()]
@@ -236,79 +169,97 @@ def view2PCmetric(mos_type, save_name, z_dim = 0, scale_std=2, showNearestCone=F
 
                 bin_width = all_cone_mean_icd
 
-    ax = plotKwargs({'figsize':10}, '')
+        ax = plotKwargs({'figsize':10}, '')
 
-    bins = bin_edge[0:analysis_x_cutoff+1]
-    c = 'y'
-    plt.boxplot(corr_by_corr, positions=bin_edge[1:analysis_x_cutoff+1]-(bin_width/2),
-                notch=True,
-                boxprops=dict({'color': c}),
-                capprops=dict({'color': c}),
-                whiskerprops=dict({'color': c}),
-                flierprops=dict({'color': c}),
-                )
+        bins = bin_edge[0:analysis_x_cutoff+1]
+        c = 'y'
+        # boxbiz = plt.boxplot(corr_by_corr, positions=bin_edge[1:analysis_x_cutoff+1]-(bin_width/2),
+        #             notch=False,
+        #             boxprops=dict({'color': c}),
+        #             capprops=dict({'color': c}),
+        #             whiskerprops=dict({'color': c}),
+        #             flierprops=dict({'color': c}),
+        #             )
 
-    #plt.violinplot(corr_by_corr, bin_edge[1:analysis_x_cutoff+1]-(bin_width/2), showmeans=True)
+        corr_by_x, corr_by_y, corr_by_y_plus, corr_by_y_minus = util.reformat_stat_hists_for_plot(bins, corr_by_mean, corr_by_pi)
+        #ax = line(corr_by_x, corr_by_y, '', ax=ax, plot_col = 'firebrick')
 
-    corr_by_x, corr_by_y, corr_by_y_plus, corr_by_y_minus = util.reformat_stat_hists_for_plot(bins, corr_by_mean, corr_by_std*2)
-    ax = line(corr_by_x, corr_by_y, '', ax=ax, plot_col = 'firebrick')
-    ax.fill_between(corr_by_x, corr_by_y_plus, corr_by_y_minus, color='firebrick', alpha=.7)
+        ax = line([bin_edge[0], exclusion_radius], [-1.2, -1.2], '', ax=ax, plot_col = 'g', linewidth=2)
+        ax.fill_between(corr_by_x, corr_by_y_plus, corr_by_y_minus, color='firebrick', alpha=.7)
 
-    if len(corred.shape) == 1:
-        corr = corred[0:analysis_x_cutoff]
-        runs = 1
-        bin_dim = 0
-        hist_x, hist_y, hist_y_plus, hist_y_minus = util.reformat_stat_hists_for_plot(bins, corr, np.zeros(corr.shape[0],))
-        ax = line(hist_x, hist_y, '', ax=ax, plot_col='w')
-        # ax.fill_between(hist_x, hist_y_plus, hist_y_minus, color='royalblue', alpha=.7)
+        if len(corred.shape) == 1:
+            corr = corred[0:analysis_x_cutoff]
+            runs = 1
+            bin_dim = 0
 
-        # plt.stairs(corred -.5, bins, color='r')
-
-        if (exclusion_bins > 0):
-            for b, ind in enumerate(np.arange(0, exclusion_bins)):
-
-                ax.fill_between(bin_edge[b:b+2],
-                                [corr[b], corr[b]],
-                                [corr_by_mean[b] - (2 * corr_by_std[b]), corr_by_mean[b] - (2 * corr_by_std[b])], 
-                                color='g', alpha=.5)
-    else:
-        runs = corred.shape[0]
-        bin_dim = 1
-
-        for m in np.arange(0, corred.shape[0]):
-            corr = corred[M, 0:analysis_x_cutoff]
             hist_x, hist_y, hist_y_plus, hist_y_minus = util.reformat_stat_hists_for_plot(bins, corr, np.zeros(corr.shape[0],))
+
             ax = line(hist_x, hist_y, '', ax=ax, plot_col='w')
+            # ax.fill_between(hist_x, hist_y_plus, hist_y_minus, color='royalblue', alpha=.7)
+
+            # plt.stairs(corred -.5, bins, color='r')
 
             if (exclusion_bins > 0):
                 for b, ind in enumerate(np.arange(0, exclusion_bins)):
+                    if b in dearth_bins:
+                        ax.scatter(bin_edge[b+1]-(bin_width/2), corr[b], 20, 'g')
+                    
+                    # plt.stairs(corr-.5, bins, color='r')
+                    # ax.fill_between(bin_edge[b:b+2],
+                    #                 [corr[b], corr[b]],
+                    #                 [corr_by_pi[0, b], corr_by_pi[0,b]], 
+                    #                 color='g', alpha=.5)
+        else:
+            runs = corred.shape[0]
+            bin_dim = 1
 
-                    ax.fill_between(bin_edge[b:b+2],
-                                    [corr[b], corr[b]],
-                                    [corr_by_mean[b] - (2 * corr_by_std[b]), corr_by_mean[b] - (2 * corr_by_std[b])], 
-                                    color='g', alpha=.5)
-            ax.fill_between(hist_x, hist_y_plus, hist_y_minus, color='royalblue', alpha=.7)
+            for m in np.arange(0, corred.shape[0]):
+                corr = corred[m, 0:analysis_x_cutoff]
+                hist_x, hist_y, hist_y_plus, hist_y_minus = util.reformat_stat_hists_for_plot(bins, corr, np.zeros(corr.shape[0],))
+                ax = line(hist_x, hist_y, '', ax=ax, plot_col='w')
+                
+                # if (exclusion_bins > 0):
+                #     for b, ind in enumerate(np.arange(0, exclusion_bins)):
+                #         ax.fill_between(bin_edge[b:b+2],
+                #                         [corr[b], corr[b]],
+                #                         [corr_by_pi[0,b], corr_by_pi[0,b]], 
+                #                         color='g', alpha=.5)
+                        
+                ax.fill_between(hist_x, hist_y_plus, hist_y_minus, color='royalblue', alpha=.7)
 
-    # if dearth_bins.shape[0] > 0:
-    #     ax.scatter(bin_edge[dearth_bins] + bin_width/2, mean_corr[dearth_bins], color='g')
-    # if peak_bins.shape[0] > 0:
-    #     ax.scatter(bin_edge[peak_bins] + bin_width/2, mean_corr[peak_bins], color='y')
-
-
-    title = ['bin width: ' + str(bin_width) + ', excl rad: ' + str(exclusion_radius) + ', excl area: ' + str(exclusion_area)]
-    print(title)
-    ax.set_title(title)
-    ax.set_xticks(bin_edge[0:analysis_x_cutoff])
-    ax.set_ylim([-1.5, 4])
-
-    # for b in np.arange(0, analysis_x_cutoff):
-    #     ax = plotKwargs({'figsize':10}, '')
-    #     binhist, binhistedge = np.histogram(corr_by_corr[:,b])
-    #     plt.stairs(binhist, binhistedge)
-    #     title = ['bin ' + str(b)]
+        # if dearth_bins.shape[0] > 0:
+        #     ax.scatter(bin_edge[dearth_bins] + bin_width/2, mean_corr[dearth_bins], color='g')
+        # if peak_bins.shape[0] > 0:
+        #     ax.scatter(bin_edge[peak_bins] + bin_width/2, mean_corr[peak_bins], color='y')
 
 
-def view2PC(mos_type, save_name, scale_std=2, showNearestCone=False, save_things=False, save_path='', save_type='.png'):
+        title = [mosaic + ', bin width: ' + str(np.around(bin_width, decimals=2)) + ', excl rad: ' + str(np.around(exclusion_radius, decimals =2))]
+        print(title)
+        ax.set_title(title)
+        xtick_float = np.around(bin_edge[0:analysis_x_cutoff],2).tolist()
+        xtick_str = [str(x) for x in xtick_float]
+        print(xtick_str)
+        ax.set_xticks(xtick_float, xtick_str)
+        ax.set_ylim([-1.5, .5 + np.nanmax([np.nanmax(corr), np.nanmax(corr_by_pi[1,:])])])
+
+        ax.set_xlabel('pixels')
+        ax.set_ylabel('correlation')
+        # for b in np.arange(0, analysis_x_cutoff):
+        #     ax = plotKwargs({'figsize':10}, '')
+        #     binhist, binhistedge = np.histogram(corr_by_corr[:,b])
+        #     plt.stairs(binhist, binhistedge)
+        #     title = ['bin ' + str(b)]
+
+        ax.figure
+
+        if save_things:
+            savnm = save_path + mosaic + '_metricsOf2PC' + '.png'
+            print(savnm)
+            plt.savefig(savnm)
+
+
+def view2PC(mos_type, save_name, z_dim=0, scale_std=2, showNearestCone=False, save_things=False, save_path='', save_type='.png'):
+    print(save_path)
     for fl in save_name:
         print(fl)
         # get intracone distance histogram data and plotting parameters from the save file
@@ -320,7 +271,10 @@ def view2PC(mos_type, save_name, scale_std=2, showNearestCone=False, save_things
             conetype_color = bytes(file['input_data']['conetype_color'][()]).decode("utf8")
             bin_width = file['input_data']['bin_width'][()]
             bin_edge = file[mos_type + '_' + 'two_point_correlation']['max_bin_edges'][()]
-            corred = file[mos_type + '_' + 'two_point_correlation']['corred'][()]
+            if mos_type == 'measured':
+                corred = file[mos_type + '_' + 'two_point_correlation']['corred'][()]
+            else:
+                corred = file[mos_type + '_' + 'two_point_correlation']['corred'][()][z_dim,:]
             # to_be_corr_colors = [bytes(n).decode('utf8') for n in file['input_data']['to_be_corr_colors'][()]]
             # to_be_corr = [bytes(n).decode('utf8') for n in file['input_data']['to_be_corr'][()]]
             sim_hexgrid_by = bytes(file['input_data']['sim_hexgrid_by'][()]).decode("utf8")
@@ -335,8 +289,8 @@ def view2PC(mos_type, save_name, scale_std=2, showNearestCone=False, save_things
                 print('ack!!! problem getting hex_radius in view_2PC')
 
             if bin_width == -1:
-                save_path = os.path.dirname(fl)
-                all_coord_fl = save_path + '\\' + mosaic + '_all.hdf5'
+                save_path_h = os.path.dirname(fl)
+                all_coord_fl = save_path_h + '\\' + mosaic + '_all.hdf5'
                 try:
                     with h5py.File(all_coord_fl, 'r') as file2:
                         all_cone_mean_icd   = file2['measured_voronoi']['icd_mean'][()]
@@ -375,12 +329,13 @@ def view2PC(mos_type, save_name, scale_std=2, showNearestCone=False, save_things
                 lin_extent = .5
 
                 hist_x, hist_y, hist_y_plus, hist_y_minus = util.reformat_stat_hists_for_plot(bin_edge, hist_mean, hist_std*2)
-
-                ax = line([hex_radius, hex_radius], [-1 * lin_extent, lin_extent], id='hex_radius', ax=ax, plot_col='firebrick', linewidth=3)
-                ax = line(hist_x, hist_y, '', plot_col=plot_col, ax=ax)
+        
+                ax = line([hex_radius, hex_radius], [-1 * lin_extent, lin_extent], id='hex_radius', ax=ax, plot_col='r', linewidth=3)
+                ax = line(hist_x, hist_y, '', plot_col='w', ax=ax)
+                #ax.stairs(hist_mean-.5, bin_edge, color='r')
                 ax.fill_between(hist_x, 
                                 hist_y_plus, 
-                                hist_y_minus, color=plot_col, alpha=.7)
+                                hist_y_minus, color='w', alpha=.7)
                 ax.set_label = tit
                 ax.set_xlabel = xlab
                 ax.set_ylabel = ylab
@@ -394,21 +349,25 @@ def view2PC(mos_type, save_name, scale_std=2, showNearestCone=False, save_things
                 #     flierprops=dict({'color': c}),
                 # )
 
-            ax.set_ylim([np.nanmin(hist_y_minus) - (np.nanmax(hist_y)/5), 
-                           np.nanmax(hist_y_plus) + (np.nanmax(hist_y)/5)])
+            ax.set_ylim([np.nanmin(hist_y_minus) - (np.nanmax(hist_y_plus)/10), 
+                        np.nanmax(hist_y_plus) + (np.nanmax(hist_y_plus)/10)])
 
-            ax.figure
+            #ax.figure
             ax.legend()
             
+            ax.figure
+
             if save_things:
-                savnm = save_path + '\\' + id_str + save_type
+                savnm = save_path + id_str + '_2PC.png'
+                print(savnm)
+
                 plt.savefig(savnm)
             
             if len(save_name) == 1:
                 return(ax)
 
             
-def viewIntraconeDist(mos_type, save_things=False, save_name=[], prefix='',
+def viewIntraconeDist(mos_type, save_name, save_things=False, prefix='',
             save_path='', id='', z_dim=0, scale_std=2,
             mosaic_data=True, marker='.', label=None, **kwargs):
             
@@ -420,7 +379,6 @@ def viewIntraconeDist(mos_type, save_things=False, save_name=[], prefix='',
             conetype = bytes(file['mosaic_meta']['conetype'][()]).decode("utf8")
             coord_unit = bytes(file['input_data']['coord_unit'][()]).decode("utf8")
             conetype_color = bytes(file['input_data']['conetype_color'][()]).decode("utf8")
-            
             if mos_type == 'measured':
                 coord = file['input_data']['cone_coord'][()]
                 coord = np.expand_dims(coord, axis=0)
@@ -431,6 +389,7 @@ def viewIntraconeDist(mos_type, save_things=False, save_name=[], prefix='',
             mean_hist = file[mos_type + '_intracone_dist']['hist_mean'][()]
             std_hist = file[mos_type + '_intracone_dist']['hist_std'][()]
             bin_width = file['input_data']['bin_width'][()]
+            poisson_intervals = file[mos_type + '_intracone_dist']['poisson_intervals'][()]
 
         num_mos = coord.shape[0]
         num_cone = coord.shape[1]
@@ -444,10 +403,19 @@ def viewIntraconeDist(mos_type, save_things=False, save_name=[], prefix='',
             tit = mos_type + ' intracone distance (' + str(num_cone) + " cones, " + str(num_mos) + " mosaics)"
             x = x = bin_edge[1:]-(bin_width/2)
 
-            ax = shadyStats(x, mean_hist, std_hist, id_str, scale_std=scale_std,
-                            plot_col=conetype_color, title=tit, xlabel=xlab,
-                            ylabel=ylab)
+            ax = plotKwargs({}, '')
 
+            hist_x, hist_y, hist_y_plus, hist_y_minus = util.reformat_stat_hists_for_plot(bin_edge, mean_hist, poisson_intervals)
+            ax = line(hist_x, hist_y, '', plot_col='w', ax=ax)
+            #ax.stairs(hist_mean-.5, bin_edge, color='r')
+            ax.fill_between(hist_x, 
+                            hist_y_plus, 
+                            hist_y_minus, color='w', alpha=.7)
+            # ax = shadyStats(x, mean_hist, std_hist, id_str, scale_std=scale_std,
+            #                 plot_col=conetype_color, title=tit, xlabel=xlab,
+            #                 ylabel=ylab)
+            ax.set_xlabel(xlab)
+            ax.set_ylabel(ylab)
             ax.figure
 
             if save_things:
@@ -481,7 +449,8 @@ def viewVoronoiHistogram(mos_type, metric, save_things=False, save_name=[], pref
         # print(metric + ' std: ' + str(metric_std))
         # print(metric + ' regularity: ' + str(metric_regularity))
         ax = getAx(kwargs)
-        counts, bins = np.histogram(metric_data[np.nonzero(bound_regions)])
+        nonnan_br = np.nonzero(~np.isnan(bound_regions))[0]
+        counts, bins = np.histogram(metric_data[np.nonzero(bound_regions[nonnan_br])])
         ax.stairs(counts, bins)
         if metric_std > 1:
             plt.xlim([metric_mean - (2 * metric_std), metric_mean + (2 * metric_std)])
@@ -527,49 +496,55 @@ def viewVoronoiDiagram(mos_type, save_things=False, save_name=[], prefix='',
                 density_unit = bytes(file['input_data']['density_unit'][()]).decode("utf8")
             else:
                 density_unit = coord_unit
+    # print(type(regions))
+    # print(regions)
+    if ~np.all(np.isnan(regions)): # type(regions) is np.ndarray or type(regions is np.float64):
 
-    ax = getAx(kwargs)
+        ax = getAx(kwargs)
 
-    for i in range(0, len(regions[z_dim])):
-        if bound_regions[z_dim][i]:
-            if int(num_neighbor[z_dim][i]) == 3:
-                colour = [255, 0, 0]
-            elif int(num_neighbor[z_dim][i]) == 4:
-                colour = [255, 100, 0]
-            elif int(num_neighbor[z_dim][i]) == 5:
-                colour = [255, 255, 0]
-            elif int(num_neighbor[z_dim][i]) == 6:
-                colour = [0, 255, 0]
-            elif int(num_neighbor[z_dim][i]) == 7:
-                colour = [0, 255, 255]
-            elif int(num_neighbor[z_dim][i]) == 8:
-                colour = [0, 0, 255]
-            elif int(num_neighbor[z_dim][i]) == 9:
-                colour = [100, 0, 255]
-            elif int(num_neighbor[z_dim][i]) == 10:
-                colour = [255, 0, 255]
-            else:
-                colour = [255, 255, 255]
-            for ind, c in enumerate(colour): 
-                colour[ind] = c / 255
-            
-            vert = regions[z_dim][i][np.nonzero(~np.isnan(regions[z_dim][i]))]
-            polygon = vertices[z_dim][np.array(vert, dtype=int)]
-            ax.fill(*zip(*polygon), facecolor = colour, edgecolor='k')
+        for i in range(0, len(regions[z_dim])):
+            if bound_regions[z_dim][i]:
+                if not np.isnan(num_neighbor[z_dim][i]):
+                    if int(num_neighbor[z_dim][i]) == 3:
+                        colour = [255, 0, 0]
+                    elif int(num_neighbor[z_dim][i]) == 4:
+                        colour = [255, 100, 0]
+                    elif int(num_neighbor[z_dim][i]) == 5:
+                        colour = [255, 255, 0]
+                    elif int(num_neighbor[z_dim][i]) == 6:
+                        colour = [0, 255, 0]
+                    elif int(num_neighbor[z_dim][i]) == 7:
+                        colour = [0, 255, 255]
+                    elif int(num_neighbor[z_dim][i]) == 8:
+                        colour = [0, 0, 255]
+                    elif int(num_neighbor[z_dim][i]) == 9:
+                        colour = [100, 0, 255]
+                    elif int(num_neighbor[z_dim][i]) == 10:
+                        colour = [255, 0, 255]
+                    else:
+                        colour = [255, 255, 255]
+                    for ind, c in enumerate(colour): 
+                        colour[ind] = c / 255
+                    
+                    vert = regions[z_dim][i][np.nonzero(~np.isnan(regions[z_dim][i]))]
+                    polygon = vertices[z_dim][np.array(vert, dtype=int)]
+                    ax.fill(*zip(*polygon), facecolor = colour, edgecolor='k')
 
-    ax = scatt(np.squeeze(coord[z_dim, :, :]),'bound_voronoi_cells', ax=ax, mosaic_data=True)
-    ax.figure
-    plt.xlabel(coord_unit)
-    plt.ylabel(coord_unit)
+        ax = scatt(np.squeeze(coord[z_dim, :, :]),'bound_voronoi_cells', ax=ax, mosaic_data=True)
+        ax.figure
+        plt.xlabel(coord_unit)
+        plt.ylabel(coord_unit)
 
-    # print('num bound cells: ' + str(sum(bound_regions[z_dim])))
-    # print('total voronoi area: ' + str(sum(voronoi_area[z_dim][np.nonzero(bound_regions[z_dim])])) + density_unit + '^2')
-    # print('voronoi density: ' + str(density) + ' points per ' + density_unit + '^2')
-    # print('hex radius calc from voronoi: ' + str(hex_radius) + ' ' + coord_unit)
+        # print('num bound cells: ' + str(sum(bound_regions[z_dim])))
+        # print('total voronoi area: ' + str(sum(voronoi_area[z_dim][np.nonzero(bound_regions[z_dim])])) + density_unit + '^2')
+        # print('voronoi density: ' + str(density) + ' points per ' + density_unit + '^2')
+        # print('hex radius calc from voronoi: ' + str(hex_radius) + ' ' + coord_unit)
 
-    if save_things:
-        savnm = save_path + mosaic + '_bound_cells_' + str(z_dim) + '_' + conetype + '.png'
-        plt.savefig(savnm)
+        if save_things:
+            savnm = save_path + mosaic + '_bound_cells_' + str(z_dim) + '_' + conetype + '.png'
+            plt.savefig(savnm)
+    else:
+        print('skipping Voronoi diagram for ' + mosaic + ' due to lack of bound cones...')
 
 
 def viewMosaic(mos_type, save_things=False, save_name=[], prefix='',
@@ -593,36 +568,36 @@ def viewMosaic(mos_type, save_things=False, save_name=[], prefix='',
                 except:
                     raise Exception('bad mosaic type sent to viewMosaic: ' + mos_type)
 
-        if not np.isnan(coord[0]).any():
+        #if not np.isnan(coord[0]).any():
+        if len(coord.shape) == 3:
+            num_mos = coord.shape[0]
+            num_cone = coord.shape[1]
+        elif len(coord.shape) == 2:
+            num_mos = 1
+            num_cone = coord.shape[0]
+        print('num mosaics: ' + str(num_mos))
+        print('num points per mosaic: ' + str(num_cone))
+
+        for mos in [z_dim]:
+            id_str = mos_type + '_(' + str(mos+1) + '//' + str(num_mos) + ')_' + mosaic + '_(' + str(num_cone) + ' cones)'
+            xlab = coord_unit
+            ylab = coord_unit
             if len(coord.shape) == 3:
-                num_mos = coord.shape[0]
-                num_cone = coord.shape[1]
-            elif len(coord.shape) == 2:
-                num_mos = 1
-                num_cone = coord.shape[0]
-            print('num mosaics: ' + str(num_mos))
-            print('num points per mosaic: ' + str(num_cone))
+                this_coord = np.zeros([num_cone, 2])
+                this_coord[:, :] = coord[mos, :, :]
+            else: 
+                this_coord = coord
 
-            for mos in [z_dim]:
-                id_str = mos_type + '_(' + str(mos+1) + '//' + str(num_mos) + ')_' + mosaic + '_(' + str(num_cone) + ' cones)'
-                xlab = coord_unit
-                ylab = coord_unit
-                if len(coord.shape) == 3:
-                    this_coord = np.zeros([num_cone, 2])
-                    this_coord[:, :] = coord[mos, :, :]
-                else: 
-                    this_coord = coord
+            ax = scatt(this_coord, id_str, s=s, plot_col=plot_col, xlabel=xlab, ylabel=ylab, mosaic_data= mosaic_data, z_dim=z_dim, marker=marker, label=label)
 
-                ax = scatt(this_coord, id_str, s=s, plot_col=plot_col, xlabel=xlab, ylabel=ylab, mosaic_data= mosaic_data, z_dim=z_dim, marker=marker, label=label)
+            ax.figure
 
-                ax.figure
+            if save_things:
+                savnm = save_path + mosaic + '_' + str(mos) + '_' + conetype + save_type
+                plt.savefig(savnm)
 
-                if save_things:
-                    savnm = save_path + mosaic + '_' + str(mos) + '_' + conetype + save_type
-                    plt.savefig(savnm)
-
-        else:
-            print('no coords for for "' + fl + '," skipping')
+        # else:
+        #     print('no coords for for "' + fl + '," skipping')
 
 
 

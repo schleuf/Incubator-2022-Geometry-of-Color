@@ -19,6 +19,19 @@ eps = sys.float_info.epsilon
 # dist_matrices
 # Monte_Carlo_uniform
 
+def poisson_interval(k, alpha=0.05): 
+    """
+    copied from https://stackoverflow.com/questions/14813530/poisson-confidence-interval-with-numpy
+    uses chisquared info to get the poisson interval. Uses scipy.stats 
+    (imports in function). 
+    """
+    from scipy.stats import chi2
+    a = alpha
+    low, high = (chi2.ppf(a/2, 2*k) / 2, chi2.ppf(1-a/2, 2*k + 2) / 2)
+    if k == 0: 
+        low = 0.0
+    return low, high
+
 
 def rotate_around_point(xy, radians, origin=(0, 0)):
     """
@@ -208,6 +221,7 @@ def getVoronoiNeighbors(coord, vertices, regions, ridge_vertices, ridge_points, 
         #                 # ax = show.line(x, y, 'ridges and ridge points', ax=ax, plot_col=col, linewidth=2)
 
         # ax2 = show.scatt(np.squeeze(this_coord), '')
+        
         for c in np.arange(0, this_coord.shape[0]):
             cone = this_coord[c, :]
             # col = util.randCol()
@@ -219,7 +233,9 @@ def getVoronoiNeighbors(coord, vertices, regions, ridge_vertices, ridge_points, 
                         neighbs.append(ridge[1])
                     elif ridge[1] == c:
                         neighbs.append(ridge[0])
+            
             neighbors_cones[m, c, 0:len(neighbs)] = np.array(neighbs)
+            
             # for n, neighb in enumerate(neighbs):
             #     if n < len(neighbs)-2:
             #         x = np.array([coord[m, neighb, 0], coord[m, neighbs[n+1], 0]])
@@ -241,6 +257,9 @@ def get_bound_voronoi_cells(coord, img_x, img_y):
     num_mos = coord.shape[0]
     bound_cones = np.ones([num_mos, coord.shape[1]])
     bound_cones = np.array(bound_cones, dtype=int)
+    # print('IMAGE DIMENSIONS')
+    # print(img_x)
+    # print(img_y)
     bounding_box = np.array([img_x[0], img_x[1], img_y[0], img_y[1]])
     dist_cones = dist_matrices(np.squeeze(coord[0, :, :]), dist_self=np.nan)
     dist_mins = np.nanmin(dist_cones, axis=0)
@@ -283,8 +302,9 @@ def get_bound_voronoi_cells(coord, img_x, img_y):
         # ax = show.scatt(points_right,'',plot_col='y',ax=ax)
         # ax = show.scatt(points_up,'',plot_col='b',ax=ax)
         # ax = show.scatt(points_down,'',plot_col='g',ax=ax)
+        non_nan = np.array(np.nonzero(~np.isnan(points[:,0]))[0], dtype=int)
 
-        vor = Voronoi(points)
+        vor = Voronoi(points[non_nan])
 
         unbound_inds = []
         for c in np.arange(0, points_center.shape[0]):
@@ -329,7 +349,9 @@ def get_bound_voronoi_cells(coord, img_x, img_y):
     
 
 def voronoi_innards(coord):
-    vor = Voronoi(np.squeeze(coord))
+    coord_2D = np.squeeze(coord)
+    non_nan = np.array(np.nonzero(~np.isnan(coord_2D[:,0]))[0], dtype=int)
+    vor = Voronoi(coord_2D[non_nan, :])
     vertices = (vor.vertices)
     regions = (vor.regions)
     ridge_vertices = (vor.ridge_vertices)
@@ -508,7 +530,27 @@ def rectgrid(hex_radius, x_dim, y_dim):
     return [coord]
 
 
-def hexgrid(num2gen, hex_radius, x_dim, y_dim, randomize=False, min_cones=0):
+def genGrid(hex_radius, hex_x, hex_y):
+    x_rectgrid_spacing = hex_radius
+    y_rectgrid_spacing = x_rectgrid_spacing * (np.sqrt(3) / 2)  # SIN(60°)
+    xv, yv = np.meshgrid(np.arange(hex_x[0], hex_x[1], x_rectgrid_spacing),
+                         np.arange(hex_y[0], hex_y[1], y_rectgrid_spacing),
+                         sparse=False, indexing='xy')
+    xv = xv.round()
+    yv = yv.round()
+
+    num_cones_placed = xv.shape[0] * xv.shape[1]
+    # translate every other row by half the x-spacing (rect -> hex)
+    xv[::2, :] += x_rectgrid_spacing/2
+
+    # flatten the hexagonal spacing vectors, send to standard coordinate array
+    x_vect = xv.flatten()
+    y_vect = yv.flatten()
+
+    return x_vect, y_vect
+
+
+def hexgrid(num2gen, hex_radius, x_dim, y_dim, randomize=False, target_num_cones=0):
     """
     generate array of hexagonally arranged points within a 2D range
     such that:
@@ -536,7 +578,8 @@ def hexgrid(num2gen, hex_radius, x_dim, y_dim, randomize=False, min_cones=0):
         2nd column x, 3rd column y.
     """
 
-    if randomize:
+    if randomize: # requires a larger initial grid to handle translation & rotation
+
         # calc the size of the hexgrid to generate
         x_len = x_dim[1] - x_dim[0]
         y_len = y_dim[1] - y_dim[0]
@@ -544,98 +587,136 @@ def hexgrid(num2gen, hex_radius, x_dim, y_dim, randomize=False, min_cones=0):
         img_diagonal = np.sqrt(np.power(x_len, 2) + np.power(y_len, 2))
         jitt_diagonal = 2 * np.sqrt(2 * np.power(jitter,2))
         hex_width = img_diagonal + jitt_diagonal
+
         # calc the offset of the hexgrid to generate
         diff_x = hex_width - x_len
         diff_y = hex_width - y_len
         offset_x = -1 * (diff_x/2)
         offset_y = -1 * (diff_y/2)
+
+        #set the gridsize
         hex_x = [offset_x, offset_x + hex_width -1]
         hex_y = [offset_y, offset_y + hex_width -1]
     else: 
         hex_x = x_dim
         hex_y = y_dim
     
-    hex_radius = np.float_(hex_radius)
-    
-    x_rectgrid_spacing = hex_radius
-    y_rectgrid_spacing = x_rectgrid_spacing * (np.sqrt(3) / 2)  # SIN(60°)
-    xv, yv = np.meshgrid(np.arange(hex_x[0], hex_x[1], x_rectgrid_spacing),
-                         np.arange(hex_y[0], hex_y[1], y_rectgrid_spacing),
-                         sparse=False, indexing='xy')
-
-    num_cones_placed = xv.shape[0] * xv.shape[1]
-    # translate every other row by half the x-spacing (rect -> hex)
-    xv[::2, :] += x_rectgrid_spacing/2
+    initial_hex_radius = np.float_(hex_radius)
 
     # initialize output vars
     coord_list = []
 
     max_hex = 0
 
-    modded_hex_radius = False
-    hex_radius_decrease = 0
-    percent_of_og_hex_radius = hex_radius/100
+    hex_radii_used = []
 
-    # flatten the hexagonal spacing vectors, send to standard coordinate array
-    x_vect = xv.flatten()
-    y_vect = yv.flatten()
+    num_cones_final = []
     
-    plt.scatter(x_vect, y_vect)
+    # plt.scatter(x_vect, y_vect)
 
     for sp in np.arange(0, num2gen):
-        enough_cones = False
-        count_fails = 0
-        
-        while not enough_cones:
-            #enough_cones = True
+        density_optimized = False
+        overshot_target = False
+        gen_tests = []
+        num_cones_gen = []
+        hex_radii_tested = []
+        test_radius = initial_hex_radius
+        delta_radius = 0
+        count = 0
+        while not density_optimized:
+            count = count + 1
+            test_radius = test_radius + delta_radius
+            # print('test_radius')
+            # print(test_radius)
+            hex_radii_tested.append(test_radius)
+            x_vect, y_vect = genGrid(test_radius, hex_x, hex_y)
             temp_coord = np.empty([1, x_vect.shape[0], 2])
             temp_coord[0, :, 0] = x_vect
             temp_coord[0, :, 1] = y_vect
 
             if randomize: 
-                # jitter the hexgrid
-                temp_coord[0, :, :] = jitter_grid(np.squeeze(temp_coord[0, :, :]), hex_radius)
+                if count == 1:
+                    # jitter the hexgrid
+                    temp_coord[0, :, :], jitt_x, jitt_y = jitter_grid(np.squeeze(temp_coord[0, :, :]), hex_radius)
 
-                # rotate the hexgrid
-                temp_coord[0, :, :] = rotate_grid(np.squeeze(temp_coord[0, :, :]), [x_dim[1]/2, y_dim[1]/2])   
-                
+                    # rotate the hexgrid
+                    temp_coord[0, :, :] , deg_rot = rotate_grid(np.squeeze(temp_coord[0, :, :]), [x_dim[1]/2, y_dim[1]/2])
+
+                else:
+                    temp_coord[0, :, :], jitt_x, jitt_y = jitter_grid(np.squeeze(temp_coord[0, :, :]), hex_radius, jitt_x, jitt_y)
+
+                    # rotate the hexgrid
+                    temp_coord[0, :, :] , deg_rot = rotate_grid(np.squeeze(temp_coord[0, :, :]), [x_dim[1]/2, y_dim[1]/2], deg_rot)
+
                 # find hexgrid points within the image bounds
                 inds_in_img_bounds = in_box(np.squeeze(temp_coord[0, :, :]), [x_dim[0], x_dim[1], y_dim[0], y_dim[1]])
                 bound_hex = temp_coord[0, inds_in_img_bounds, :]
-                keep_coords = bound_hex
+                crop_coords = bound_hex
 
             else:
-                keep_coords = temp_coord[0, :, :]
+                crop_coords = temp_coord[0, :, :]
+
+            gen_tests.append(crop_coords)
 
             #redo if there aren't enough points in the bounds
-            if not min_cones == 0:
-                if keep_coords.shape[0] >= min_cones:
-                    enough_cones = True
-                    coord_list.append(keep_coords)
+            num_cones = crop_coords.shape[0]
+            num_cones_gen.append(num_cones)
+            # print('num cones')
+            # print(num_cones)
+            if num_cones == target_num_cones:
+                density_optimized = True
+                keep_coords = gen_tests[len(gen_tests)-1]
+                hex_radii_used.append(test_radius)
+
+            elif num_cones < target_num_cones:
+                # print('TOO FEW CONES')
+                if delta_radius == .01:
+                    # print('CROSSED')
+                    overshot_target = True
+                    density_optimized = True
+                    # diff_this = target_num_cones - num_cones
+                    # diff_prev = target_num_cones - num_cones_gen[len(gen_tests)-2]
+                    # if diff_this > diff_prev:
+                    #     keep_coords = gen_tests[len(gen_tests)-2]
+                    #     hex_radii_used.append(hex_radii_tested[len(gen_tests)-2])
+                    # elif diff_this < diff_prev: 
+                    #     keep_coords = gen_tests[len(gen_tests)-1]
+                    #     hex_radii_used.append(test_radius)
+                    # elif diff_this == diff_prev:
+                    rand_1_or_2 = np.random.randint(1,3)
+                    keep_coords =gen_tests[len(gen_tests)-rand_1_or_2]
+                    hex_radii_used.append(hex_radii_tested[len(gen_tests)-rand_1_or_2])
                 else:
-                    count_fails = count_fails + 1
+                    delta_radius = -.01
 
-                if count_fails > 100:
-                    print('SEEMS LIKE I AM STUCK IN AN INFINITE LOOP')
-                    # print('hex_radius')
-                    modded_hex_radius = True
-                    hex_radius_decrease = hex_radius_decrease + percent_of_og_hex_radius
-                    hex_radius = hex_radius - percent_of_og_hex_radius
-                    # generate hexgrid
-                    temp, blah, bleh = hexgrid(1, hex_radius, x_dim, y_dim, randomize=True, min_cones=min_cones)
+            elif num_cones > target_num_cones:
+                # print('TOO MANY CONES')
+                if delta_radius == -.01:
+                    # print('CROSSED')
+                    overshot_target = True
+                    density_optimized = True
+                    diff_this = target_num_cones - num_cones
+                    diff_prev = target_num_cones - num_cones_gen[len(gen_tests)-2]
+                    # if diff_this > diff_prev:
+                    #     keep_coords = gen_tests[len(gen_tests)-2]
+                    #     hex_radii_used.append(hex_radii_tested[len(gen_tests)-2])
+                    # elif diff_this < diff_prev: 
+                    #     keep_coords = gen_tests[len(gen_tests)-1]
+                    #     hex_radii_used.append(test_radius)
+                    # elif diff_this == diff_prev:
+                    rand_1_or_2 = np.random.randint(1,3)
+                    keep_coords =gen_tests[len(gen_tests)-rand_1_or_2]
+                    hex_radii_used.append(hex_radii_tested[len(gen_tests)-rand_1_or_2])
 
-                    x_vect = temp[0, :, 0]
-                    y_vect = temp[0, :, 1]
-            else:
-                enough_cones = True
-                coord_list.append(keep_coords)
+                else:
+                    delta_radius = .01
+        # print('')
 
+        coord_list.append(keep_coords)
+
+        num_cones_final.append(coord_list[len(coord_list)-1].shape[0])
         max_hex = np.amax([max_hex, coord_list[sp].shape[0]])
 
-    # get intercone distance histogram for cones versus bound hexgrid points
-    if modded_hex_radius:
-        print('I AM MY OWN SAVIOR')
-    
     coord = np.empty([num2gen, max_hex, 2])
     for sp in np.arange(0, num2gen):
         coord[sp, 0:coord_list[sp].shape[0], :] = coord_list[sp]
@@ -646,7 +727,7 @@ def hexgrid(num2gen, hex_radius, x_dim, y_dim, randomize=False, min_cones=0):
         # ax.scatter(np.squeeze(coord[sp,:,0]), np.squeeze(coord[sp,:,1]))
         # ax.set_aspect('equal')
 
-    return coord, modded_hex_radius, hex_radius_decrease, hex_radius
+    return coord, num_cones_final, hex_radii_used
 
 
 # def rotate_around_point_highperf(xy, radians, origin=(0, 0)):
@@ -669,31 +750,31 @@ def hexgrid(num2gen, hex_radius, x_dim, y_dim, randomize=False, min_cones=0):
 #     return qx, qy
 
 
-def rectGridJitter(xv, yv, rand_modifier, x_rectgrid_spacing, y_rectgrid_spacing):
+# def rectGridJitter(xv, yv, rand_modifier, x_rectgrid_spacing, y_rectgrid_spacing):
     
-    # get randomized amounts of jitter in the x and y direction
-    jitter_x = np.random.rand()
-    jitter_x = (jitter_x + rand_modifier) * x_rectgrid_spacing
-    jitter_y = np.random.rand()
-    jitter_y = (jitter_y + rand_modifier) * y_rectgrid_spacing
+#     # get randomized amounts of jitter in the x and y direction
+#     jitter_x = np.random.rand()
+#     jitter_x = (jitter_x + rand_modifier) * x_rectgrid_spacing
+#     jitter_y = np.random.rand()
+#     jitter_y = (jitter_y + rand_modifier) * y_rectgrid_spacing
 
-    # apply jitter to the rectangular grid coordinates
-    xv = xv + jitter_x
-    yv = yv + jitter_y
+#     # apply jitter to the rectangular grid coordinates
+#     xv = xv + jitter_x
+#     yv = yv + jitter_y
 
-    return xv, yv, jitter_x, jitter_y
+#     return xv, yv, jitter_x, jitter_y
 
 
-def setFirstAndSecondSpacifiedCone(coord, seed_ind, dists):
-    set_cones = [seed_ind]
-    set_coord = np.ones([2, 2]) * -1
-    set_coord[0, :] = coord[seed_ind, :]
+# def setFirstAndSecondSpacifiedCone(coord, seed_ind, dists):
+#     set_cones = [seed_ind]
+#     set_coord = np.ones([2, 2]) * -1
+#     set_coord[0, :] = coord[seed_ind, :]
 
-    furthest_cone = np.argmax(dists[seed_ind, :])
-    set_cones.append(furthest_cone)
-    set_coord[1, :] = coord[furthest_cone, :]
+#     furthest_cone = np.argmax(dists[seed_ind, :])
+#     set_cones.append(furthest_cone)
+#     set_coord[1, :] = coord[furthest_cone, :]
     
-    return [set_cones, set_coord]
+#     return [set_cones, set_coord]
 
 
 def removeVal(vals, val2remove):
@@ -703,97 +784,105 @@ def removeVal(vals, val2remove):
     return vals_removed
 
 
-def setThirdOnwardSpacifiedCone(coord, avail, set_cones, set_coord, next_cone_ind, dists):
-    dists = np.where(dists > 0, dists, np.inf)
-    # creatgooge a 2D array where each row is the current set of cone indices making up the
-    # spacified mosaic followed by a hypothetical next cone-placement, with a row for 
-    # every cone that is available to be set
-    v1 = np.tile(np.array(set_cones), (avail.shape[0], 1))
-    v2 = np.expand_dims(avail, 1)
-    hyp_sp_sets = np.hstack((v1, v2))
+# def setThirdOnwardSpacifiedCone(coord, avail, set_cones, set_coord, next_cone_ind, dists):
+#     dists = np.where(dists > 0, dists, np.inf)
+#     # creatgooge a 2D array where each row is the current set of cone indices making up the
+#     # spacified mosaic followed by a hypothetical next cone-placement, with a row for 
+#     # every cone that is available to be set
+#     v1 = np.tile(np.array(set_cones), (avail.shape[0], 1))
+#     v2 = np.expand_dims(avail, 1)
+#     hyp_sp_sets = np.hstack((v1, v2))
     
-    # identify the cone that, when added to the currently set spacified cones, minimizes 
-    # the std of cone nearest neighbors
-    nearest_neighbor_stds = []
-    #max_neighbors = np.nanmax(num_neighbor[np.nonzero(bound_regions)])
-    for hyp_set in hyp_sp_sets: 
-        #print(coord[hyp_set,:])
-        vor = Voronoi(coord[hyp_set, :])
-        neighbs = np.empty([hyp_set.shape[0], 20])
-        neighbs[:] = np.nan
-        for c_ind, c in enumerate(hyp_set):
-            neighb = []
-            for pr in vor.ridge_points:
-                if pr[0] == c_ind:
-                    neighb.append(pr[1])
-                elif pr[1] == c_ind:
-                    neighb.append(pr[0])
-            print(neighb)
-            print(hyp_set[neighb])
-            ax = show.scatt(coord[np.array(hyp_set[neighbs], dtype=int),:],'neighbors', ax=ax)
-            break
-            neighbs[c_ind, 0:len(neighb)] = neighb
+#     # identify the cone that, when added to the currently set spacified cones, minimizes 
+#     # the std of cone nearest neighbors
+#     nearest_neighbor_stds = []
+#     #max_neighbors = np.nanmax(num_neighbor[np.nonzero(bound_regions)])
+#     for hyp_set in hyp_sp_sets: 
+#         #print(coord[hyp_set,:])
+#         vor = Voronoi(coord[hyp_set, :])
+#         neighbs = np.empty([hyp_set.shape[0], 20])
+#         neighbs[:] = np.nan
+#         for c_ind, c in enumerate(hyp_set):
+#             neighb = []
+#             for pr in vor.ridge_points:
+#                 if pr[0] == c_ind:
+#                     neighb.append(pr[1])
+#                 elif pr[1] == c_ind:
+#                     neighb.append(pr[0])
+#             print(neighb)
+#             print(hyp_set[neighb])
+#             ax = show.scatt(coord[np.array(hyp_set[neighbs], dtype=int),:],'neighbors', ax=ax)
+#             break
+#             neighbs[c_ind, 0:len(neighb)] = neighb
 
-        hyp_dists = dists[hyp_set, :][:, hyp_set]
-        #sorted_neighbor_indices = np.argsort(hyp_dists, axis=1)
-        distances_to_average = np.empty((hyp_dists.shape[0], 20))
-        distances_to_average[:] = np.nan  
+#         hyp_dists = dists[hyp_set, :][:, hyp_set]
+#         #sorted_neighbor_indices = np.argsort(hyp_dists, axis=1)
+#         distances_to_average = np.empty((hyp_dists.shape[0], 20))
+#         distances_to_average[:] = np.nan  
 
-        for ind, hyp_d in enumerate(hyp_dists):
-            inds_to_grab = np.array(neighbs[ind, np.nonzero(~np.isnan(neighbs[ind,:]))[0]], dtype=int)
-            distances_to_average[ind, 0:len(inds_to_grab)] = hyp_dists[ind, inds_to_grab]
+#         for ind, hyp_d in enumerate(hyp_dists):
+#             inds_to_grab = np.array(neighbs[ind, np.nonzero(~np.isnan(neighbs[ind,:]))[0]], dtype=int)
+#             distances_to_average[ind, 0:len(inds_to_grab)] = hyp_dists[ind, inds_to_grab]
         
-        nearest_neighbor_metric = np.nanmean(distances_to_average, axis = 1)
+#         nearest_neighbor_metric = np.nanmean(distances_to_average, axis = 1)
         
-        nearest_neighbor_stds.append(np.std(nearest_neighbor_metric, axis=0))
-    print(nearest_neighbor_metric)
-    print(nearest_neighbor_stds)
-    spaciest_cone = avail[np.argmin(np.array(nearest_neighbor_stds))]
+#         nearest_neighbor_stds.append(np.std(nearest_neighbor_metric, axis=0))
+#     print(nearest_neighbor_metric)
+#     print(nearest_neighbor_stds)
+#     spaciest_cone = avail[np.argmin(np.array(nearest_neighbor_stds))]
     
-    # set the next cone in the spacified mosaic data
-    set_cones.append(spaciest_cone)
-    set_coord[next_cone_ind][:] = coord[spaciest_cone][:]
-    avail = removeVal(avail, [spaciest_cone])
+#     # set the next cone in the spacified mosaic data
+#     set_cones.append(spaciest_cone)
+#     set_coord[next_cone_ind][:] = coord[spaciest_cone][:]
+#     avail = removeVal(avail, [spaciest_cone])
 
-    return [set_cones, set_coord, avail]
-
-
-def jitter_grid(coord, max_jitter):
-    xy_jitter = (np.random.rand(2) * 2 * max_jitter) - max_jitter
-
-    coord[:, 0] = coord[:, 0] + xy_jitter[0]
-    coord[:, 1] = coord[:, 1] + xy_jitter[1]
-    return coord
+#     return [set_cones, set_coord, avail]
 
 
-def rotate_grid(coord, origin):
-    rot = np.random.rand(1) * 2 * math.pi
-    rot_x, rot_y = rotate_around_point(coord[:, :], rot, origin)
+def jitter_grid(coord, max_jitter, jitt_x = np.nan, jitt_y = np.nan):
+    
+    if np.isnan(jitt_x) or np.isnan(jitt_y):
+        jitt_x = (np.random.rand(1) * 2 * max_jitter) - max_jitter
+        jitt_y = (np.random.rand(1) * 2 * max_jitter) - max_jitter
+    
+    coord[:, 0] = coord[:, 0] + jitt_x
+    coord[:, 1] = coord[:, 1] + jitt_y
+
+    return coord, jitt_x, jitt_y
+
+
+def rotate_grid(coord, origin, deg_rot = np.nan):
+
+    if np.isnan(deg_rot):
+        deg_rot = np.random.rand(1) * 2 * math.pi   
+
+    rot_x, rot_y = rotate_around_point(coord[:, :], deg_rot, origin)
     coord[:, 0] = rot_x
     coord[:, 1] = rot_y
-    return coord
+
+    return coord, deg_rot
 
 
 def coneLocked_hexgrid_mask(all_coord, num2gen, cones2place, x_dim, y_dim, hex_radius):
     spaced_coord = []
     max_coord = 0
+    num_cones_final = []
+    hex_radii_used = []
+
     for mos in np.arange(0, num2gen):
-        hex_coord, modded_hex_radius, hex_radius_decrease, hex_radius = hexgrid(1, hex_radius, x_dim, y_dim, randomize = True, min_cones = cones2place)
+        num_cones_final.append([])
+        hex_radii_used.append([])
+        hex_coord, num_cones_final[mos], hex_radii_used[mos] = hexgrid(1, hex_radius, x_dim, y_dim, randomize = True, target_num_cones = cones2place)
         
         # get intercone distance histogram for cones versus bound hexgrid points
         dist_mat = distance.cdist(np.squeeze(hex_coord), all_coord, 'euclidean')
 
-        ax = show.scatt(all_coord, 'test grid', plot_col='y')
-        ax = show.scatt(np.squeeze(hex_coord), 'test grid', ax=ax)
+        # ax = show.scatt(all_coord, 'test grid', plot_col='y')
+        # ax = show.scatt(np.squeeze(hex_coord), 'test grid', ax=ax)
 
         # for every bound hexgrid point, identify its closest cone and add to the spacified coordinates
         min_dist_cone_inds = np.argmin(dist_mat, axis=1)
         spaced_coord.append(all_coord[min_dist_cone_inds, :])
-        # print('spaced coord: size')
-        # print(spaced_coord[mos].shape)
-        # print('unique spaced coords')
-        # print(np.unique(spaced_coord[mos], axis=0).shape)
-        # spaced_coord[mos]
 
         max_coord = np.nanmax([max_coord, spaced_coord[mos].shape[0]])
 
@@ -810,8 +899,9 @@ def coneLocked_hexgrid_mask(all_coord, num2gen, cones2place, x_dim, y_dim, hex_r
     for mos in np.arange(0, num2gen):
         temp[mos, 0:spaced_coord[mos].shape[0], :] = spaced_coord[mos]
     spaced_coord = temp
-
-    return spaced_coord, modded_hex_radius, hex_radius_decrease, hex_radius
+    num_cones_final = np.array(num_cones_final)
+    hex_radii_used = np.array(hex_radii_used)
+    return spaced_coord, num_cones_final, hex_radii_used
         
     
 
@@ -905,6 +995,103 @@ def monteCarlo_coneLocked(num_coord, all_coord, num_mc):
 
     return mc_coord
 
+
+
+def dmin(all_coord, num2gen, num2place, max_dist, prob_rej_type) :
+    dmin_coord = np.zeros([num2gen, num2place, 2]) 
+
+    for mos in np.arange(0, num2gen):
+
+        #these coordinate lists will be depleted as cones are set for this mosaic
+        temp_x = all_coord[:,0]
+        temp_y = all_coord[:,1]
+        
+        placed = []
+        enough_placed = False
+
+        # ax = show.plotKwargs({}, [])
+        # ax = show.scatt(all_coord, 'sim ' + str(mos), s=60, ax=ax)
+        # print('    working on dmin mosaic ' + str(mos))
+        tries = 0
+        sim_failed = False
+
+        while not enough_placed:
+            tries = tries + 1
+            # get random int between 1 and the number of cones available to be placed 
+            r = np.random.randint(low=0, high=len(temp_x), size=1)
+
+            # candidate coordinates for cone placement
+            candidate_x = temp_x[r]
+            candidate_y = temp_y[r]
+        
+            # print(candidate_x)
+            # print(candidate_y)
+            # print('')
+
+            # ax = show.scatt(np.concatenate([candidate_x, candidate_y], axis=0), 'sim ' + str(mos), ax=ax, plot_col = 'y', s = 40)
+            # for every cone that has already been set, test the pobability that
+            # a cone would be found here under the dmin model 
+    
+            test_cone_passed = True
+            for ind, p in enumerate(placed):
+                px = p[0]
+                py = p[1]
+                dist = np.sqrt((candidate_x - px)**2 + (candidate_y - py)**2)
+
+                if prob_rej_type == 'all_or_none':
+
+                    if dist < max_dist:
+                        prob_placement = 0
+                    else:
+                        prob_placement = 1
+
+                elif prob_rej_type == 'inverse_distance_squared':
+
+                    if dist < max_dist:
+                        prob_placement = 1/((max_dist-dist)**2)
+                    else:
+                        prob_placement = 1
+                
+
+                # draw a random number between 0 and 1.  
+                r2 = np.random.rand(1)
+
+                # if r is less than probability of placement for any already-placed
+                # cone, the candidate cone fails the test.  
+                if r2[0] > prob_placement:
+                    test_cone_passed = False
+
+            # if the candidate placement has passed all tests with previously-set
+            # cones, place a cone here
+            if test_cone_passed:
+                placed.append(np.concatenate([candidate_x, candidate_y], axis=0))
+                temp_x = np.delete(temp_x, r, 0)
+                temp_y = np.delete(temp_y, r, 0)
+                # ax = show.scatt(np.concatenate([candidate_x, candidate_y], axis=0), 'sim ' + str(mos), ax = ax, plot_col = 'r', size = 20)
+                # print('        placed cone ' + str(len(placed)) + '/' + str(num2place) + ': ' + str(candidate_x) + ', ' + str(candidate_y))
+                tries = 0
+                
+            if len(placed) == num2place:
+                enough_placed = True
+
+            if tries > 1000:
+                print('1000 tries to set cone, dmin simulation aborted')
+                sim_failed = True
+                break
+
+        if not sim_failed:
+            temp_coord = np.empty([num2place,2])
+            for p in np.arange(0,num2place):
+                temp_coord[p,:] = placed[p]
+
+            dmin_coord[mos,:,:] = temp_coord
+        else: 
+            dmin_coord = np.nan
+
+    return dmin_coord
+
+
+        
 
 # # ------------------------Functions from https://learnopencv.com/delaunay-triangulation-and-voronoi-diagram-using-opencv-c-python/
 

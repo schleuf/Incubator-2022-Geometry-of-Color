@@ -407,9 +407,6 @@ def getIndexes(categories, cat_str, cat_names):
     cat_index = {}
 
     for ind, cat_name in enumerate(cat_names):
-        print(cat_name)
-        print(categories[ind])
-        print('')
         vect = getIndex(categories[ind], cat_str[ind])
         cat_index[cat_name] = vect
 
@@ -533,14 +530,19 @@ def printSaveFile(sav_fl):
             for key in file.keys():
                 key_div = '***************************************'
                 print(key_div + key + key_div)
+                print('voronoi' in key)
                 for var in file[key]:
                     print(var)
                     if isinstance(file[key][var][()], np.bytes_):
                         data = bytes(file[key][var][()]).decode("utf8")
+                        if 'voronoi' in key:
+                            print(data)
                     else:
                         data = file[key][var][()]
                     try:
                         print(data.shape)
+                        if 'voronoi' in key:
+                            print(data)
                     except:
                         print('-')
                     #print(data)
