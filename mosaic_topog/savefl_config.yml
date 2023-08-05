@@ -185,11 +185,29 @@ voronoi:
 
 
 # Secondary Analysis Processes
+drp: 
+  process: drp_process
+  process_type: analysis
+  analysis_tier: 3
+  variables:
+  - bin_edges
+  - drp_mean
+  - drp_all
+  - drp_std
+  - drp_ste
+  - counts_per_bin
+  - add_edge_correction
+  - effective_radius
+  - packing_factor
+  - maximum_radius
+  - expected_number
+  - expected_drp
+
 
 two_point_correlation:
   process: two_point_correlation_process
   process_type: analysis
-  analysis_tier: 3
+  analysis_tier: 4
   dependencies:
   - intracone_dist
   variables:
@@ -197,11 +215,16 @@ two_point_correlation:
   - max_bins
   - max_bin_edges
   - corr_by_pi
+  - corr_by_hists
+  - corr_by_mean
+  - corr_by_std
+  - corr_by_poisson_95conf
+
 
 metrics_of_2PC:
   process: metrics_of_2PC_process
   process_type: analysis
-  analysis_tier: 4
+  analysis_tier: 5
   dependencies:
   - two_point_correlation
   variables:
@@ -213,21 +236,24 @@ metrics_of_2PC:
   - dearth_bins
   - peak_bins
   - exclusion_radius
+  - exclusion_factor
   - exclusion_bins
   - first_peak_rad
+  - emp_max_rad
 
 degree_structure:
   process: degree_structure_process
   process_type: analysis
-  analysis_tier: 5
+  analysis_tier: 6
   metrics:
-  - ['voronoi', 'num_neighbor']
   - ['voronoi', 'voronoi_area']
   - ['voronoi', 'icd']
-  - ['voronoi', 'num_neighbor_regularity']
   - ['voronoi', 'voronoi_area_regularity']
   - ['voronoi', 'icd_regularity']
+  - ['drp', 'effective_radius']
+  - ['drp', 'packing_factor']
   - ['metrics_of_2PC', 'exclusion_radius']
+  - ['metrics_of_2PC', 'exclusion_factor']
   variables:
   - metric
   - metric_hists
@@ -236,6 +262,10 @@ degree_structure:
   - cone_constrained_span
   - unconstrained_span
   - constraint_ratio
+  - Rr_data
+  - Sr_data
+  - M_data
+  - Dm_data
   - Q_Rr
   - Q_Sr
   - Q_Dm
@@ -254,6 +284,9 @@ degree_structure:
   - DS_Q_Rr
   - DS_Q_Sr
   - DS_Q_Dm
+  - DS_Rr
+  - DS_Sr
+  - DS_Dm
 
 
   

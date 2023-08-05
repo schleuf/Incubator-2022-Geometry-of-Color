@@ -161,7 +161,6 @@ def vector_zeroPad(vector_to_pad, num_preceding, num_following):
 
     prefix = np.zeros([num_preceding, ])
     suffix = np.zeros([num_following, ])
-
     padded_vector = np.append(np.append(prefix, vector_to_pad), suffix)
 
     return padded_vector

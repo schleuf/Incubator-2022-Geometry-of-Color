@@ -19,6 +19,29 @@ eps = sys.float_info.epsilon
 # dist_matrices
 # Monte_Carlo_uniform
 
+
+def rodieck_func(cone_vector: np.ndarray, x_size: int, y_size: int, max_pixel_distance: float, num_bins: int, add_edge_correction: bool):
+    num_points = cone_vector.shape[1]
+    num_analyzed_cones = 0
+    drp = np.zeros((2, num_bins))
+
+    for i in range(num_points):
+        num_analyzed_cones += 1
+        for j in range(num_points):
+            distance = np.hypot(cone_vector[0, i] - cone_vector[0, j], cone_vector[1, i] - cone_vector[1, j])
+            if 0.0 < distance <= max_pixel_distance:
+                bin_ = int(np.ceil(num_bins * distance / max_pixel_distance))
+                # increment the count based on the correction_factor
+                if add_edge_correction:
+                    #correction_factor = 1.0 - (x_size + y_size) * 2.0 * distance / (np.pi * x_size * y_size) + np.square(distance) / (np.pi * x_size * y_size)
+                    correction_factor = 1.0 - ((((x_size + y_size) * 2.0 * distance) + np.square(distance)) / (np.pi * x_size * y_size)) 
+                else:
+                    correction_factor = 1.0
+                drp[1, bin_-1] += 1.0 / correction_factor
+
+    return drp
+
+
 def poisson_interval(k, alpha=0.05): 
     """
     copied from https://stackoverflow.com/questions/14813530/poisson-confidence-interval-with-numpy
@@ -141,6 +164,7 @@ def voronoi_region_metrics(bound, regions, vertices, point_region):
     max_neighbors = 0
 
     for m in np.arange(0, num_mos):
+        # print('     calculating voronoi metrics ' + str(m) + '/' + str(num_mos))
         for r, reg in enumerate(regions[m]):
             if bool(bound[m][r]):
                 if len(reg) > 2:
@@ -371,6 +395,7 @@ def voronoi(coord):
     ridge_points = []
 
     for i in np.arange(0, coord.shape[0]):
+        # print('set ' + str(i) + ' of ' + str(coord.shape[0]) + '...')
         regions.append([])
         vertices.append([])
         ridge_vertices.append([])
@@ -455,11 +480,10 @@ def dist_matrices(coords, dist_self=-1):
 
 def distHist(dists, bin_width, offset_bin = False):
     # vectorize the matrix of distances
-    dists = np.sort(np.reshape(dists, -1))
 
+    dists = np.sort(np.reshape(dists, -1))
     # remove any -1s if present (indicate distance from self, if flagged to mark these in dist_matrices)
     dists = np.delete(dists, np.where(np.isnan(dists)))
-
     # calculate bin stuff
     # bin_edges = np.arange(0, np.ceil(max(dists) + bin_width), bin_width)
     if offset_bin:
@@ -467,12 +491,11 @@ def distHist(dists, bin_width, offset_bin = False):
     else:
         offset = 0
 
-    num_bins = int(np.ceil((max(dists)) / bin_width))
+    num_bins = int(np.ceil((np.nanmax(dists)) / bin_width))
     bins = np.arange(0 + offset, (num_bins * bin_width) + offset, step = bin_width)
 
     hist, bin_edges = np.histogram(dists, bins=bins)
     return hist, bin_edges
-
 
 
 
@@ -691,6 +714,7 @@ def hexgrid(num2gen, hex_radius, x_dim, y_dim, randomize=False, target_num_cones
 
             elif num_cones > target_num_cones:
                 # print('TOO MANY CONES')
+                
                 if delta_radius == -.01:
                     # print('CROSSED')
                     overshot_target = True
@@ -997,8 +1021,9 @@ def monteCarlo_coneLocked(num_coord, all_coord, num_mc):
 
 
 
-def dmin(all_coord, num2gen, num2place, max_dist, prob_rej_type) :
+def dmin(all_coord, num2gen, num2place, max_dist, prob_rej_type, IND = np.nan) :
     dmin_coord = np.zeros([num2gen, num2place, 2]) 
+    dmin_coord[:] = np.nan
 
     for mos in np.arange(0, num2gen):
 
@@ -1013,7 +1038,10 @@ def dmin(all_coord, num2gen, num2place, max_dist, prob_rej_type) :
         # ax = show.scatt(all_coord, 'sim ' + str(mos), s=60, ax=ax)
         # print('    working on dmin mosaic ' + str(mos))
         tries = 0
+        resets = 0
         sim_failed = False
+        # print(num2place)
+        # print(prob_rej_type)
 
         while not enough_placed:
             tries = tries + 1
@@ -1051,6 +1079,10 @@ def dmin(all_coord, num2gen, num2place, max_dist, prob_rej_type) :
                         prob_placement = 1/((max_dist-dist)**2)
                     else:
                         prob_placement = 1
+
+                if prob_rej_type == 'sigmoid':
+                    prob_placement = 1/(1+ (np.exp((IND - (dist-IND)))))
+
                 
 
                 # draw a random number between 0 and 1.  
@@ -1065,6 +1097,7 @@ def dmin(all_coord, num2gen, num2place, max_dist, prob_rej_type) :
             # cones, place a cone here
             if test_cone_passed:
                 placed.append(np.concatenate([candidate_x, candidate_y], axis=0))
+                # print('placed cone #' + str(len(placed)) + ' in ' + str(tries) + ' tries')
                 temp_x = np.delete(temp_x, r, 0)
                 temp_y = np.delete(temp_y, r, 0)
                 # ax = show.scatt(np.concatenate([candidate_x, candidate_y], axis=0), 'sim ' + str(mos), ax = ax, plot_col = 'r', size = 20)
@@ -1074,8 +1107,16 @@ def dmin(all_coord, num2gen, num2place, max_dist, prob_rej_type) :
             if len(placed) == num2place:
                 enough_placed = True
 
-            if tries > 1000:
-                print('1000 tries to set cone, dmin simulation aborted')
+            if tries > 100:
+                print('     >100 tries to set cone #' + str(len(placed)+1) + ', reseeding (' + str(resets) + ')...')
+                resets = resets + 1
+                temp_x = all_coord[:,0]
+                temp_y = all_coord[:,1] 
+                placed = []
+                tries = 0
+
+            if resets > 10: 
+                print('             reseeded 10 times, dude. it aint happening.')
                 sim_failed = True
                 break
 
@@ -1085,8 +1126,6 @@ def dmin(all_coord, num2gen, num2place, max_dist, prob_rej_type) :
                 temp_coord[p,:] = placed[p]
 
             dmin_coord[mos,:,:] = temp_coord
-        else: 
-            dmin_coord = np.nan
 
     return dmin_coord
 

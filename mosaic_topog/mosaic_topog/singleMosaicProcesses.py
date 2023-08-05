@@ -26,10 +26,9 @@ def degree_structure_process(param, sav_cfg):
     sav_fl = param['sav_fl']
     mos_types = ['Ru', 'Rr', 'M', 'Sr', 'Su','Dm']
     mos_labels = ['monteCarlo_uniform', 'monteCarlo_coneLocked', 'measured', 'coneLocked_maxSpacing', 'hexgrid_by_density', 'dmin']
-    data, metrics_taken, metric_key, mos_key = getDataForMosaicSetProcess(sav_fl, proc_metrics)
 
     metric_colors = ['rebeccapurple', 'dodgerblue', 'white', 'darkorange', 'firebrick','chartreuse']
-
+    print(sav_fl)
     for met in proc_metrics:
         metric = met[1]
         mosaic = param['mosaic']
@@ -58,6 +57,8 @@ def degree_structure_process(param, sav_cfg):
         max_val = np.nanmax(min_max_per_mosaic[1,:])
 
         # avoid the extremely high upper limit of regularity indices
+        # print('metric')
+        # print(met[1])
         met_split = met[1].split('_')
         if met_split[len(met_split)-1] == 'regularity':
             max_val = np.nanmin([max_val,100])
@@ -73,14 +74,14 @@ def degree_structure_process(param, sav_cfg):
             #print([met[1] + ': apply FD to M'])
             non_nans = np.nonzero([not np.isnan(Rr_data[x]) for x in np.arange(0, Rr_data.size)])[0]
             n = non_nans.size
-            if met[1] == 'exclusion_radius':
-                temp_bin_edge = [0,3]
-            elif met[1] == 'exclusion_area':
-                temp_bin_edge = [0,.5]
-            elif met[1] == 'exclusion_obed':
-                temp_bin_edge = [0,.05]
-            else:
-                temp_bin_edge = np.histogram_bin_edges(Rr_data[non_nans], bins='scott') 
+            # if met[1] == 'exclusion_radius':
+            #     temp_bin_edge = [0,3]
+            # elif met[1] == 'exclusion_area':
+            #     temp_bin_edge = [0,.5]
+            # elif met[1] == 'exclusion_obed':
+            #     temp_bin_edge = [0,.05]
+
+            temp_bin_edge = np.histogram_bin_edges(Rr_data[non_nans], bins='scott') 
             temp_bin_edge = temp_bin_edge
 
         else:
@@ -94,13 +95,18 @@ def degree_structure_process(param, sav_cfg):
         # print(hist_extents)
         # print('')
         bin_edge = np.arange(hist_extents[0], hist_extents[1], bin_width)
-
+        # print('BIN EDGE')
+        # print(bin_edge.shape)
         metric_values = [Ru_data, Rr_data, M_data, Sr_data, Su_data, Dm_data]
         metric_hists = np.empty([6,bin_edge.shape[0]-1])
         metric_hists[:] = np.nan
 
         # ax = show.plotKwargs({}, "")
         for ind, vals in enumerate(metric_values):    
+            # print(mos_types[ind])
+            # if met == 'exclusion_factor':
+                # print('EXCLUSION FACTORRR')
+                # print(vals)
             if vals.shape[0] > 1:
                 hist, bin_edge = np.histogram(vals, bin_edge)
                 non_nan = np.nonzero(~np.isnan(vals))[0]
@@ -111,8 +117,13 @@ def degree_structure_process(param, sav_cfg):
                 
                 #plt.stairs(metric_hist, bin_edge, color = metric_colors[])
             else:
+                # print('VAL')
+                # print(vals.shape)
                 # plt.scatter(vals[0], 0, 50, 'w', 'o', 'filled')
-                metric_hists[ind, 0] = np.array([vals[0]])
+                try:
+                    metric_hists[ind, 0] = np.array([vals[0]])
+                except:
+                    print('WARNING: still that thing where histogram stuff in degree structure fails for overly discrete metric outputs')
     
         #print(np.concatenate([Rr_data,Sr_data]))
         max_constrained = np.nanmax(np.concatenate([Rr_data,Sr_data]))
@@ -144,83 +155,90 @@ def degree_structure_process(param, sav_cfg):
             # else:
             #     plt.scatter(hist[0], 0, 50, 'w', 'o', 'filled')
         # ax.set_xlim([min_constrained - bin_width, max_constrained + bin_width])
+        #print(met)
+        try: 
+        
+            KS_Rr_Sr = scipy.stats.kstest(Rr_data, Sr_data)
+            KS_Rr_Sr_statistic = KS_Rr_Sr.statistic
+            KS_Rr_Sr_pval = KS_Rr_Sr.pvalue
+            #print(mosaic + ' ' + met[1])
+            #print('KS_Rr_Sr: (stat) ' + str(KS_Rr_Sr.statistic) + ' (p) ' + str(KS_Rr_Sr.pvalue))
+            #if KS_Rr_Sr.pvalue < .05:
+            #    print('Rr & Sr SIGNIFICANTLY DIFFERENT')
+            # print(met)
+
+            Q_Rr = np.quantile(Rr_data[np.nonzero(~np.isnan(Rr_data))[0]], [.025, .975])
+            Q_Sr = np.quantile(Sr_data[np.nonzero(~np.isnan(Sr_data))[0]], [.025, .975])
+            percentiles_Rr = np.quantile(Rr_data[np.nonzero(~np.isnan(Rr_data))[0]], np.arange(.001,.999,.001))
+            percentiles_Sr = np.quantile(Sr_data[np.nonzero(~np.isnan(Sr_data))[0]], np.arange(.001,.999,.001))
+            Q_Ru = np.quantile(Ru_data[np.nonzero(~np.isnan(Ru_data))[0]], [.025, .975])
+            #print('Su_data')
+            #print(Su_data.shape)
+            #if Su_data.shape[0] < 200:
+            #    print(Su_data)
+            #Q_Su = np.quantile(Su_data[np.nonzero(~np.isnan(Su_data))[0]], [.025, .975])
+            Q_Dm = np.quantile(Dm_data[np.nonzero(~np.isnan(Dm_data))[0]], [.025, .975])
+            percentiles_Rr = np.quantile(Ru_data[np.nonzero(~np.isnan(Ru_data))[0]], np.arange(.001,.999,.001))
+            percentiles_Sr = np.quantile(Su_data[np.nonzero(~np.isnan(Su_data))[0]], np.arange(.001,.999,.001))
+            percentiles_Dm = np.quantile(Dm_data[np.nonzero(~np.isnan(Dm_data))[0]], np.arange(.001,.999,.001))
+            #print('Rr .95 confidence intervals: ' + str(Q_Sr))
+            #print('Rr .95 confidence intervals: ' + str(Q_Sr))
+            if M_data.shape[0] > 1:
+                KS_M_Rr = scipy.stats.kstest(M_data, Rr_data)
+                KS_M_Rr_statistic = KS_M_Rr.statistic
+                KS_M_Rr_pval = KS_M_Rr.pvalue
+                KS_M_Sr = scipy.stats.kstest(M_data, Sr_data)
+                KS_M_Sr_statistic = KS_M_Sr.statistic
+                KS_M_Sr_pval = KS_M_Sr.pvalue
+                KS_M_Dm = scipy.stats.kstest(M_data, Dm_data)
+                KS_M_Dm_statistic = KS_M_Dm.statistic
+                KS_M_Dm_pval = KS_M_Dm.pvalue
+
+            #    print('KS_M_Rr:  (stat) ' + str(KS_M_Rr.statistic) + ' (p) ' + str(KS_M_Rr.pvalue))
+            #    print('KS_M_Sr:  (stat) ' + str(KS_M_Sr.statistic) + ' (p) ' + str(KS_M_Sr.pvalue))
+            #    if KS_M_Rr.pvalue < .05:
+            #        print('M & Rr SIGNIFICANTLY DIFFERENT')
+            #    if KS_M_Sr.pvalue < .05:
+            #        print('M & Sr SIGNIFICANTLY DIFFERENT')
+                degree_structure = np.nan
+                DS_Q_Rr = np.nan
+                DS_Q_Sr = np.nan
+                DS_Q_Dm = np.nan
+                DS_Rr = np.nan
+                DS_Sr = np.nan
+                DS_Dm = np.nan
+            else:
+                KS_M_Rr = np.nan
+                KS_M_Sr = np.nan
+                KS_M_Dm = np.nan
+                KS_M_Rr_statistic = np.nan
+                KS_M_Rr_pval = np.nan
+                KS_M_Sr_statistic = np.nan
+                KS_M_Sr_pval = np.nan
+                KS_M_Dm_statistic = np.nan
+                KS_M_Dm_pval = np.nan
+       
+                max_val = np.nanmax(np.concatenate([Sr_data, Rr_data, Dm_data]))
+                min_val = np.nanmin(np.concatenate([Sr_data, Rr_data, Dm_data]))
+
+                degree_structure = ((M_data[0] - min_val) / (max_val-min_val))
+
+                DS_Q_Rr = np.array([(Q_Rr[0] - min_val / (max_val-min_val)),
+                                    (Q_Rr[1] - min_val / (max_val-min_val))])
+                DS_Q_Sr = np.array([(Q_Sr[0] - min_val / (max_val-min_val)),
+                                    (Q_Sr[1] - min_val / (max_val-min_val))])
+                DS_Q_Dm = np.array([(Q_Dm[0] - min_val / (max_val-min_val)),
+                                    (Q_Dm[1] - min_val / (max_val-min_val))])
+                
+                DS_Rr = np.array([(z - min_val) / (max_val-min_val) for z in Rr_data])
+                DS_Sr = np.array([(z - min_val) / (max_val-min_val) for z in Sr_data])
+                DS_Dm = np.array([(z - min_val) / (max_val-min_val) for z in Dm_data])
+
+            data_to_set = util.mapStringToLocal(proc_vars, locals())
+        except:
+            print('Exception: Degree Structure not calculated for ' + met + '(likely because metric is empty, which may or may not be appropriate)')
+            data_to_set = util.mapStringToNan(proc_vars)
     
-        KS_Rr_Sr = scipy.stats.kstest(Rr_data, Sr_data)
-        KS_Rr_Sr_statistic = KS_Rr_Sr.statistic
-        KS_Rr_Sr_pval = KS_Rr_Sr.pvalue
-        #print(mosaic + ' ' + met[1])
-        #print('KS_Rr_Sr: (stat) ' + str(KS_Rr_Sr.statistic) + ' (p) ' + str(KS_Rr_Sr.pvalue))
-        #if KS_Rr_Sr.pvalue < .05:
-        #    print('Rr & Sr SIGNIFICANTLY DIFFERENT')
-        print(met)
-        Q_Rr = np.quantile(Rr_data[np.nonzero(~np.isnan(Rr_data))[0]], [.025, .975])
-        Q_Sr = np.quantile(Sr_data[np.nonzero(~np.isnan(Sr_data))[0]], [.025, .975])
-        percentiles_Rr = np.quantile(Rr_data[np.nonzero(~np.isnan(Rr_data))[0]], np.arange(.001,.999,.001))
-        percentiles_Sr = np.quantile(Sr_data[np.nonzero(~np.isnan(Sr_data))[0]], np.arange(.001,.999,.001))
-        Q_Ru = np.quantile(Ru_data[np.nonzero(~np.isnan(Ru_data))[0]], [.025, .975])
-        Q_Su = np.quantile(Su_data[np.nonzero(~np.isnan(Su_data))[0]], [.025, .975])
-        Q_Dm = np.quantile(Dm_data[np.nonzero(~np.isnan(Dm_data))[0]], [.025, .975])
-        percentiles_Rr = np.quantile(Ru_data[np.nonzero(~np.isnan(Ru_data))[0]], np.arange(.001,.999,.001))
-        percentiles_Sr = np.quantile(Su_data[np.nonzero(~np.isnan(Su_data))[0]], np.arange(.001,.999,.001))
-        percentiles_Dm = np.quantile(Dm_data[np.nonzero(~np.isnan(Dm_data))[0]], np.arange(.001,.999,.001))
-        #print('Rr .95 confidence intervals: ' + str(Q_Sr))
-        #print('Rr .95 confidence intervals: ' + str(Q_Sr))
-        if M_data.shape[0] > 1:
-            KS_M_Rr = scipy.stats.kstest(M_data, Rr_data)
-            KS_M_Rr_statistic = KS_M_Rr.statistic
-            KS_M_Rr_pval = KS_M_Rr.pvalue
-            KS_M_Sr = scipy.stats.kstest(M_data, Sr_data)
-            KS_M_Sr_statistic = KS_M_Sr.statistic
-            KS_M_Sr_pval = KS_M_Sr.pvalue
-            KS_M_Dm = scipy.stats.kstest(M_data, Dm_data)
-            KS_M_Dm_statistic = KS_M_Dm.statistic
-            KS_M_Dm_pval = KS_M_Dm.pvalue
-
-        #    print('KS_M_Rr:  (stat) ' + str(KS_M_Rr.statistic) + ' (p) ' + str(KS_M_Rr.pvalue))
-        #    print('KS_M_Sr:  (stat) ' + str(KS_M_Sr.statistic) + ' (p) ' + str(KS_M_Sr.pvalue))
-        #    if KS_M_Rr.pvalue < .05:
-        #        print('M & Rr SIGNIFICANTLY DIFFERENT')
-        #    if KS_M_Sr.pvalue < .05:
-        #        print('M & Sr SIGNIFICANTLY DIFFERENT')
-            degree_structure = np.nan
-            DS_Q_Rr = np.nan
-            DS_Q_Sr = np.nan
-            DS_Q_Dm = np.nan
-        else:
-            KS_M_Rr = np.nan
-            KS_M_Sr = np.nan
-            KS_M_Dm = np.nan
-            KS_M_Rr_statistic = np.nan
-            KS_M_Rr_pval = np.nan
-            KS_M_Sr_statistic = np.nan
-            KS_M_Sr_pval = np.nan
-            KS_M_Dm_statistic = np.nan
-            KS_M_Dm_pval = np.nan
-            
-
-        #    print('M_value: ' + str(M_data[0]))
-        #    if M_data[0] > Q_Rr[1]: 
-        #        print('M > 95TH PERCENTILE OF Rr')
-        #    if M_data[0] < Q_Sr[0]: 
-        #        print('M < 95TH PERCENTILE OF Sr')
-           
-            degree_structure = (M_data[0] - np.nanmin(Rr_data)) / (np.nanmax(Sr_data)-np.nanmin(Rr_data))
-            DS_Q_Rr = np.array([(Q_Rr[0] - np.nanmin(Rr_data)) / (np.nanmax(Sr_data)-np.nanmin(Rr_data)),
-                                (Q_Rr[1] - np.nanmin(Rr_data)) / (np.nanmax(Sr_data)-np.nanmin(Rr_data))])
-            DS_Q_Sr = np.array([(Q_Sr[0] - np.nanmin(Rr_data)) / (np.nanmax(Sr_data)-np.nanmin(Rr_data)),
-                                (Q_Sr[1] - np.nanmin(Rr_data)) / (np.nanmax(Sr_data)-np.nanmin(Rr_data))])
-            DS_Q_Dm = np.array([(Q_Dm[0] - np.nanmin(Dm_data)) / (np.nanmax(Sr_data)-np.nanmin(Rr_data)),
-                                (Q_Dm[1] - np.nanmin(Dm_data)) / (np.nanmax(Sr_data)-np.nanmin(Rr_data))])
-        #    print('DEGREE STRUCTURE: ' + str(degree_structure))
-
-        #print('')
-        print('the degree structure quantiles')
-        print(DS_Q_Rr)
-        print(DS_Q_Sr)
-        print(DS_Q_Dm)
-
-        data_to_set = util.mapStringToLocal(proc_vars, locals())
-
         flsyst.setProcessVarsFromDict(param, sav_cfg, proc, data_to_set, prefix='mosaic_set_' + metric + '_')
 
 
@@ -262,6 +280,12 @@ def metrics_of_2PC_process(param, sav_cfg):
         else:
             print('ack!!! problem getting hex_radius in metrics_of_2PC_process')
         
+        emp_max_rad = np.nanmax(file['coneLocked_maxSpacing']['hex_radii_used'][()])
+        print('EMR')
+        print(emp_max_rad)
+        print('HR')
+        print(hex_radius[0])
+        print('')
     
     analysis_x_cutoff = int(np.argmin(np.abs((bin_edge - (2 * hex_radius)))))
 
@@ -290,12 +314,14 @@ def metrics_of_2PC_process(param, sav_cfg):
         first_peak_rad = np.empty([crop_corr.shape[0],])
         exclusion_bins = np.empty([crop_corr.shape[0],])
         exclusion_radius = np.empty([crop_corr.shape[0],])
+        exclusion_factor = np.empty([crop_corr.shape[0],])
         # exclusion_area = np.empty([crop_corr.shape[0],])
         # max_obed_exclusion_area = np.empty([crop_corr.shape[0],])
         # exclusion_obed = np.empty([crop_corr.shape[0],])
         first_peak_rad[:] = np.nan
         exclusion_bins[:] = np.nan
         exclusion_radius[:] = np.nan
+        exclusion_factor[:] = np.nan
         # exclusion_area[:] = np.nan
         # max_obed_exclusion_area[:] = np.nan
         # exclusion_obed[:] = np.nan
@@ -344,22 +370,22 @@ def metrics_of_2PC_process(param, sav_cfg):
                     if not np.any(zeros):
                         if np.all([diff1[x] ==1 for x in np.arange(0,len(diff1))]):
                             exclusion_bins[m] = dearth_bins[m].shape[0]
-                            if m == 0 and printStuff:
-                                print('option 2')
+                            # if m == 0 and printStuff:
+                                # print('option 2')
                         else:
                             exclusion_bins[m] = 1
-                            if m == 0 and printStuff:
-                                print('option 3')
+                            # if m == 0 and printStuff:
+                                # print('option 3')
                     else:
                         first_zero = zeros[0] + 1
                         exclusion_bins[m] = first_zero
-                        if m == 0 and printStuff:
-                            print('option 4')
+                        # if m == 0 and printStuff:
+                        #     print('option 4')
 
             else:
                 exclusion_bins[m] = 0
-                if m == 0 and printStuff:
-                    print('option 5')
+                # if m == 0 and printStuff:
+                #     print('option 5')
             
             
 
@@ -391,14 +417,26 @@ def metrics_of_2PC_process(param, sav_cfg):
                 # print('exclusionary bins')
                 # print(exclusion_bins[m])
                 for b in np.arange(0, int(exclusion_bins[m])):
+                    # print('EXCLUsION FACTOR')
+                    # print(exclusion_radius[m])
+                    # print(hex_radius)
+                    # print(exclusion_radius[m]/hex_radius)
+                    try:
+                        exclusion_factor[m] = (exclusion_radius[m]/emp_max_rad)**2
+                        
+                        #exclusion_factor[m] = exclusion_radius[m]/hex_radius[0]
+                    except:
+                        print('could not set exclusion factor for ')
+     
 
+                    
                     # print('            ' + str(exclusion_area[m]))
                     # print('                   ' + str((corr_by_mean[b] + (2 * corr_by_std))-crop_corr[m, b]))
                     # print(corr_by_mean[b] + (2 * corr_by_std[b]))
                     # print(crop_corr[m, b])
                     #print(((corr_by_mean[b] - (2 * corr_by_std[b]))-crop_corr[m, b]))
-                    Rumean_minus2std = (corr_by_pi[0,b])
-                    test = crop_corr[m, b]
+                    # Rumean_minus2std = (corr_by_pi[0,b])
+                    # test = crop_corr[m, b]
                     # exclusion_area[m] = exclusion_area[m] + (bin_width * (Rumean_minus2std-test))
                     # max_obed_exclusion_area[m] = max_obed_exclusion_area[m] + (bin_width * (Rumean_minus2std-(-1)))
               
@@ -409,7 +447,8 @@ def metrics_of_2PC_process(param, sav_cfg):
                     #                     [crop_corr[m,b], crop_corr[m,b]],
                     #                     [corr_by_pi[0,b], corr_by_pi[0,b]], 
                     #                     color='g', alpha=.5)
-
+            else:
+                exclusion_factor[m] = 0
             # if max_obed_exclusion_area[m] > 0:
             #     exclusion_obed[m] = exclusion_area[m] / max_obed_exclusion_area[m]
             # else: 
@@ -455,7 +494,7 @@ def two_point_correlation_process(param, sav_cfg):
     proc = 'two_point_correlation'
     proc_vars = sav_cfg[proc]['variables']
     sav_fl = param['sav_fl']
-    bin_width = param['bin_width']
+    # bin_width = param['bin_width']
     to_be_corr = param['to_be_corr']
     sim_to_gen = param['sim_to_gen']
     corr_by = param['corr_by']
@@ -466,16 +505,17 @@ def two_point_correlation_process(param, sav_cfg):
     dist_hists = []
     max_bins = 0
     with h5py.File(sav_fl, 'r') as file:
-        
+        xlim = [0, file['input_data']['img_x'][()]]
+        ylim = [0, file['input_data']['img_y'][()]]
         for ind, PD in enumerate(PD_string):
             num_mosaic = coord[ind].shape[0]
             print('     Running two point correlation on ' + str(num_mosaic) + " " + PD_string[ind] + ' mosaics...') 
 
-            if PD == corr_by + '_':
-                corr_by_ind = ind
-                corr_by_mean = file[PD + 'intracone_dist']['hist_mean'][()]
-                corr_by_std = file[PD + 'intracone_dist']['hist_std'][()]
-                corr_by_pi = file[PD + 'intracone_dist']['poisson_intervals'][()]
+            # if PD == corr_by + '_':
+            #     corr_by_ind = ind
+            #     corr_by_mean = file[PD + 'intracone_dist']['hist_mean'][()]
+            #     corr_by_std = file[PD + 'intracone_dist']['hist_std'][()]
+            #     corr_by_pi = file[PD + 'intracone_dist']['poisson_intervals'][()]
             
             dist_hists.append(file[PD + 'intracone_dist']['hist_mat'][()])
             temp_edges = file[PD + 'intracone_dist']['bin_edge'][()]
@@ -490,14 +530,72 @@ def two_point_correlation_process(param, sav_cfg):
                 max_bins = num_bins
                 max_bin_edges = temp_edges
 
-    if corr_by_mean.shape[0] < max_bins:
-        corr_by_mean = util.vector_zeroPad(corr_by_mean, 0, max_bins - corr_by_mean.shape[0]-1)
-        corr_by_std = util.vector_zeroPad(corr_by_std, 0, max_bins - corr_by_std.shape[0]-1)
-        corr_by_pi_row0= util.vector_zeroPad(corr_by_pi[0, :], 0, max_bins - corr_by_pi.shape[1]-1)
-        corr_by_pi_row1 = util.vector_zeroPad(corr_by_pi[1, :], 0, max_bins - corr_by_pi.shape[1]-1)
-        corr_by_pi = np.empty([2, max_bins-1])
-        corr_by_pi[0,:] = corr_by_pi_row0
-        corr_by_pi[1,:] = corr_by_pi_row1
+            bin_width = temp_edges[1] - temp_edges[0]
+
+
+    
+    # create the population of simulated mosaics to be correlated against
+    numcorrmos = 100000
+    numcone = coord[0].shape[1]
+    print('     Generating ' + str(numcorrmos) + " random uniform mosaics for 2PC...") 
+    mc_coord = calc.monteCarlo_uniform(numcone, numcorrmos, xlim, ylim)
+
+    # copied from smp.intracone_dist_process, variable names modified ------------------------------------
+    dist = np.zeros((numcorrmos, numcone, numcone))
+    mean_nearest = np.zeros(numcorrmos)
+    std_nearest = np.zeros(numcorrmos)
+    hist = np.empty(numcorrmos, dtype=np.ndarray)
+
+    print('     Running intracone distances on ' + str(numcorrmos) + " random uniform mosaics for 2PC...") 
+
+    for mos in np.arange(0, numcorrmos):
+        this_coord = mc_coord[mos, :, :]
+        dist[mos, :, :], mean_nearest[mos], std_nearest[mos], hist[mos], bin_edge, annulus_area = intracone_dist_common(this_coord.squeeze(), bin_width, False, False)
+        if hist[mos].shape[0] > max_bins:
+            max_bins = hist[mos].shape[0]
+    
+    
+    poisson_intervals = np.empty([2, max_bins])
+    poisson_intervals[:] = np.nan
+
+
+    # this is just to convert the returned histograms into a rectangular array
+    # (this can't be done in advance because of...slight variability in the number of bins returned? why?)
+    hist_mat = np.zeros([numcorrmos, max_bins])
+    for mos in np.arange(0, numcorrmos):
+        hist_mat[mos, 0:hist[mos].shape[0]] = hist[mos]
+
+    corr_by_hists = hist_mat
+
+    #sierra why did you do this
+    corr_by_poisson_95conf = poisson_intervals
+    corr_by_pi = corr_by_poisson_95conf
+
+    if numcorrmos > 1:
+        for b in np.arange(0, hist_mat.shape[1]):
+            poisson_intervals[0, b], poisson_intervals[1, b] = calc.poisson_interval(np.nanmean(hist_mat[:,b]))
+
+    #----------------------------------------------------------------------------
+
+    # while len(bin_edge) < max_hist_bin + 1:
+    #     bin_edge = np.append(bin_edge, np.max(bin_edge)+bin_width)
+
+    corr_by_mean = np.nanmean(hist_mat, axis=0)
+    corr_by_std = np.nanstd(hist_mat, axis=0)
+
+    # if corr_by_mean.shape[0] < max_bins:
+    
+    corr_by_mean = util.vector_zeroPad(corr_by_mean, 0, max_bins - (corr_by_mean.shape[0]))
+    corr_by_std = util.vector_zeroPad(corr_by_std, 0, max_bins - (corr_by_std.shape[0]))
+    corr_by_pi_row0= util.vector_zeroPad(corr_by_pi[0, :], 0, max_bins - (corr_by_pi.shape[1]))
+    corr_by_pi_row1 = util.vector_zeroPad(corr_by_pi[1, :], 0, max_bins - (corr_by_pi.shape[1]))
+    corr_by_pi = np.empty([2, max_bins])
+    corr_by_pi[0,:] = corr_by_pi_row0
+    corr_by_pi[1,:] = corr_by_pi_row1
+
+    # else:
+    #     corr_by_pi_row0 = corr_by_pi[0, :]
+    #     corr_by_pi_row1 = corr_by_pi[1, :]
 
     if coord:
         hist_x, hist_y, hist_y_plus, hist_y_minus = util.reformat_stat_hists_for_plot(max_bin_edges, corr_by_mean, corr_by_pi)
@@ -515,13 +613,13 @@ def two_point_correlation_process(param, sav_cfg):
         for ind, dist_mat in enumerate(dist_hists):
 
             # preallocation for new 2PC matrix
-            corred = np.empty([dist_mat.shape[0], max_bins-1])
+            corred = np.empty([dist_mat.shape[0], max_bins])
             corred[:] = np.nan
             #ax = show.plotKwargs({},'')
 
             corr_pi_row1 = calc.corr(corr_by_pi_row0, corr_by_hist)
             corr_pi_row2 = calc.corr(corr_by_pi_row1, corr_by_hist)
-            corr_by_pi = np.empty([2, max_bins-1])
+            corr_by_pi = np.empty([2, max_bins])
             corr_by_pi[0,:] = corr_pi_row1
             corr_by_pi[1,:] = corr_pi_row2
 
@@ -529,7 +627,7 @@ def two_point_correlation_process(param, sav_cfg):
                 hist = dist_mat[mos,:]
 
                 if hist.shape[0] < max_bins:
-                    hist = util.vector_zeroPad(hist, 0, max_bins - hist.shape[0] - 1)
+                    hist = util.vector_zeroPad(hist, 0, max_bins - hist.shape[0])
 
                 # new 2PC calculation
                 corred[mos,:] = calc.corr(hist, corr_by_hist)
@@ -543,6 +641,167 @@ def two_point_correlation_process(param, sav_cfg):
     
 
 ## --------------------------------PRIMARY ANALYSIS FUNCTIONS--------------------------------------
+
+def drp_process(param, sav_cfg):
+    """
+    Inputs
+    ------
+
+    Outputs
+    -------
+
+
+    """
+    proc = 'drp'
+    proc_vars = sav_cfg[proc]['variables']
+
+    sav_fl = param['sav_fl']
+    print(sav_fl)
+    coord, PD_string = getDataForPrimaryProcess(sav_fl)
+    with h5py.File(sav_fl, 'r') as file:
+        convert_coord_unit = file['input_data']['convert_coord_unit'][()]  
+        coord_unit = bytes(file['input_data']['coord_unit'][()]).decode("utf8")
+        img_y = [0, file['input_data']['img_y'][()]]
+        img_x = [0, file['input_data']['img_x'][()]]
+        if convert_coord_unit:
+            coord_conversion_factor = file['input_data']['coord_conversion_factor'][()]
+            if type(coord_conversion_factor) == str:
+                coord_conversion_factor = eval(coord_conversion_factor)
+            density_unit = bytes(file['input_data']['density_unit'][()]).decode("utf8")
+            density_conversion_factor = file['input_data']['density_conversion_factor'][()]
+            if type(density_conversion_factor) == str:
+                density_conversion_factor = eval(density_conversion_factor)
+        else:
+            density_unit = coord_unit
+        
+        density = file['measured_voronoi']['density'][()]
+
+    for ind, point_data in enumerate(coord):
+        # print('COORD SHAPE')
+        # print(point_data.shape)
+
+        if len(point_data.shape) == 2:
+            print('ack 2D data!!!')
+        
+        print('     Running drps for ' + str(point_data.shape[0]) + " " + PD_string[ind] + ' mosaics...') 
+        
+        # Generate an array of intercone distances and compute the DRP for all
+        # distances (see comment for AddEdgeCorrection
+
+        # This is a correction factor that correct for annuli that extend beyond
+        # the field of points that are analyses (i.e edge effect). If you have a
+        # square fields of contiguous samples, then this correction is needed to yeoidl accruate estimates of density at all distances.
+        # If you have a non-contiguous array over a non-square field, then its best
+        # to set this zero.
+        
+        with h5py.File(sav_fl, 'r') as file:
+            PD = PD_string[ind]
+            bin_edges = file[PD + 'intracone_dist']['bin_edge'][()]
+            bin_width = bin_edges[1]-bin_edges[0]
+
+        # max_pixel_distance = 100
+        
+        # higher_bins = np.nonzero([bin_edges[i] > max_pixel_distance for i in np.arange(0,bin_edges.shape[0])])[0]
+        # bin_edges = bin_edges[0:higher_bins[0]+1]
+        max_pixel_distance = bin_edges[len(bin_edges)-1]
+        num_bins = bin_edges.shape[0]-1
+        
+        add_edge_correction = True
+        num_mos = point_data.shape[0]
+        num_cone = point_data.shape[1]
+        drp = np.empty([num_mos, 3, num_bins])
+        expected_number = np.empty([num_mos, num_bins])
+        expected_drp = np.empty([num_mos, num_bins])
+        effective_radius = np.empty([num_mos, ])
+        packing_factor = np.empty([num_mos, ])
+        drp[:] = np.nan
+        expected_number[:] = np.nan
+        expected_drp[:] = np.nan
+        effective_radius[:] = np.nan
+        packing_factor[:] = np.nan
+
+        if point_data.shape[1] > 5: 
+            for m in np.arange(0, num_mos):
+
+                temp_coord = np.squeeze(point_data[m,:,:])
+                temp = np.empty([temp_coord.shape[1], temp_coord.shape[0]])
+                temp[0,:] = temp_coord[:,0]
+                temp[1,:] = temp_coord[:,1]
+                temp_coord = temp
+
+                drp[m, 0:2, :] = calc.rodieck_func(temp_coord, img_x[1]-img_x[0], img_y[1]-img_y[0], max_pixel_distance, num_bins, add_edge_correction)
+                # print('DRP')
+                # print(drp[m,:,:])
+                # THIS whole section is a series of calculation to determine packing parameters.
+                # It IS DESCRIBED IN RODIECK P99 COLUMN 2. IT IS NOT A USEFUL MEASURE FOR
+                # NON-CONTIGUOUS DATASETS.
+
+                # name_this_variable_better = False
+
+                # if name_this_variable_better:
+                vol = 0
+                count = 0
+
+                for i in np.arange(0,num_bins):
+                    # this number is computed as the area of each annulus times density times number of cones
+                    # (since all cones are added together in DRP)
+                    expected_number[m,i] = num_cone * density * np.pi * (2 * i + 1) * np.square(max_pixel_distance / num_bins)
+
+                    if expected_number[m,i] > drp[m, 1, i] and count < 1:
+                        # add the open area above the actual densities and below the average density
+                        vol += expected_number[m,i] - drp[m, 1, i]
+                    else:
+                        count = 1
+
+                vol /= num_cone
+                effective_radius[m] = np.sqrt(vol / (np.pi * density))
+                maximum_radius = np.sqrt(np.sqrt(4.0 / 3.0) / density)
+                packing_factor[m] = np.square(effective_radius[m]/ maximum_radius)
+
+                # print(f"The effective radius is {effective_radius}")
+                # print(f"The maximum radius is {maximum_radius}")
+                # print(f"The packing factor is {np.square(effective_radius / maximum_radius)}")
+                # print('')
+                # # convert all value to minutes of arc
+                # for i in range(num_bins):
+                #     drp[2, i] = drp[1, i] * np.square(pixels_per_degree) / (num_sub_points * (np.pi * np.square(max_pixel_distance / num_bins) * (2 * i + 1)))
+                #     drp[0, i] = 60.0 / pixels_per_degree * (i + 1) * max_pixel_distance / num_bins
+            
+                for i in range(num_bins):
+                    drp[m, 2, i] = drp[m, 1, i] * 1 / (num_cone * (np.pi * np.square(max_pixel_distance / num_bins) * (2 * i + 1)))
+                    #drp[0, i] = 60.0 / pixels_per_degree * (i + 1) * max_pixel_distance / num_bins
+                    expected_drp[m,i] = expected_number[m,i] * 1 / (num_cone * (np.pi * np.square(max_pixel_distance / num_bins) * (2 * i + 1)))
+
+                counts_per_bin = np.squeeze(drp[:,1,:])
+                drp_mean = np.nanmean(drp[:,2,:], axis=0)
+                drp_all = drp[:,2,:]
+                drp_std = np.nanstd(drp_all, axis=0)
+                drp_ste = np.divide(drp_std, counts_per_bin) 
+
+                #percentiles_per_bin_across_mosaics = np.quantile(Rr_data[np.nonzero(~np.isnan(Rr_data))[0]], np.arange(.001,.999,.001))
+                
+
+
+                # plt.stairs(np.squeeze(drp_mean), bin_edges)
+                # plt.xlabel("Distance(pixels)")
+                # if add_edge_correction:
+                #     plt.ylabel("Cone density per pixel squared")
+                # else:
+                #     plt.ylabel("uncorrected density (a.u.)")
+
+                # plt.title("Density Recovery Profile")
+                # plt.show()
+
+            data_to_set = util.mapStringToLocal(proc_vars, locals())
+
+        else:
+            data_to_set = util.mapStringToNan(proc_vars)
+
+        flsyst.setProcessVarsFromDict(param, sav_cfg, proc, data_to_set,
+                                        prefix=PD_string[ind])
+        
+
+
 
 def voronoi_process(param, sav_cfg):
     """
@@ -573,6 +832,7 @@ def voronoi_process(param, sav_cfg):
                 density_conversion_factor = eval(density_conversion_factor)
         else:
             density_unit = coord_unit
+ 
 
     coord, PD_string = getDataForPrimaryProcess(sav_fl)
 
@@ -784,14 +1044,16 @@ def intracone_dist_common(coord, bin_width, dist_area_norm, offset_bin = False):
         row = dist[cone, :]
         # find the index where the distance = -1 if it exists - this is self
         # and shouldn't be included
-        row = np.delete(row, np.nonzero(np.isnan(row))[0])
+        if np.nonzero(np.isnan(row))[0].shape[0] > 0:
+            row = np.delete(row, np.nonzero(np.isnan(row))[0])
+            
         # get the minimum value in the row
         #print(row)
         if row.shape[0]>0:
             nearest_dist.append(row.min())
 
-    mean_nearest = np.mean(np.array(nearest_dist))
-    std_nearest = np.std(np.array(nearest_dist))
+    mean_nearest = np.nanmean(np.array(nearest_dist))
+    std_nearest = np.nanstd(np.array(nearest_dist))
 
     hist, bin_edge = calc.distHist(dist, bin_width, offset_bin)
 
@@ -939,7 +1201,7 @@ def intracone_dist_process(param, sav_cfg):
             with h5py.File(all_coord_fl, 'r') as file:
                 all_cone_mean_icd   = file['measured_voronoi']['icd_mean'][()]
         except:
-            print('could not pull mean nearest from ' + all_coord_fl)
+            print('could not pull mean icd from ' + all_coord_fl)
         bin_width = all_cone_mean_icd
         offset_bin = False
     else:
@@ -966,7 +1228,6 @@ def intracone_dist_process(param, sav_cfg):
                     max_hist_bin = hist[mos].shape[0]
             poisson_intervals = np.empty([2, max_hist_bin])
             poisson_intervals[:] = np.nan
-
 
             # this is just to convert the returned histograms into a rectangular array
             # (this can't be done in advance because of...slight variability in the number of bins returned? why?)
@@ -1011,6 +1272,8 @@ def dmin_process(param, sav_cfg):
     sav_fl = param['sav_fl']
     num2gen = util.numSim(proc, param['num_sim'], param['sim_to_gen'])
 
+    print(sav_fl)
+
     with h5py.File(sav_fl, 'r') as file:
         # get coordinates and # of cones
         og_coord = file['input_data']['cone_coord'][()]
@@ -1037,9 +1300,14 @@ def dmin_process(param, sav_cfg):
         cones2place = og_coord.shape[0]
 
         #initialize space for dmin mosaic
-        prob_rej_type = 'inverse_distance_squared'
+        prob_rej_type = 'sigmoid'
+
+        if prob_rej_type == 'sigmoid':
+            IND_entry = all_cone_mean_icd
+        else:
+            IND_entry = np.nan
  
-        dmin_coord = calc.dmin(all_coord, num2gen, cones2place, dmin_maxdist, prob_rej_type)
+        dmin_coord = calc.dmin(all_coord, num2gen, cones2place, dmin_maxdist, prob_rej_type, IND_entry)
         
         coord = dmin_coord
         
