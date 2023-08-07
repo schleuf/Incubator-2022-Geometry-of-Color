@@ -14,4 +14,6 @@ dependencies:
   - yaml
   - opencv>=4.6.0
   - shapely
-
+  - pandas
+  - openpyxl
+  - scikit-learn

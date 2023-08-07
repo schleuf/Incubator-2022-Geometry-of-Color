@@ -27,7 +27,6 @@ def setProcessByType(file, proc, var, data, prefix=''):
     """
     
     proc_to_set = prefix + proc
-
     if isinstance(data, str):
         file[proc_to_set][var] = np.string_(data)
     elif isinstance(data, float):
@@ -46,7 +45,10 @@ def setProcessByType(file, proc, var, data, prefix=''):
                 data = [n.encode('utf8', 'ignore') for n in data]
                 file[proc_to_set][var] = np.array(data)
             else:
-                file[proc_to_set][var] = np.ndarray(data)
+                try:
+                    file[proc_to_set][var] = np.ndarray(data)
+                except:
+                    file[proc_to_set][var] = np.array([data])
         except TypeError:
             print('')
             print(var)
@@ -58,8 +60,8 @@ def setProcessByType(file, proc, var, data, prefix=''):
         try:
             file[proc_to_set][var] = data
         except TypeError:
-            print(proc_to_set)
-            print(var)
+            # print(proc_to_set)
+            # print(var)
             print('GAH something weird about ndarrays in flsyst.setproc_to_setessByType')
             file[proc_to_set][var] = np.float_(data.astype('float64'))   
     else:
@@ -74,11 +76,22 @@ def setProcessVarsFromDict(param, sav_cfg, proc, data_to_set, spec='all', prefix
     for that function after it has run
     """
     sav_fl = param['sav_fl']
+    
+    # if proc == 'drp':
+    #     print('DATA_TO_SET (IN FLSYST)')
+    #     print(data_to_set)
+    #     print('')
+    #     print('')
+    #     print('')
+    #     print('')
 
     with h5py.File(sav_fl, 'r+') as file:
 
         # find all variables for this process
         proc_vars = sav_cfg[proc]['variables']
+        # if proc == 'drp':
+        #     print('hee hee you found me')
+        #     print('proc_vars')
 
         if spec == 'all':
             # set spec to equal all variables
@@ -107,23 +120,41 @@ def setProcessVarsFromDict(param, sav_cfg, proc, data_to_set, spec='all', prefix
             if var not in proc_vars:
                 print('variable "' + var + '" found in the save file is not found in the configuration file for process "' + proc + '". it will be removed from the save file.')
                 del temp_vars[var]
+            # else:
+            #     if proc == 'drp':
+            #         print('PRINTING VARS')
+            #         print(var)
+            #         print(data_to_set[var])
 
         # create process key in the save file
         if (proc_to_set) in file.keys():
             del file[proc_to_set]
         file.create_group(proc_to_set)
 
+        # print('SPEC')
+        # print(spec)
+  
         # set variables
         for var in proc_vars:
             if var in spec:
+                # if proc == 'drp':
+                #     print('opt 1')
+                #     print(var)
+                #     print(data_to_set.keys())
+                #     print(data_to_set[var])
                 setProcessByType(file, proc, var, data_to_set[var], prefix=prefix)
             elif var in temp_vars:
+                # if proc == 'drp':
+                    # print('opt 2')
                 # sets variable to its pre-existing values if 'spec'
                 # doesn't equal "all" and the variable name is not
                 # contained in 'spec'
                 setProcessByType(file, proc, var, temp_vars[var], prefix=prefix)
             else:
+                # if proc == 'drp':
+                #     print('opt 3')
                 print('check for variables failed, go look for the bug earlier in this function')
+
 
 
 def saveNameFromLoadPath(fls, save_path, load_type='.csv', save_type='.hdf5'):
@@ -407,9 +438,6 @@ def getIndexes(categories, cat_str, cat_names):
     cat_index = {}
 
     for ind, cat_name in enumerate(cat_names):
-        print(cat_name)
-        print(categories[ind])
-        print('')
         vect = getIndex(categories[ind], cat_str[ind])
         cat_index[cat_name] = vect
 
@@ -530,17 +558,26 @@ def printSaveFile(sav_fl):
     print(sav_fl)
     if os.path.exists(sav_fl):
         with h5py.File(sav_fl, 'r') as file:
+            print(file['measured_intracone_dist']['bin_edge'][()])
             for key in file.keys():
                 key_div = '***************************************'
                 print(key_div + key + key_div)
+                # if key == 'input_data':
+                #     print('IMG DIMENSIONS')
+                #     print(file[key]['img_x'][()])
+                #     print(file[key]['img_y'][()])
                 for var in file[key]:
                     print(var)
                     if isinstance(file[key][var][()], np.bytes_):
                         data = bytes(file[key][var][()]).decode("utf8")
+                        # if 'voronoi' in key:
+                        #     print(data)
                     else:
                         data = file[key][var][()]
                     try:
                         print(data.shape)
+                        # if 'voronoi' in key:
+                        #     print(data)
                     except:
                         print('-')
                     #print(data)

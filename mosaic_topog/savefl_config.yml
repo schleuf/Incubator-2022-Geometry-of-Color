@@ -15,8 +15,7 @@ process_hierarchy:
   content: 
   - default_processes
   - gen_sim
-  - primary_analyses
-  - secondary_analyses
+  - run_analysis_tiers
 
 default_processes:
   process: default_processes_process
@@ -24,6 +23,10 @@ default_processes:
 
 gen_sim: 
   process: gen_sim_process
+  process_type: hierarchy
+
+run_analysis_tiers:
+  process: run_analysis_tiers_process
   process_type: hierarchy
 
 primary_analyses: # hidden process
@@ -107,6 +110,15 @@ monteCarlo_coneLocked:
   - all_coord
   - coord
 
+dmin:
+  process: dmin_process
+  process_type: simulation
+  variables:
+  - all_coord
+  - coord
+  - dmin_maxdist
+  - prob_rej_type
+
 # coneLocked_spacify_by_nearest_neighbors:
 #   process: coneLocked_spacify_by_nearest_neighbors_process
 #   process_type: simulation
@@ -118,23 +130,22 @@ coneLocked_maxSpacing:
   process_type: simulation
   variables:
   - coord
-  - modded_hex_radius
-  - hex_radius_decrease
-  - hex_radius
+  - num_cones_final
+  - hex_radii_used
 
 hexgrid_by_density: 
   process: hexgrid_by_density_process
   process_type: simulation
   variables:
   - coord
-  - num_cones_placed
-  - cone_density
+  - num_cones_final
+  - hex_radii_used
 
 # Primary Analysis Processes
 intracone_dist:
   process: intracone_dist_process
   process_type: analysis
-  analysis_tier: 1
+  analysis_tier: 2
   variables:
   - mean_nearest
   - std_nearest
@@ -143,6 +154,7 @@ intracone_dist:
   - hist_mat
   - bin_edge
   - annulus_area
+  - poisson_intervals
 
 
 voronoi:
@@ -156,12 +168,12 @@ voronoi:
   - bound_regions
   - bound_cones
   - voronoi_area
-  - num_neighbor
   - voronoi_area_mean
   - voronoi_area_std
+  - neighbors_cones
+  - num_neighbor
   - num_neighbor_mean
   - num_neighbor_std
-  - neighbors_cones
   - icd
   - icd_mean
   - icd_std
@@ -173,36 +185,108 @@ voronoi:
 
 
 # Secondary Analysis Processes
+drp: 
+  process: drp_process
+  process_type: analysis
+  analysis_tier: 3
+  variables:
+  - bin_edges
+  - drp_mean
+  - drp_all
+  - drp_std
+  - drp_ste
+  - counts_per_bin
+  - add_edge_correction
+  - effective_radius
+  - packing_factor
+  - maximum_radius
+  - expected_number
+  - expected_drp
+
 
 two_point_correlation:
   process: two_point_correlation_process
   process_type: analysis
-  analysis_tier: 1
+  analysis_tier: 4
   dependencies:
   - intracone_dist
   variables:
   - corred
   - max_bins
   - max_bin_edges
+  - corr_by_pi
+  - corr_by_hists
+  - corr_by_mean
+  - corr_by_std
+  - corr_by_poisson_95conf
+
 
 metrics_of_2PC:
   process: metrics_of_2PC_process
   process_type: analysis
-  analysis_tier: 1
+  analysis_tier: 5
   dependencies:
   - two_point_correlation
   variables:
   - analysis_x_cutoff
   - corr_by_mean
-  - corr_by_std
+  - corr_by_pi
   - mean_corr
   - std_corr
   - dearth_bins
   - peak_bins
   - exclusion_radius
+  - exclusion_factor
   - exclusion_bins
-  - exclusion_area
-  - max_obed_exclusion_area
-  - exclusion_obed
+  - first_peak_rad
+  - emp_max_rad
+
+degree_structure:
+  process: degree_structure_process
+  process_type: analysis
+  analysis_tier: 6
+  metrics:
+  - ['voronoi', 'voronoi_area']
+  - ['voronoi', 'icd']
+  - ['voronoi', 'voronoi_area_regularity']
+  - ['voronoi', 'icd_regularity']
+  - ['drp', 'effective_radius']
+  - ['drp', 'packing_factor']
+  - ['metrics_of_2PC', 'exclusion_radius']
+  - ['metrics_of_2PC', 'exclusion_factor']
+  variables:
+  - metric
+  - metric_hists
+  - bin_edge
+  - mos_types
+  - cone_constrained_span
+  - unconstrained_span
+  - constraint_ratio
+  - Rr_data
+  - Sr_data
+  - M_data
+  - Dm_data
+  - Q_Rr
+  - Q_Sr
+  - Q_Dm
+  - percentiles_Rr
+  - percentiles_Sr
+  - percentiles_Dm
+  - KS_Rr_Sr_statistic
+  - KS_Rr_Sr_pval
+  - KS_M_Rr_statistic
+  - KS_M_Rr_pval 
+  - KS_M_Sr_statistic
+  - KS_M_Sr_pval
+  - KS_M_Dm_statistic
+  - KS_M_Dm_pval
+  - degree_structure
+  - DS_Q_Rr
+  - DS_Q_Sr
+  - DS_Q_Dm
+  - DS_Rr
+  - DS_Sr
+  - DS_Dm
+
 
   

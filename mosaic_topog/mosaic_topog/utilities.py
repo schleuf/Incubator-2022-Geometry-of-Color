@@ -36,23 +36,34 @@ def reformat_stat_hists_for_plot(bin_edges, hist_mean, hist_std):
     hist_y_plus[:] = np.nan
     hist_y_plus[:] = np.nan
 
+    nan_inds = np.nonzero([np.isnan(hist_mean[v]) for v in np.arange(0, hist_mean.shape[0])])[0]
+
+    if nan_inds.shape[0] > 0:
+        last_non_nan_ind = (nan_inds[nan_inds.shape[0]-1]+1) * 2
+
+    else:
+        last_non_nan_ind = (hist_mean.shape[0]) * 2
+
     for ind, bin in enumerate(np.arange(0, hist_x.shape[0])):
-        # print(hist_x)
-        # print(hist_y)
-        # print('')
-        # print(ind)
         hist_x[ind] = bin_edges[int(np.floor(ind/2))]
         # print(int(np.floor(ind/2)))
         
-        if ind == 0 or ind == hist_x.shape[0]-1:
+        if ind == 0 or ind == last_non_nan_ind+1:
+
             hist_y[ind] = 0
             hist_y_plus[ind] = 0
             hist_y_minus[ind] = 0
-                 
-        elif ind < hist_x.shape[0] - 1 and ind > 0: 
+
+        elif ind < last_non_nan_ind+1 and ind > 0: 
+            
             hist_y[ind] = hist_mean[int(np.floor((ind-1)/2))]
-            hist_y_plus[ind] = hist_mean[int(np.floor((ind-1)/2))] + hist_std[int(np.floor((ind-1)/2))]
-            hist_y_minus[ind] = hist_mean[int(np.floor((ind-1)/2))] - hist_std[int(np.floor((ind-1)/2))]
+            if len(hist_std.shape) > 1:
+                hist_y_plus[ind] = hist_std[0, int(np.floor((ind-1)/2))]
+                hist_y_minus[ind] = hist_std[1, int(np.floor((ind-1)/2))]
+            else:
+                hist_y_plus[ind] = hist_mean[int(np.floor((ind-1)/2))] + hist_std[int(np.floor((ind-1)/2))]
+                hist_y_minus[ind] = hist_mean[int(np.floor((ind-1)/2))] - hist_std[int(np.floor((ind-1)/2))]
+
 
     return hist_x, hist_y, hist_y_plus, hist_y_minus
 
@@ -150,7 +161,6 @@ def vector_zeroPad(vector_to_pad, num_preceding, num_following):
 
     prefix = np.zeros([num_preceding, ])
     suffix = np.zeros([num_following, ])
-
     padded_vector = np.append(np.append(prefix, vector_to_pad), suffix)
 
     return padded_vector
