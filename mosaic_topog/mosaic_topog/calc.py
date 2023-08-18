@@ -610,7 +610,7 @@ def hexgrid(num2gen, hex_radius, x_dim, y_dim, randomize=False, target_num_cones
         img_diagonal = np.sqrt(np.power(x_len, 2) + np.power(y_len, 2))
         jitt_diagonal = 2 * np.sqrt(2 * np.power(jitter,2))
         hex_width = img_diagonal + jitt_diagonal
-
+    
         # calc the offset of the hexgrid to generate
         diff_x = hex_width - x_len
         diff_y = hex_width - y_len
@@ -623,7 +623,7 @@ def hexgrid(num2gen, hex_radius, x_dim, y_dim, randomize=False, target_num_cones
     else: 
         hex_x = x_dim
         hex_y = y_dim
-    
+
     initial_hex_radius = np.float_(hex_radius)
 
     # initialize output vars
@@ -888,6 +888,7 @@ def rotate_grid(coord, origin, deg_rot = np.nan):
 
 
 def coneLocked_hexgrid_mask(all_coord, num2gen, cones2place, x_dim, y_dim, hex_radius):
+    
     spaced_coord = []
     max_coord = 0
     num_cones_final = []

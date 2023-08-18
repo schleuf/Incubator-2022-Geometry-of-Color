@@ -258,7 +258,7 @@ def getConeData(fold_path, user_param, filetype):
     return data, mosaic, index, flnames_all
 
 
-def getFilesByDataGroup(user_param, filetype):
+def getFilesByDataGroup(user_param, filetype, getAll = False):
     """
     Get cone data based on mosaic and datatype specifications
 
@@ -305,55 +305,65 @@ def getFilesByDataGroup(user_param, filetype):
     """
     folder = user_param['data_path'][0]
 
-    subject = user_param['subject'][0]
-    angle = user_param['angle'][0]
-    eccentricity = user_param['eccentricity'][0]
-    conetype = user_param['conetype'][0]
-
-
     # get all file paths in the directory
     fl_list = glob.glob(folder + '*')
     fl_list = [os.path.basename(file) for file in fl_list]  # listcomprehension
 
-    mosaic = []
-    mos_fls = []
-    mos_count = 0
-    fl_count = 0
+    #ADD ALLFILE READ-IN OPTION HERE
+    if not getAll:
 
-    # build the file paths I want based on the category inputs
-    delim = '_'
-    cat_comb = []  # will contain all the permutations of categories
+        subject = user_param['subject'][0]
+        angle = user_param['angle'][0]
+        eccentricity = user_param['eccentricity'][0]
+        conetype = user_param['conetype'][0]
 
-    for s in subject:
-        for a in angle:
-            for e in eccentricity:
-                mosaic.append(s + delim + a + delim + e)
-                mos_fls.append([])
-                if filetype == '.csv' or filetype == '.hdf5':
-                    for c in conetype:  # only look for conetype specific data
-                        # if this is coordinate data
-                        cat_comb.append(s + delim + a + delim + e + delim
-                                        + c + filetype)
+        mosaic = []
+        mos_fls = []
+        mos_count = 0
+        fl_count = 0
+
+        # build the file paths I want based on the category inputs
+        delim = '_'
+        cat_comb = []  # will contain all the permutations of categories
+
+        for s in subject:
+            for a in angle:
+                for e in eccentricity:
+                    mosaic.append(s + delim + a + delim + e)
+                    mos_fls.append([])
+                    if filetype == '.csv' or filetype == '.hdf5':
+                        for c in conetype:  # only look for conetype specific data
+                            # if this is coordinate data
+                            cat_comb.append(s + delim + a + delim + e + delim
+                                            + c + filetype)
+                            mos_fls[mos_count].append(fl_count)
+                            fl_count = fl_count+1
+                    elif filetype == '.png':
+                        cat_comb.append(s + delim + a + delim + e + '_raw' +
+                                        filetype)
                         mos_fls[mos_count].append(fl_count)
-                        fl_count = fl_count+1
-                elif filetype == '.png':
-                    cat_comb.append(s + delim + a + delim + e + '_raw' +
-                                    filetype)
-                    mos_fls[mos_count].append(fl_count)
-                    fl_count = fl_count + 1
-                mos_count = mos_count + 1
+                        fl_count = fl_count + 1
+                    mos_count = mos_count + 1
 
-    # search for if those files exist.  if they don't, remove them from my list
-    pop_fls = util.indsNotInList(cat_comb, fl_list)
-    cat_comb = util.removeListInds(cat_comb, pop_fls)
+        # search for if those files exist.  if they don't, remove them from my list
+        pop_fls = util.indsNotInList(cat_comb, fl_list)
+        cat_comb = util.removeListInds(cat_comb, pop_fls)
 
-    # if any of the mosaics we looked for have no files associated with them, remove them from the mosaics list
-    pop_mos = []
-    for ind, mos in enumerate(mos_fls):
-        files_kept = util.indsNotInList(mos, pop_fls)
-        if not files_kept:
-            pop_mos.append(ind)
-    mosaic = util.removeListInds(mosaic, pop_mos)
+        # if any of the mosaics we looked for have no files associated with them, remove them from the mosaics list
+        pop_mos = []
+        for ind, mos in enumerate(mos_fls):
+            files_kept = util.indsNotInList(mos, pop_fls)
+            if not files_kept:
+                pop_mos.append(ind)
+        mosaic = util.removeListInds(mosaic, pop_mos)
+    else:
+        catcomb = fl_list
+        mosaic = []
+        for f_ind, fl in enumerate(fl_list):
+            len_fl_suff = len(filetype)
+            print('len fl suff')
+            print(len_fl_suff)
+            mosaic.append(fl[0:len(fl)-len_fl_suff])
 
     # get substrings of filenames that indicate the file's value for each
     # category (so that we can use them to create indexes for each category)
@@ -558,7 +568,7 @@ def printSaveFile(sav_fl):
     print(sav_fl)
     if os.path.exists(sav_fl):
         with h5py.File(sav_fl, 'r') as file:
-            print(file['measured_intracone_dist']['bin_edge'][()])
+            # print(file['measured_intracone_dist']['bin_edge'][()])
             for key in file.keys():
                 key_div = '***************************************'
                 print(key_div + key + key_div)

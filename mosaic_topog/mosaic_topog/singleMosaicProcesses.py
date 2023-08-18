@@ -281,11 +281,6 @@ def metrics_of_2PC_process(param, sav_cfg):
             print('ack!!! problem getting hex_radius in metrics_of_2PC_process')
         
         emp_max_rad = np.nanmax(file['coneLocked_maxSpacing']['hex_radii_used'][()])
-        print('EMR')
-        print(emp_max_rad)
-        print('HR')
-        print(hex_radius[0])
-        print('')
     
     analysis_x_cutoff = int(np.argmin(np.abs((bin_edge - (2 * hex_radius)))))
 
@@ -1424,6 +1419,7 @@ def coneLocked_maxSpacing_process(param, sav_cfg):
             hex_radius = file['input_data']['hex_radius_for_this_density'][()]
         elif sim_hexgrid_by == 'voronoi' :
             hex_radius = file['measured_voronoi']['hex_radius'][()]
+            print(hex_radius)
     if og_coord.shape[0] > 1:
         num_sim = param['num_sim']
         sim_to_gen = param['sim_to_gen']
