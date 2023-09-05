@@ -114,16 +114,16 @@ def mosaic_set_viewDegreeStructure(metric, save_name, save_things=False, save_pa
             allsims = np.concatenate([Rr_data, Sr_data, Dm_data])
             minval = np.nanmin(allsims)
             maxval = np.nanmax(allsims)
-            print('MAXVAL')
-            print(maxval)
+            # print('MAXVAL')
+            # print(maxval)
             bin_below = np.nonzero(bin_edge <= minval)[0]
             bin_above = np.nonzero(bin_edge >= maxval)[0]
-            print('AS ABOVE SO BELOW')
-            print(bin_above)
+            # print('AS ABOVE SO BELOW')
+            # print(bin_above)
             ax.set_xlim([bin_edge[bin_below[0]], bin_edge[bin_above[0]]])
 
-            print(mosaic)
-            print('')
+            # print(mosaic)
+            # print('')
             if save_things:
                 # print('saved it!')
                 savnm = save_path + mosaic + '_' + metric[1] + '_degree_structure' + '.png'
@@ -297,6 +297,8 @@ def view2PCmetric(mos_type, save_name, z_dim = 0, scale_std=2, showNearestCone=F
 
         ax.set_xlabel('radius from individual S cones, ' + coord_unit)
         ax.set_ylabel('correlation')
+
+        ax.set_xlim([-.5, bin_width * 8 + 0.5])
         # for b in np.arange(0, analysis_x_cutoff):
         #     ax = plotKwargs({'figsize':10}, '')
         #     binhist, binhistedge = np.histogram(corr_by_corr[:,b])

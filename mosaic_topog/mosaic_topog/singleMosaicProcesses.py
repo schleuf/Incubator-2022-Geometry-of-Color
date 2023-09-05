@@ -811,7 +811,10 @@ def voronoi_process(param, sav_cfg):
     proc = 'voronoi'
     proc_vars = sav_cfg[proc]['variables']
 
+    
+
     sav_fl = param['sav_fl']
+
     with h5py.File(sav_fl, 'r') as file:
         convert_coord_unit = file['input_data']['convert_coord_unit'][()]  
         coord_unit = bytes(file['input_data']['coord_unit'][()]).decode("utf8")
@@ -993,6 +996,8 @@ def voronoi_process(param, sav_cfg):
             bound_regions = temp_br
             bound_cones = temp_bc
         else:
+            print(sav_fl)
+            print('LESS THAN 5 BOUND CONES')
             regions = np.nan
             vertices = np.nan
             point_region = np.nan
@@ -1267,8 +1272,6 @@ def dmin_process(param, sav_cfg):
     sav_fl = param['sav_fl']
     num2gen = util.numSim(proc, param['num_sim'], param['sim_to_gen'])
 
-    print(sav_fl)
-
     with h5py.File(sav_fl, 'r') as file:
         # get coordinates and # of cones
         og_coord = file['input_data']['cone_coord'][()]
@@ -1419,12 +1422,14 @@ def coneLocked_maxSpacing_process(param, sav_cfg):
             hex_radius = file['input_data']['hex_radius_for_this_density'][()]
         elif sim_hexgrid_by == 'voronoi' :
             hex_radius = file['measured_voronoi']['hex_radius'][()]
-            print(hex_radius)
-    if og_coord.shape[0] > 1:
+
+    if og_coord.shape[0] > 1 and not np.isnan(hex_radius):
         num_sim = param['num_sim']
         sim_to_gen = param['sim_to_gen']
         x_dim = [0, img_x]
         y_dim = [0, img_y]
+
+
         # get all-cone-coordinates
         all_coord = flsyst.getAllConeCoord(sav_fl, param['mosaic'])
         # number of mosaics to generate
@@ -1664,10 +1669,13 @@ def unpackThisParam(user_param, ind):
     param['img_fl'] = user_param['img_fl_name'][index['mosaic'][ind]]
     param['sav_fl'] = user_param['save_name'][ind]
     param['mosaic'] = user_param['mosaic'][index['mosaic'][ind]]
+
     param['subject'] = user_param['subject'][0][index['subject'][ind]]
     param['angle'] = user_param['angle'][0][index['angle'][ind]]
+
     param['eccentricity'] = user_param['eccentricity'][0][index['eccentricity'][ind]]
     param['conetype'] = user_param['conetype'][0][index['conetype'][ind]]
+
     param['conetype_color'] = user_param['conetype_color'][0][index['conetype'][ind]]
 
     param['coord_unit'] = user_param['coord_unit'][0]

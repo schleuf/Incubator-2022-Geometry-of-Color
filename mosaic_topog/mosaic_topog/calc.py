@@ -12,13 +12,47 @@ from shapely.geometry.polygon import Polygon
 import sys
 import math
 
-eps = sys.float_info.epsilon
+def binaryOccurenceWithRadius(dmat):
+    """
+    dmat: square matrix of inter-point distances
+    """
+    numcone = dmat.shape[0]
+    maxdist = np.nanmax(dmat.flatten())
+    
+    x = np.arange(0, maxdist, .1)
 
-# Functions
-# ---------
-# dist_matrices
-# Monte_Carlo_uniform
+    temp = np.empty([numcone, numcone-1])
+    temp[:] = np.nan
 
+    for row in np.arange(0,numcone):
+        temprow = dmat[row,:]
+        temp[row,:] = np.delete(temprow, np.where(np.isnan(temprow)))
+
+    dmat_trimmed = temp
+
+    binary_mat = np.empty([numcone, x.shape[0]])
+
+    binary_x_all = []
+    binary_y_all = []
+    
+    for x_ind,xval in enumerate(x):
+        
+        less_thans = np.array([dmat_trimmed[z,:] < xval for z in np.arange(0,numcone)])
+
+        binary_y = [np.nonzero(less_thans[z,:])[0].shape[0] > 0 for z in np.arange(0, numcone)]
+        binary_x = np.tile(xval,numcone)
+        
+        binary_x_all.append(binary_x)
+        binary_y_all.append(binary_y)
+        
+        binary_mat[:, x_ind] = binary_y
+        
+    binary_y_all = np.reshape(np.array(binary_y_all), [-1])
+    binary_x_all = np.reshape(np.array(binary_x_all), [-1, 1])
+
+    return binary_mat, binary_x_all, binary_y_all
+
+            
 
 def rodieck_func(cone_vector: np.ndarray, x_size: int, y_size: int, max_pixel_distance: float, num_bins: int, add_edge_correction: bool):
     num_points = cone_vector.shape[1]
@@ -606,11 +640,13 @@ def hexgrid(num2gen, hex_radius, x_dim, y_dim, randomize=False, target_num_cones
         # calc the size of the hexgrid to generate
         x_len = x_dim[1] - x_dim[0]
         y_len = y_dim[1] - y_dim[0]
+
         jitter = hex_radius
         img_diagonal = np.sqrt(np.power(x_len, 2) + np.power(y_len, 2))
         jitt_diagonal = 2 * np.sqrt(2 * np.power(jitter,2))
+
         hex_width = img_diagonal + jitt_diagonal
-    
+
         # calc the offset of the hexgrid to generate
         diff_x = hex_width - x_len
         diff_y = hex_width - y_len
@@ -620,6 +656,7 @@ def hexgrid(num2gen, hex_radius, x_dim, y_dim, randomize=False, target_num_cones
         #set the gridsize
         hex_x = [offset_x, offset_x + hex_width -1]
         hex_y = [offset_y, offset_y + hex_width -1]
+
     else: 
         hex_x = x_dim
         hex_y = y_dim
@@ -893,7 +930,6 @@ def coneLocked_hexgrid_mask(all_coord, num2gen, cones2place, x_dim, y_dim, hex_r
     max_coord = 0
     num_cones_final = []
     hex_radii_used = []
-
     for mos in np.arange(0, num2gen):
         num_cones_final.append([])
         hex_radii_used.append([])

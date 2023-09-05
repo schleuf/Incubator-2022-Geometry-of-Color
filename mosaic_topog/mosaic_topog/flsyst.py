@@ -258,6 +258,16 @@ def getConeData(fold_path, user_param, filetype):
     return data, mosaic, index, flnames_all
 
 
+def getAllOfCat(cat, fl_list):
+    allofcat = []
+    for fl in fl_list:
+        split = fl.split('_')
+        if split[cat] not in allofcat:
+            allofcat.append(split[cat])
+
+    return allofcat
+
+
 def getFilesByDataGroup(user_param, filetype, getAll = False):
     """
     Get cone data based on mosaic and datatype specifications
@@ -303,6 +313,8 @@ def getFilesByDataGroup(user_param, filetype, getAll = False):
         mosaic in cat_comb
 
     """
+    # DON'T USE THE GETALL FEATURE - DIDN'T THINK IT THROUGH ALL THE WAY, IT DOESN'T WORK
+
     folder = user_param['data_path'][0]
 
     # get all file paths in the directory
@@ -325,6 +337,16 @@ def getFilesByDataGroup(user_param, filetype, getAll = False):
         # build the file paths I want based on the category inputs
         delim = '_'
         cat_comb = []  # will contain all the permutations of categories
+
+        cats = [subject, angle, eccentricity, conetype] # MUST BE IN ORDER OF THE FILE SPLIT
+        for c_ind, c in enumerate(cats):
+            if c[0] == 'getAll':
+                cats[c_ind] = getAllOfCat(c_ind, fl_list)
+        
+        subject = cats[0]
+        angle = cats[1]
+        eccentricity = cats[2]
+        conetype = cats[3]
 
         for s in subject:
             for a in angle:
@@ -357,13 +379,22 @@ def getFilesByDataGroup(user_param, filetype, getAll = False):
                 pop_mos.append(ind)
         mosaic = util.removeListInds(mosaic, pop_mos)
     else:
-        catcomb = fl_list
+
+        hdf5_list = [f for f in fl_list if 'hdf5' in f]
+        cat_comb = hdf5_list
         mosaic = []
-        for f_ind, fl in enumerate(fl_list):
+        subject = []
+        angle = []
+        eccentricity = []
+        conetype = []
+        for f_ind, fl in enumerate(hdf5_list):
             len_fl_suff = len(filetype)
-            print('len fl suff')
-            print(len_fl_suff)
             mosaic.append(fl[0:len(fl)-len_fl_suff])
+            split = fl.split('_')
+            subject.append(split[0])
+            angle.append(split[1])
+            eccentricity.append(split[2])
+            conetype.append(split[3])
 
     # get substrings of filenames that indicate the file's value for each
     # category (so that we can use them to create indexes for each category)
@@ -382,6 +413,7 @@ def getFilesByDataGroup(user_param, filetype, getAll = False):
         cat_comb[ind] = folder + fl
 
     return mosaic, cat_comb, cat_index
+
 
 
 def getFileSubstrings(fl_list):
