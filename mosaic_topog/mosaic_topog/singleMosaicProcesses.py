@@ -10,10 +10,10 @@ import mosaic_topog.flsyst as flsyst
 import mosaic_topog.calc as calc
 import mosaic_topog.show as show
 import mosaic_topog.utilities as util
-from py import process
-from shapely.geometry.polygon import Polygon
+# from py import process
+# from shapely.geometry.polygon import Polygon
 import scipy
-from scipy import spatial
+# from scipy import spatial
 
 import random
 
@@ -1289,23 +1289,31 @@ def dmin_process(param, sav_cfg):
                 all_cone_mean_icd   = file['measured_voronoi']['icd_mean'][()]
         except:
             print('could not pull mean nearest from ' + all_coord_fl)
-        dmin_maxdist = all_cone_mean_icd*2        
+      
 
         # number of mosaics to generate
-        num2gen = util.numSim('coneLocked_maxSpacing', num_sim, sim_to_gen)
+        num2gen = util.numSim('dmin', num_sim, sim_to_gen)
         
         # cones per mosaic to generate
         cones2place = og_coord.shape[0]
 
-        #initialize space for dmin mosaic
-        prob_rej_type = 'sigmoid'
-
-        if prob_rej_type == 'sigmoid':
+        #get input sfor the dmin model
+        prob_rej_type = param['dmin_probability_func']
+        dmin_maxdist = np.nan
+        IND_entry = np.nan
+        intercept = np.nan
+        coef = np.nan
+        if prob_rej_type == 'IND_shift_basic_logistic':
             IND_entry = all_cone_mean_icd
-        else:
-            IND_entry = np.nan
+        elif prob_rej_type == 'custom_logistic':
+            intercept = param['dmin_func_intercept']
+            coef = param['dmin_func_coef']
+        elif prob_rej_type == 'inverse_distance_squared':
+            dmin_maxdist = all_cone_mean_icd*2  
+        elif prob_rej_type == 'all_or_none':
+            dmin_maxdist = all_cone_mean_icd*2 
  
-        dmin_coord = calc.dmin(all_coord, num2gen, cones2place, dmin_maxdist, prob_rej_type, IND_entry)
+        dmin_coord = calc.dmin(all_coord, num2gen, cones2place, dmin_maxdist, prob_rej_type, IND_entry, intercept, coef)
         
         coord = dmin_coord
         
@@ -1689,6 +1697,9 @@ def unpackThisParam(user_param, ind):
     param['corr_by'] = user_param['corr_by']
     param['to_be_corr'] = user_param['to_be_corr'][0]
     param['to_be_corr_colors'] = user_param['to_be_corr_colors'][0]
+    param['dmin_probability_func'] = user_param['dmin_probability_func'][0]
+    param['dmin_func_intercept'] = user_param['dmin_func_intercept'][0]
+    param['dmin_func_coef'] = user_param['dmin_func_coef'][0]
 
     param['convert_coord_unit'] = user_param['convert_coord_unit']
     param['convert_coord_unit_to'] = user_param['convert_coord_unit_to']
@@ -1728,8 +1739,6 @@ def default_processes_process(user_param, sav_cfg):
         #print(key)
         if sav_cfg[key]['process_type'] == 'default':
             mand.append(key)
-    print('mand: ')
-    print(mand)
 
     # get all files to check
     fls = []

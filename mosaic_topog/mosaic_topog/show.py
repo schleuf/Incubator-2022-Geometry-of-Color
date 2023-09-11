@@ -11,11 +11,15 @@ import mosaic_topog.utilities as util
 # --------------------------data viewing and saving functions--------------------------
 
 ## --------------------------------SMP VIEWING FUNCTIONS--------------------------------------
+
+
+
 def arcminToPix(data, degrees = False):  #degrees is actually density
     # ack add false condition
     CF_arcmin = .0026*60
     converted_data = data / CF_arcmin
     return converted_data
+
 
 def pixToArcmin(data, degrees = False): #degrees is actually density
     CF_arcmin = .0026*60

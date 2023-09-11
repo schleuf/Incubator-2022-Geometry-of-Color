@@ -3,9 +3,7 @@ import random
 import numpy as np
 import mosaic_topog.calc as calc
 import mosaic_topog.show as show
-from scipy.spatial import Voronoi, voronoi_plot_2d
-from shapely.geometry import Point
-from shapely.geometry.polygon import Polygon
+import pandas as pan
 import pytest
 
 
@@ -23,6 +21,43 @@ import pytest
 #    remove more than one index from a list at once
 #
 
+def updateEccentricity(xlsx_path, outputs):
+    try:
+        mosaic =  [bytes(z).decode('utf8') for z in outputs['mosaic_meta__mosaic']]
+    except:
+        try:
+            mosaic =  outputs['mosaic_meta__mosaic']
+        except:
+            print('dude i dont know why it doesnt want to take these mosaics')
+            
+    xlsx = pan.read_excel(xlsx_path)
+    subj = xlsx['Observer']
+    ang = xlsx['Meridian']
+    ecc1 = xlsx['Eccentricity']
+    ecc2 = xlsx['Actual Eccentricity']
+    ecc_updated = np.empty([len(mosaic), ])
+    ecc_updated[:] = np.nan
+
+    for m_ind, mos in enumerate(mosaic):
+#         print(mos)
+        for x_ind in np.arange(0, subj.shape[0]):
+            str_e = str(ecc1[x_ind])
+            if str_e[len(str_e)-2:len(str_e)] == '.0':
+                e = str_e[0:len(str_e)-2]
+            else:
+                e = str_e
+            if subj[x_ind] == 'SS':
+                s = 'AO008R'
+            if subj[x_ind] == 'RS':
+                s = 'AO001R'
+                
+            test = s + '_' + ang[x_ind] + '_' + e
+#             print('      ' + test)
+            if mos == test:
+#                 print('                 ' + 'MATCH')
+                ecc_updated[m_ind] =  ecc2[x_ind]
+
+    return ecc_updated
 
 def reformat_stat_hists_for_plot(bin_edges, hist_mean, hist_std):
     # print(bin_edges.shape[0])
@@ -90,12 +125,15 @@ def numSim(process, num_sim, sim_to_gen):
         else:
             raise Exception('inappropriate # of values in input variable ""numSim""')
     
-    elif len(num_sim) == len(sim_to_gen): 
-        for ind, sim in enumerate(sim_to_gen):
-            if sim == process:
-                sim_ind = ind 
-        numSim = int(num_sim[sim_ind])
-    
+    elif len(num_sim) == len(sim_to_gen):
+        try:
+            process_ind = np.nonzero([z == process for z in sim_to_gen])[0][0]
+            for ind, sim in enumerate(sim_to_gen):
+                if ind == process_ind:
+                    sim_ind = ind 
+            numSim = int(num_sim[sim_ind])
+        except: 
+            numSim = 0  
     else:
         raise Exception('inappropriate # of values in input variable ""numSim""')
 

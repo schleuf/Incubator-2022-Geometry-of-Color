@@ -5,6 +5,16 @@ import os
 import mosaic_topog.utilities as util
 import yaml
 import h5py
+import csv
+
+
+def saveOutputsAsCSV(output_savename, outputs):
+    with open(output_savename, 'w', newline='') as csvfile:
+        writer = csv.writer(csvfile, delimiter=',')
+        for key in outputs.keys():
+            writer.writerow([key])
+            writer.writerow(outputs[key])
+
 
 
 def getAllConeCoord(sav_fl, mosaic):
@@ -178,84 +188,84 @@ def readYaml(flnm):
     return cfg
 
 
-def getConeData(fold_path, user_param, filetype):
+# def getConeData(fold_path, user_param, filetype):
 
-    """
-    Get cone data based on mosaic and datatype specifications
+#     """
+#     Get cone data based on mosaic and datatype specifications
 
-    Pulls cone data from a single folder based on the file specifications
-    indicated by the user, and creates indexes that define all pulled data in
-    terms of subject, angle, eccentricity, filetype, and [if applicable] the
-    subset of cones. Supports cone coordinates as .csv files and cone images
-    as .tiffs.
+#     Pulls cone data from a single folder based on the file specifications
+#     indicated by the user, and creates indexes that define all pulled data in
+#     terms of subject, angle, eccentricity, filetype, and [if applicable] the
+#     subset of cones. Supports cone coordinates as .csv files and cone images
+#     as .tiffs.
 
-    Looks in the input folder for every permutation of the input
-    lists in the following format (text between asterisks only applies to
-    coordinate data):
+#     Looks in the input folder for every permutation of the input
+#     lists in the following format (text between asterisks only applies to
+#     coordinate data):
 
-        '[subject]_[angle]_[eccentricity]*_[conetypes]_*[filetypes]'
+#         '[subject]_[angle]_[eccentricity]*_[conetypes]_*[filetypes]'
 
-    Parameters
-    ----------
-    fold_path : str
-        Path to folder containing all data files to be loaded in.
-        The path must end with a slash. Note the syntax for reserved
-        characters in your path, such as double-slashes for single-
-        slashes.
-        e.g. 'C:\\Users\\schle\\Documents\\GitHub\\Incubator-2022-Geometry-
-              of-Color\\CSV data all OCT locs Jan 2022\\'
-    subject : list of str
-        List of subjects to search for
-        e.g. ['AO001R','AO008R']
-    angle : list of str
-        List of angles from the fovea to search for
-        e.g. ['temporal','nasal']
-    eccentricity : list of float
-        List of eccentricities from the fovea to search for
-        e.g. [1.5, 4, 10]
-    conetypes : list of str
-        List of angles from the fovea to search for
-        e.g. ['all','L','M','S','unclassed']
-    filetype : {'.csv','.tiff'}
-        List of filetypes to search for. only .csv and .tiff are supported.
+#     Parameters
+#     ----------
+#     fold_path : str
+#         Path to folder containing all data files to be loaded in.
+#         The path must end with a slash. Note the syntax for reserved
+#         characters in your path, such as double-slashes for single-
+#         slashes.
+#         e.g. 'C:\\Users\\schle\\Documents\\GitHub\\Incubator-2022-Geometry-
+#               of-Color\\CSV data all OCT locs Jan 2022\\'
+#     subject : list of str
+#         List of subjects to search for
+#         e.g. ['AO001R','AO008R']
+#     angle : list of str
+#         List of angles from the fovea to search for
+#         e.g. ['temporal','nasal']
+#     eccentricity : list of float
+#         List of eccentricities from the fovea to search for
+#         e.g. [1.5, 4, 10]
+#     conetypes : list of str
+#         List of angles from the fovea to search for
+#         e.g. ['all','L','M','S','unclassed']
+#     filetype : {'.csv','.tiff'}
+#         List of filetypes to search for. only .csv and .tiff are supported.
 
-    Returns
-    -------
-    data : numpy.ndarray
-        a list of np.arrays corresponding to cone coordinates (filetype
-        = '.csv') or pyplot images of cone mosaics (filetype ='.tiff')
-    mosaics : list of str
-        list of datasets of origin collected
-    index : dict
-        'subj','ang','ecc','contyp' : np.array
-            {'subj', 'ang', 'ecc', 'contyp'} are indexing vectors that
-            correspond to input variables [subject, angle, eccentricity,
-            conetypes], respectively, such that the nth value of all
-            vectors indicate the descriptors of the nth piece of data
-            in the list returned.
-        'mos' : numpy.ndarray
-            index vector like the other keys but corresponds to the
-            returned variable 'mosaics'
-    flnames_all : list of str
+#     Returns
+#     -------
+#     data : numpy.ndarray
+#         a list of np.arrays corresponding to cone coordinates (filetype
+#         = '.csv') or pyplot images of cone mosaics (filetype ='.tiff')
+#     mosaics : list of str
+#         list of datasets of origin collected
+#     index : dict
+#         'subj','ang','ecc','contyp' : np.array
+#             {'subj', 'ang', 'ecc', 'contyp'} are indexing vectors that
+#             correspond to input variables [subject, angle, eccentricity,
+#             conetypes], respectively, such that the nth value of all
+#             vectors indicate the descriptors of the nth piece of data
+#             in the list returned.
+#         'mos' : numpy.ndarray
+#             index vector like the other keys but corresponds to the
+#             returned variable 'mosaics'
+#     flnames_all : list of str
 
-    """
-    mosaic, flnames_all, index = getFilesByDataGroup(fold_path, user_param, filetype)
+#     """
+#     mosaic, flnames_all, index = getFilesByDataGroup(fold_path, user_param, filetype)
 
-    data = []
+#     data = []
 
-    for ind, fl in enumerate(flnames_all):
+#     for ind, fl in enumerate(flnames_all):
 
-        if filetype == '.csv':
-            # load in cone coordinates (relative to ROI lower left corner)
-            data.append(np.loadtxt(fl, delimiter=','))
+#         if filetype == '.csv':
+#             # load in cone coordinates (relative to ROI lower left corner)
+#             data.append(np.loadtxt(fl, delimiter=','))
 
-        elif filetype == '.png':
-            # load in ROI image
-            data.append(plt.imread(fl))
+#         elif filetype == '.png':
+#             # load in ROI image
+#             data.append(plt.imread(fl))
 
-    data = np.asarray(data)
+#     data = np.asarray(data)
 
-    return data, mosaic, index, flnames_all
+#     return data, mosaic, index, flnames_all
 
 
 def getAllOfCat(cat, fl_list):
@@ -535,6 +545,79 @@ def checkFileForProcess(proc, sav_cfg, save_name, collect_all):
 
         # get a sorted list of files missing entirely and files missing data from the requested category
         collect_this = np.union1d(collect_all, collect_this).astype(int)
+
+
+def fileInfoToUserParams(user_param, sav_cfg):
+    """
+    pulled this from the smp jupyter notebook, not positive this is the best place for it
+    
+    set up for "user_param," a dictionary that is passed to the process manager that
+    stores all the variables determined from the user's inputs.
+    """
+    # most of these parameters have been set directly by the user, 
+    # a few need to be interpreted from the filesystem, which go into waitlist. 
+    waitlist = [
+                'mosaic',
+                'coord_fl_name',
+                'coord_index',
+                'img_fl_name',
+                'img_index',
+                'save_name',
+                'processes'
+                ] # make sure that parameters in this list are set to user_parm downstream
+
+
+    # fl_name is the output variable we care about for now -
+    #     it's a list of all files found for combinations of the input parameters.
+
+    # mosaic is a list of all the classified mosaics the located data come from
+    # for instance a single mosaic may be mapped to mosaic coordinate files for 
+    # L, M, S, 'all', and 'unclassed' cone sub-mosaics 
+
+    # index is a dictionary for indexing through the list flnames according to:
+    #     inputs to single_mosaic_processes - subject, angle, eccentricity, conetype_ids 
+    #     determined by single_mosaic_processes - 
+
+    mosaic, coord_fl_name, coord_index = getFilesByDataGroup(user_param, user_param['coord_fltype'][0])
+    img_mosaic, img_fl_name, img_index = getFilesByDataGroup(user_param, user_param['img_fltype'][0])
+
+    # Make list of expected save-file names for this data
+    save_name = saveNameFromLoadPath(coord_fl_name,user_param['save_path'][0])
+
+
+    cats = [user_param['subject'], 
+            user_param['angle'], 
+            user_param['eccentricity'],
+            user_param['conetype']] # MUST BE IN ORDER OF THE FILE SPLIT
+
+    for c_ind, c in enumerate(cats):
+        if c[0][0] == 'getAll':
+            cats[c_ind] = [getAllOfCat(c_ind, mosaic)]
+            
+    user_param['subject'] = cats[0]
+    user_param['angle'] = cats[1]
+    user_param['eccentricity'] = cats[2]
+    user_param['conetype'] = cats[3]
+
+    if user_param['data_to_run'][0] == 'all':
+        processes = {}
+        for proc in user_param['sim_to_gen'][0]:
+            processes[proc] = np.arange(0, len(coord_fl_name)).tolist()
+        for proc in user_param['analyses_to_run'][0]:
+            processes[proc] = np.arange(0, len(coord_fl_name)).tolist()
+            for sim in user_param['sim_to_gen'][0]:
+                if sav_cfg[proc]['analysis_tier'] == 1:
+                    processes[sim + '_' + proc] = np.arange(0, len(coord_fl_name)).tolist()
+    # elif data_to_run == 'absent_only': # ABSENT_ONLY OPTION NOT FUNCTIONAL ANYMORE, NEEDS FIXED
+    #     processes = flsyst.getProcessesToRun(save_name, user_param['save_path'], user_param['sim_to_gen'][0], user_param['analyses_to_run'][0], sav_cfg)
+        
+    # print(user_param['sim_to_gen'])
+    # print(user_param['analyses_to_run'])
+
+    for p in waitlist:
+        user_param[p] = vars()[p]
+
+    return user_param
 
 
 def getProcessesToRun(save_name, save_path, sim_to_gen, analyses_to_run, sav_cfg):

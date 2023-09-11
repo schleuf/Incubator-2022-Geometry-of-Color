@@ -12,6 +12,36 @@ from shapely.geometry.polygon import Polygon
 import sys
 import math
 
+def logistic_coef_intercept(x, c, i):
+    # c = growth rate coefficient, i = x-val at x-intercept
+    y = 1/(1 + np.exp(-x * c - i))
+   
+    return y
+
+def logistic_coef_intercept_solvefory(y, c, i):
+    # c = growth rate coefficient, i = x-val at x-intercept
+    x = -1 * ((np.log((1/y) - 1) + i) / c)
+    
+    return x
+
+def logistic_coef_inflectX(x, c, i):
+    # c = growth rate coefficient, i = x val at inflection point
+    
+    y = 1 / (1+ np.exp(-c * (x - i)))
+    return y
+
+
+def logistic_derivative(x, beta0, beta1):
+    '''
+    # via chatGPT...
+    # Define the derivative of the logistic function with respect to x
+    # beta0 = Intercept
+    # beta1 = Coefficient of the feature
+    '''
+    p = logistic_coef_intercept(x, beta1, beta0)
+    return beta1 * p * (1 - p)
+
+
 def binaryOccurenceWithRadius(dmat):
     """
     dmat: square matrix of inter-point distances
@@ -1058,7 +1088,9 @@ def monteCarlo_coneLocked(num_coord, all_coord, num_mc):
 
 
 
-def dmin(all_coord, num2gen, num2place, max_dist, prob_rej_type, IND = np.nan) :
+def dmin(all_coord, num2gen, num2place, max_dist, prob_rej_type, IND = np.nan, intercept = np.nan, coef = np.nan) :
+    """
+    """
     dmin_coord = np.zeros([num2gen, num2place, 2]) 
     dmin_coord[:] = np.nan
 
@@ -1117,10 +1149,11 @@ def dmin(all_coord, num2gen, num2place, max_dist, prob_rej_type, IND = np.nan) :
                     else:
                         prob_placement = 1
 
-                if prob_rej_type == 'sigmoid':
+                if prob_rej_type == 'IND_shift_basic_logistic':
                     prob_placement = 1/(1+ (np.exp((IND - (dist-IND)))))
 
-                
+                if prob_rej_type == 'custom_logistic':
+                    prob_placement = 1/(1+ (np.exp((intercept - coef*(dist)))))
 
                 # draw a random number between 0 and 1.  
                 r2 = np.random.rand(1)
