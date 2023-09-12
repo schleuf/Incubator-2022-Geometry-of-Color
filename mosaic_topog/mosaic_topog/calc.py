@@ -14,13 +14,13 @@ import math
 
 def logistic_coef_intercept(x, c, i):
     # c = growth rate coefficient, i = x-val at x-intercept
-    y = 1/(1 + np.exp(-x * c + i))
+    y = 1/(1 + np.exp(-x * c - i))
    
     return y
 
 def logistic_coef_intercept_solvefory(y, c, i):
     # c = growth rate coefficient, i = x-val at x-intercept
-    x = -1 * ((np.log((1/y) - 1) + i) / c)
+    x =  ((np.log((1/y) - 1) + i) / -c)
     
     return x
 
@@ -38,6 +38,7 @@ def logistic_derivative(x, beta0, beta1):
     # beta0 = Intercept
     # beta1 = Coefficient of the feature
     '''
+#     p = logistic_function(x, beta0, beta1)
     p = logistic_coef_intercept(x, beta1, beta0)
     return beta1 * p * (1 - p)
 
