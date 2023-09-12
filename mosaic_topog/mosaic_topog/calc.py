@@ -14,7 +14,7 @@ import math
 
 def logistic_coef_intercept(x, c, i):
     # c = growth rate coefficient, i = x-val at x-intercept
-    y = 1/(1 + np.exp(-x * c - i))
+    y = 1/(1 + np.exp(-x * c + i))
    
     return y
 
