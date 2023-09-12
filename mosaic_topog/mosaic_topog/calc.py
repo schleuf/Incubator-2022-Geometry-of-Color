@@ -1154,7 +1154,7 @@ def dmin(all_coord, num2gen, num2place, max_dist, prob_rej_type, IND = np.nan, i
                     prob_placement = 1/(1+ (np.exp((IND - (dist-IND)))))
 
                 if prob_rej_type == 'custom_logistic':
-                    prob_placement = 1/(1+ (np.exp((intercept - coef*(dist)))))
+                    prob_placement = 1/(1 + (np.exp((-1*coef*(dist))-intercept)))
 
                 # draw a random number between 0 and 1.  
                 r2 = np.random.rand(1)
