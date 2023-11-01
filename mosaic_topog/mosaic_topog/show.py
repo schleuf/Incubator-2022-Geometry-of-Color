@@ -818,7 +818,7 @@ def viewMosaic(mos_type, save_things=False, save_name=[], prefix='',
             #           '', ax=ax, linewidth = 5,
             #           plot_col = 'r', bckg_col = 'w')
 
-            crop_window = True
+            crop_window = False
             if crop_window:
                 allcone_sz = 100
                 scone_sz = 1000
@@ -839,8 +839,8 @@ def viewMosaic(mos_type, save_things=False, save_name=[], prefix='',
             
             if crop_window:
                 # print('CROPPING IT')
-                arcmin_w = 25
-                arcmin_h = 10
+                arcmin_w = 30
+                arcmin_h = 30
                 x_temp = ax.get_xlim()
                 y_temp = ax.get_ylim()
                 x_mid = x_temp[0] + (x_temp[1] - x_temp[0])/2

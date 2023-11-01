@@ -268,10 +268,10 @@ def metrics_of_2PC_process(param, sav_cfg):
         bin_width = all_cone_mean_icd
 
     with h5py.File(sav_fl, 'r') as file:
-        corr_by_corr = file[corr_by + '_' + 'two_point_correlation']['corred'][()]
-        corr_by_pi = file[corr_by + '_' + 'two_point_correlation']['corr_by_pi'][()]
-        max_bins = file[corr_by + '_' + 'two_point_correlation']['max_bins'][()]
-        bin_edge = file[corr_by + '_' + 'two_point_correlation']['max_bin_edges'][()]
+        corr_by_corr = file['measured' + '_' + 'two_point_correlation']['corred'][()]
+        corr_by_pi = file['measured' + '_' + 'two_point_correlation']['corr_by_pi'][()]
+        max_bins = file['measured' + '_' + 'two_point_correlation']['max_bins'][()]
+        bin_edge = file['measured' + '_' + 'two_point_correlation']['max_bin_edges'][()]
         sim_hexgrid_by = bytes(file['input_data']['sim_hexgrid_by'][()]).decode("utf8")
         if sim_hexgrid_by == 'rectangular':
             hex_radius = file['basic_stats']['hex_radius_of_this_density'][()]
@@ -281,6 +281,8 @@ def metrics_of_2PC_process(param, sav_cfg):
             print('ack!!! problem getting hex_radius in metrics_of_2PC_process')
         
         emp_max_rad = np.nanmax(file['coneLocked_maxSpacing']['hex_radii_used'][()])
+
+
     
     analysis_x_cutoff = int(np.argmin(np.abs((bin_edge - (2 * hex_radius)))))
 
@@ -502,6 +504,19 @@ def two_point_correlation_process(param, sav_cfg):
     with h5py.File(sav_fl, 'r') as file:
         xlim = [0, file['input_data']['img_x'][()]]
         ylim = [0, file['input_data']['img_y'][()]]
+
+        contains_mc_uniform = False
+
+        if 'measured_two_point_correlation' in file.keys():
+            if 'corr_by_pi' in file['measured_two_point_correlation'].keys():
+                contains_mc_uniform = True
+                print('     Loading in data from random uniform mosaics for 2PC...')
+                corr_by_pi = file['measured_two_point_correlation']['corr_by_pi'][()]
+                corr_by_hists = file['measured_two_point_correlation']['corr_by_hists'][()]
+                corr_by_mean = file['measured_two_point_correlation']['corr_by_mean'][()]
+                corr_by_std = file['measured_two_point_correlation']['corr_by_std'][()]
+                corr_by_poisson_95conf = file['measured_two_point_correlation']['corr_by_poisson_95conf'][()]
+
         for ind, PD in enumerate(PD_string):
             num_mosaic = coord[ind].shape[0]
             print('     Running two point correlation on ' + str(num_mosaic) + " " + PD_string[ind] + ' mosaics...') 
@@ -528,65 +543,65 @@ def two_point_correlation_process(param, sav_cfg):
             bin_width = temp_edges[1] - temp_edges[0]
 
 
-    
     # create the population of simulated mosaics to be correlated against
-    numcorrmos = 100000
-    numcone = coord[0].shape[1]
-    print('     Generating ' + str(numcorrmos) + " random uniform mosaics for 2PC...") 
-    mc_coord = calc.monteCarlo_uniform(numcone, numcorrmos, xlim, ylim)
+    if contains_mc_uniform == False:
+        numcorrmos = 100
+        numcone = coord[0].shape[1]
+        print('     Generating ' + str(numcorrmos) + " random uniform mosaics for 2PC...") 
+        mc_coord = calc.monteCarlo_uniform(numcone, numcorrmos, xlim, ylim)
 
-    # copied from smp.intracone_dist_process, variable names modified ------------------------------------
-    dist = np.zeros((numcorrmos, numcone, numcone))
-    mean_nearest = np.zeros(numcorrmos)
-    std_nearest = np.zeros(numcorrmos)
-    hist = np.empty(numcorrmos, dtype=np.ndarray)
+        # copied from smp.intracone_dist_process, variable names modified ------------------------------------
+        dist = np.zeros((numcorrmos, numcone, numcone))
+        mean_nearest = np.zeros(numcorrmos)
+        std_nearest = np.zeros(numcorrmos)
+        hist = np.empty(numcorrmos, dtype=np.ndarray)
 
-    print('     Running intracone distances on ' + str(numcorrmos) + " random uniform mosaics for 2PC...") 
+        print('     Running intracone distances on ' + str(numcorrmos) + " random uniform mosaics for 2PC...") 
 
-    for mos in np.arange(0, numcorrmos):
-        this_coord = mc_coord[mos, :, :]
-        dist[mos, :, :], mean_nearest[mos], std_nearest[mos], hist[mos], bin_edge, annulus_area = intracone_dist_common(this_coord.squeeze(), bin_width, False, False)
-        if hist[mos].shape[0] > max_bins:
-            max_bins = hist[mos].shape[0]
-    
-    
-    poisson_intervals = np.empty([2, max_bins])
-    poisson_intervals[:] = np.nan
+        for mos in np.arange(0, numcorrmos):
+            this_coord = mc_coord[mos, :, :]
+            dist[mos, :, :], mean_nearest[mos], std_nearest[mos], hist[mos], bin_edge, annulus_area = intracone_dist_common(this_coord.squeeze(), bin_width, False, False)
+            if hist[mos].shape[0] > max_bins:
+                max_bins = hist[mos].shape[0]
+        
+        
+        poisson_intervals = np.empty([2, max_bins])
+        poisson_intervals[:] = np.nan
 
 
-    # this is just to convert the returned histograms into a rectangular array
-    # (this can't be done in advance because of...slight variability in the number of bins returned? why?)
-    hist_mat = np.zeros([numcorrmos, max_bins])
-    for mos in np.arange(0, numcorrmos):
-        hist_mat[mos, 0:hist[mos].shape[0]] = hist[mos]
+        # this is just to convert the returned histograms into a rectangular array
+        # (this can't be done in advance because of...slight variability in the number of bins returned? why?)
+        hist_mat = np.zeros([numcorrmos, max_bins])
+        for mos in np.arange(0, numcorrmos):
+            hist_mat[mos, 0:hist[mos].shape[0]] = hist[mos]
 
-    corr_by_hists = hist_mat
+        corr_by_hists = hist_mat
 
-    #sierra why did you do this
-    corr_by_poisson_95conf = poisson_intervals
-    corr_by_pi = corr_by_poisson_95conf
+        #sierra why did you do this
+        corr_by_poisson_95conf = poisson_intervals
+        corr_by_pi = corr_by_poisson_95conf
 
-    if numcorrmos > 1:
-        for b in np.arange(0, hist_mat.shape[1]):
-            poisson_intervals[0, b], poisson_intervals[1, b] = calc.poisson_interval(np.nanmean(hist_mat[:,b]))
+        if numcorrmos > 1:
+            for b in np.arange(0, hist_mat.shape[1]):
+                poisson_intervals[0, b], poisson_intervals[1, b] = calc.poisson_interval(np.nanmean(hist_mat[:,b]))
 
-    #----------------------------------------------------------------------------
+        #----------------------------------------------------------------------------
 
-    # while len(bin_edge) < max_hist_bin + 1:
-    #     bin_edge = np.append(bin_edge, np.max(bin_edge)+bin_width)
+        # while len(bin_edge) < max_hist_bin + 1:
+        #     bin_edge = np.append(bin_edge, np.max(bin_edge)+bin_width)
 
-    corr_by_mean = np.nanmean(hist_mat, axis=0)
-    corr_by_std = np.nanstd(hist_mat, axis=0)
+        corr_by_mean = np.nanmean(hist_mat, axis=0)
+        corr_by_std = np.nanstd(hist_mat, axis=0)
 
-    # if corr_by_mean.shape[0] < max_bins:
-    
-    corr_by_mean = util.vector_zeroPad(corr_by_mean, 0, max_bins - (corr_by_mean.shape[0]))
-    corr_by_std = util.vector_zeroPad(corr_by_std, 0, max_bins - (corr_by_std.shape[0]))
-    corr_by_pi_row0= util.vector_zeroPad(corr_by_pi[0, :], 0, max_bins - (corr_by_pi.shape[1]))
-    corr_by_pi_row1 = util.vector_zeroPad(corr_by_pi[1, :], 0, max_bins - (corr_by_pi.shape[1]))
-    corr_by_pi = np.empty([2, max_bins])
-    corr_by_pi[0,:] = corr_by_pi_row0
-    corr_by_pi[1,:] = corr_by_pi_row1
+        # if corr_by_mean.shape[0] < max_bins:
+        
+        corr_by_mean = util.vector_zeroPad(corr_by_mean, 0, max_bins - (corr_by_mean.shape[0]))
+        corr_by_std = util.vector_zeroPad(corr_by_std, 0, max_bins - (corr_by_std.shape[0]))
+        corr_by_pi_row0= util.vector_zeroPad(corr_by_pi[0, :], 0, max_bins - (corr_by_pi.shape[1]))
+        corr_by_pi_row1 = util.vector_zeroPad(corr_by_pi[1, :], 0, max_bins - (corr_by_pi.shape[1]))
+        corr_by_pi = np.empty([2, max_bins])
+        corr_by_pi[0,:] = corr_by_pi_row0
+        corr_by_pi[1,:] = corr_by_pi_row1
 
     # else:
     #     corr_by_pi_row0 = corr_by_pi[0, :]
@@ -811,8 +826,6 @@ def voronoi_process(param, sav_cfg):
     proc = 'voronoi'
     proc_vars = sav_cfg[proc]['variables']
 
-    
-
     sav_fl = param['sav_fl']
 
     with h5py.File(sav_fl, 'r') as file:
@@ -839,37 +852,42 @@ def voronoi_process(param, sav_cfg):
         # print(point_data.shape)
         if len(point_data.shape) == 2:
             print('ack 2D data!!!')
-        
-        print('     Running voronois for ' + str(point_data.shape[0]) + " " + PD_string[ind] + ' mosaics...') 
-        
-        # ax = show.scatt(np.squeeze(point_data), 'points to be voronoid')
 
-        [regions, vertices, ridge_vertices, ridge_points, point_region] = calc.voronoi(point_data)
+        if np.nonzero(~np.isnan(point_data))[0].shape[0] == 0:
+            print('skipping voronoi analysis for ' + PD_string[ind] + ' due to lack of cones')
+            bound_regions = [[0]]
+
+        else:
+            print('     Running voronois for ' + str(point_data.shape[0]) + " " + PD_string[ind] + ' mosaics...') 
         
-        bound_cones = calc.get_bound_voronoi_cells(point_data, img_x, img_y)
-        # print('BOUND CONES')
-        # print(bound_cones)
-        bound_regions = []
-        for m in np.arange(point_data.shape[0]):
+            # ax = show.scatt(np.squeeze(point_data), 'points to be voronoid')
+
+            [regions, vertices, ridge_vertices, ridge_points, point_region] = calc.voronoi(point_data)
             
-            # ax = show.plotKwargs({}, '')
-            # ax = show.scatt(point_data[m, :, :], 'bound region check', ax=ax)
+            bound_cones = calc.get_bound_voronoi_cells(point_data, img_x, img_y)
+            # print('BOUND CONES')
+            # print(bound_cones)
+            bound_regions = []
+            for m in np.arange(point_data.shape[0]):
+                
+                # ax = show.plotKwargs({}, '')
+                # ax = show.scatt(point_data[m, :, :], 'bound region check', ax=ax)
 
-            bound_regions.append(np.zeros([len(regions[m]), ]))
-            bound_reg = point_region[m][np.array(np.nonzero(bound_cones[m])[0], dtype=int)]
-            bound_regions[m][bound_reg] = 1
+                bound_regions.append(np.zeros([len(regions[m]), ]))
+                bound_reg = point_region[m][np.array(np.nonzero(bound_cones[m])[0], dtype=int)]
+                bound_regions[m][bound_reg] = 1
 
-            # for b in bound_reg:
-            #     verts = regions[m][b]
-            #     vert_copy = np.array(verts)
-            #     if vert_copy.shape[0] > len(verts):
-            #         print('an abundance of verts!')
-            #     poly = vertices[m][verts]
-            #     ax.fill(*zip(*poly), facecolor='r', edgecolor='k')
-        
-        neighbors_cones = calc.getVoronoiNeighbors(point_data, vertices, regions, ridge_vertices, ridge_points, point_region, bound_regions, bound_cones)
-        # print('NEIGHBORS CONES')
-        # print(neighbors_cones)
+                # for b in bound_reg:
+                #     verts = regions[m][b]
+                #     vert_copy = np.array(verts)
+                #     if vert_copy.shape[0] > len(verts):
+                #         print('an abundance of verts!')
+                #     poly = vertices[m][verts]
+                #     ax.fill(*zip(*poly), facecolor='r', edgecolor='k')
+            
+            neighbors_cones = calc.getVoronoiNeighbors(point_data, vertices, regions, ridge_vertices, ridge_points, point_region, bound_regions, bound_cones)
+            # print('NEIGHBORS CONES')
+            # print(neighbors_cones)
         
         if np.nansum(bound_regions[0]) > 5:
             # print(np.nansum(bound_regions[0]))
@@ -1211,7 +1229,8 @@ def intracone_dist_process(param, sav_cfg):
     
     for ind, point_data in enumerate(coord):
         # if this is a valid coordinate dataset for this process...
-        if len(point_data.shape) == 3:
+
+        if len(point_data.shape) == 3 and not(np.nonzero(~np.isnan(point_data))[0].shape[0] == 0):
             num_mosaic = point_data.shape[0]
             points_per_mos = point_data.shape[1]
             dist = np.zeros((num_mosaic, points_per_mos, points_per_mos))
@@ -1301,19 +1320,19 @@ def dmin_process(param, sav_cfg):
         prob_rej_type = param['dmin_probability_func']
         dmin_maxdist = np.nan
         IND_entry = np.nan
-        intercept = np.nan
+        inflect = np.nan
         coef = np.nan
         if prob_rej_type == 'IND_shift_basic_logistic':
             IND_entry = all_cone_mean_icd
         elif prob_rej_type == 'custom_logistic':
-            intercept = param['dmin_func_intercept']
+            inflect = param['dmin_func_inflect']
             coef = param['dmin_func_coef']
         elif prob_rej_type == 'inverse_distance_squared':
             dmin_maxdist = all_cone_mean_icd*2  
         elif prob_rej_type == 'all_or_none':
             dmin_maxdist = all_cone_mean_icd*2 
  
-        dmin_coord = calc.dmin(all_coord, num2gen, cones2place, dmin_maxdist, prob_rej_type, IND_entry, intercept, coef)
+        dmin_coord = calc.dmin(all_coord, num2gen, cones2place, dmin_maxdist, prob_rej_type, IND_entry, inflect, coef)
         
         coord = dmin_coord
         
@@ -1388,27 +1407,27 @@ def hexgrid_by_density_process(param, sav_cfg):
         num_cones_final = np.array(num_cones_final)
         hex_radii_used = np.array(hex_radii_used)
 
-        # ax = show.plotKwargs({},'')
-        # hist, bins = np.histogram(num_cones_final)
-        # plt.stairs(hist, bins)
-        # plt.title('number of cones set')
+        ax = show.plotKwargs({},'')
+        hist, bins = np.histogram(num_cones_final)
+        plt.stairs(hist, bins)
+        plt.title('number of cones set')
 
-        # ax = show.plotKwargs({},'')
-        # hist, bins = np.histogram(hex_radii_used)
-        # plt.stairs(hist, bins)
-        # plt.title('hex_radii_used')
+        ax = show.plotKwargs({},'')
+        hist, bins = np.histogram(hex_radii_used)
+        plt.stairs(hist, bins)
+        plt.title('hex_radii_used')
         
-        #temp = np.empty([num2gen, num_cones, 2])
-        # for m in np.arange(0,num2gen):
-        #     # print(['HEX COORD ' + str(m)])
-        #     # print(coord[m, :, :])
-        #     # print(np.nonzero([np.isnan(coord[m,a,0]) for a in np.arange(0,coord.shape[1])])[0].shape[0])
-        #     non_nan = np.array(np.nonzero(~np.isnan(coord[m,:,0]))[0], dtype=int)
-        #     # ax = show.plotKwargs({},'')
-        #     # before = show.scatt(np.squeeze(coord[m, :, :]), id + ' ' + str(m) + ' before', ax=ax)
-        #     #temp[m,:,:] = util.trim_random_edge_points(coord[m, non_nan, :], num_cones, [0, img_x], [0, img_y])
-        #     # ax1 = show.plotKwargs({},'')
-        #     # after = show.scatt(np.squeeze(coord[m, :, :]), id + ' ' + str(m) + ' after', ax=ax1)
+        temp = np.empty([num2gen, num_cones, 2])
+        for m in np.arange(0,num2gen):
+            # print(['HEX COORD ' + str(m)])
+            # print(coord[m, :, :])
+            # print(np.nonzero([np.isnan(coord[m,a,0]) for a in np.arange(0,coord.shape[1])])[0].shape[0])
+            non_nan = np.array(np.nonzero(~np.isnan(coord[m,:,0]))[0], dtype=int)
+            ax = show.plotKwargs({},'')
+            before = show.scatt(np.squeeze(coord[m, :, :]), id + ' ' + str(m) + ' before', ax=ax)
+            temp[m,:,:] = util.trim_random_edge_points(coord[m, non_nan, :], num_cones, [0, img_x], [0, img_y])
+            ax1 = show.plotKwargs({},'')
+            after = show.scatt(np.squeeze(coord[m, :, :]), id + ' ' + str(m) + ' after', ax=ax1)
 
         data_to_set = util.mapStringToLocal(proc_vars, locals())
     else:
@@ -1448,25 +1467,28 @@ def coneLocked_maxSpacing_process(param, sav_cfg):
         
         # trim excess cones
         temp = np.empty([num2gen, cones2place, 2])
-        # ax = show.plotKwargs({},'')
-        for mos in np.arange(0, num2gen):
-            # print('num hexgrid pre trim')
-            # print(spaced_coord[mos,:,:].shape)
-            # print('num unique hexgrid')
-            # print(np.unique(np.squeeze(spaced_coord[mos,:,:]), axis=0).shape)
-            non_nan = np.array(np.nonzero(~np.isnan(spaced_coord[mos,:,0]))[0], dtype=int)
-            # ax0 = show.scatt(all_coord, 'trim test: before', plot_col = 'y')
-            # ax0 = show.scatt(spaced_coord[mos,:,:], 'trim test: before', plot_col = 'r', ax=ax0)
-            beep = np.unique(np.squeeze(spaced_coord[mos, non_nan, :]), axis=0)
-            # print('num unique coords')
-            # print(beep.shape)
-            #temp[mos, :, :] = util.trim_random_edge_points(spaced_coord[mos, non_nan, :], cones2place, x_dim, y_dim)
-            # ax2 = show.scatt(all_coord, '', plot_col='y')
-            # ax2 = show.scatt(temp[mos, :, :], 'trim test: after',plot_col='r', ax=ax2)
-            # col = util.randCol()
-            # #print(temp[mos,:,:].shape)
-            # ax = show.scatt(temp[mos,:,:], 'conelocked spacified overlay', plot_col = col, ax=ax)
+        ax0 = show.plotKwargs({},'')
+        # for mos in np.arange(0, num2gen):
+        #     print('num hexgrid pre trim')
+        #     print(spaced_coord[mos,:,:].shape)
+        #     print('num unique hexgrid')
+        #     print(np.unique(np.squeeze(spaced_coord[mos,:,:]), axis=0).shape)
+        #     non_nan = np.array(np.nonzero(~np.isnan(spaced_coord[mos,:,0]))[0], dtype=int)
+        #     ax0 = show.scatt(all_coord, 'trim test: before', plot_col = 'y')
+        #     ax0 = show.scatt(spaced_coord[mos,:,:], 'trim test: before', plot_col = 'r', ax=ax0)
+        #     # beep = np.unique(np.squeeze(spaced_coord[mos, non_nan, :]), axis=0)
+        #     # print('num unique coords')
+        #     # print(beep.shape)
+        #     # temp[mos, :, :] = util.trim_random_edge_points(spaced_coord[mos, non_nan, :], cones2place, x_dim, y_dim)
+        #     # ax2 = show.scatt(all_coord, '', plot_col='y')
+        #     # ax2 = show.scatt(temp[mos, :, :], 'trim test: after',plot_col='r', ax=ax2)
+        #     # col = util.randCol()
+        #     # print(temp[mos,:,:].shape)
+        #     # ax = show.scatt(temp[mos,:,:], 'conelocked spacified overlay', plot_col = col, ax=ax)
             
+
+        #     fig, ax3 = plt.subplots()
+
         coord = spaced_coord 
         # print('size of spaced coordinates saved')
         # print(coord.shape)q
@@ -1698,7 +1720,7 @@ def unpackThisParam(user_param, ind):
     param['to_be_corr'] = user_param['to_be_corr'][0]
     param['to_be_corr_colors'] = user_param['to_be_corr_colors'][0]
     param['dmin_probability_func'] = user_param['dmin_probability_func'][0]
-    param['dmin_func_intercept'] = user_param['dmin_func_intercept'][0]
+    param['dmin_func_inflect'] = user_param['dmin_func_inflect'][0]
     param['dmin_func_coef'] = user_param['dmin_func_coef'][0]
 
     param['convert_coord_unit'] = user_param['convert_coord_unit']

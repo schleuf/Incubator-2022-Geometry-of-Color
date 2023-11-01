@@ -14,7 +14,7 @@ import math
 
 def logistic_coef_intercept(x, c, i):
     # c = growth rate coefficient, i = x-val at x-intercept
-    y = 1/(1 + np.exp(-x * c - i))
+    y = 1/(1 + np.exp((-x * c) - i))
    
     return y
 
@@ -41,6 +41,48 @@ def logistic_derivative(x, beta0, beta1):
 #     p = logistic_function(x, beta0, beta1)
     p = logistic_coef_intercept(x, beta1, beta0)
     return beta1 * p * (1 - p)
+
+
+def binaryDistributionNeighborDistances(dists, neighbors):
+    maxdist = np.nanmax(dists.flatten())
+    x = np.arange(0, maxdist, .1)
+    
+    binary_x_all = []
+    binary_y_all = []
+    if len(neighbors.shape) == 3:
+        for mos in np.arange(0, neighbors.shape[0]):
+            for cone in np.arange(0, neighbors.shape[1]):
+                neighbs = neighbors[mos, cone, :]
+                neighb_inds = np.nonzero(~np.isnan(neighbs))[0]
+                neighbs = neighbs[neighb_inds].astype(np.int64)
+                if len(neighbs) > 0:
+                    for n in neighbs:
+                        print(n)
+                        d = dists[cone, n]
+                        temp = np.zeros([x.shape[0],])
+                        gte_d = np.nonzero([z > d for z in x])[0]
+                        temp[gte_d] = 1
+                        binary_x_all.append(x)
+                        binary_y_all.append(temp)
+    elif len(neighbors.shape) == 2:
+        for cone in np.arange(0, neighbors.shape[1]):
+            neighbs = neighbors[cone, :]
+            neighb_inds = np.nonzero(~np.isnan(neighbs))[0]
+            neighbs = neighbs[neighb_inds].astype(np.int64)
+            if len(neighbs) > 0:
+                for n in neighbs:
+                    print(n)
+                    d = dists[cone, n]
+                    temp = np.zeros([x.shape[0],])
+                    gte_d = np.nonzero([z > d for z in x])[0]
+                    temp[gte_d] = 1
+                    binary_x_all.append(x)
+                    binary_y_all.append(temp)
+
+    binary_y_all = np.reshape(np.array(binary_y_all), [-1])
+    binary_x_all = np.reshape(np.array(binary_x_all), [-1, 1])
+                    
+    return binary_x_all, binary_y_all
 
 
 def binaryOccurenceWithRadius(dmat):
@@ -81,7 +123,7 @@ def binaryOccurenceWithRadius(dmat):
     binary_y_all = np.reshape(np.array(binary_y_all), [-1])
     binary_x_all = np.reshape(np.array(binary_x_all), [-1, 1])
 
-    return binary_mat, binary_x_all, binary_y_all
+    return binary_x_all, binary_y_all
 
             
 
@@ -113,12 +155,16 @@ def poisson_interval(k, alpha=0.05):
     uses chisquared info to get the poisson interval. Uses scipy.stats 
     (imports in function). 
     """
+    # print(k)
     from scipy.stats import chi2
     a = alpha
     low, high = (chi2.ppf(a/2, 2*k) / 2, chi2.ppf(1-a/2, 2*k + 2) / 2)
-    if k == 0: 
-        low = 0.0
-    return low, high
+    if np.all(k == 0): 
+        low = [0.0]
+
+    # print(low)
+    # print(high)
+    return low[0], high[0]
 
 
 def rotate_around_point(xy, radians, origin=(0, 0)):
@@ -961,6 +1007,7 @@ def coneLocked_hexgrid_mask(all_coord, num2gen, cones2place, x_dim, y_dim, hex_r
     max_coord = 0
     num_cones_final = []
     hex_radii_used = []
+
     for mos in np.arange(0, num2gen):
         num_cones_final.append([])
         hex_radii_used.append([])
@@ -969,14 +1016,24 @@ def coneLocked_hexgrid_mask(all_coord, num2gen, cones2place, x_dim, y_dim, hex_r
         # get intercone distance histogram for cones versus bound hexgrid points
         dist_mat = distance.cdist(np.squeeze(hex_coord), all_coord, 'euclidean')
 
-        # ax = show.scatt(all_coord, 'test grid', plot_col='y')
-        # ax = show.scatt(np.squeeze(hex_coord), 'test grid', ax=ax)
-
         # for every bound hexgrid point, identify its closest cone and add to the spacified coordinates
         min_dist_cone_inds = np.argmin(dist_mat, axis=1)
         spaced_coord.append(all_coord[min_dist_cone_inds, :])
 
         max_coord = np.nanmax([max_coord, spaced_coord[mos].shape[0]])
+
+    #     fig, ax = plt.subplots()
+    #     ax.scatter(all_coord[:,0], all_coord[:,1], edgecolor = 'k', facecolor = 'w', s=20)
+    #     ax.scatter(spaced_coord[mos][:,0], spaced_coord[mos][:,1], edgecolor = 'k', facecolor='k', s=20)
+    #     ax.scatter(hex_coord[mos][:,0], hex_coord[mos][:,1], c = 'r', s =6)
+    #     ax.set_aspect('equal')
+    
+    # save_type = '.svg'
+    # save_things = True
+    # save_path = 'Z:\\Sierra\\FVM 2023\\spaced_mask_example' + save_type
+    # if save_things: 
+    #     print('HI I SAVED THE THING')
+    #     plt.savefig(save_path)
 
         # ax = show.scatt(all_coord, 'test grid', plot_col='y', s=3)
         # ax = show.scatt(np.squeeze(hex_coord), 'test grid', ax=ax)
@@ -990,9 +1047,11 @@ def coneLocked_hexgrid_mask(all_coord, num2gen, cones2place, x_dim, y_dim, hex_r
     temp[:] = np.nan
     for mos in np.arange(0, num2gen):
         temp[mos, 0:spaced_coord[mos].shape[0], :] = spaced_coord[mos]
+
     spaced_coord = temp
     num_cones_final = np.array(num_cones_final)
     hex_radii_used = np.array(hex_radii_used)
+
     return spaced_coord, num_cones_final, hex_radii_used
         
     
@@ -1089,12 +1148,15 @@ def monteCarlo_coneLocked(num_coord, all_coord, num_mc):
 
 
 
-def dmin(all_coord, num2gen, num2place, max_dist, prob_rej_type, IND = np.nan, intercept = np.nan, coef = np.nan) :
+def dmin(all_coord, num2gen, num2place, max_dist, prob_rej_type, IND = np.nan, inflect = np.nan, coef = np.nan) :
     """
     """
     dmin_coord = np.zeros([num2gen, num2place, 2]) 
     dmin_coord[:] = np.nan
 
+    # print('inflect: ' + str(inflect))
+    # print('coef: ' + str(coef))
+    sim_failed = False
     for mos in np.arange(0, num2gen):
 
         #these coordinate lists will be depleted as cones are set for this mosaic
@@ -1109,11 +1171,23 @@ def dmin(all_coord, num2gen, num2place, max_dist, prob_rej_type, IND = np.nan, i
         # print('    working on dmin mosaic ' + str(mos))
         tries = 0
         resets = 0
-        sim_failed = False
+       
         # print(num2place)
         # print(prob_rej_type)
 
-        while not enough_placed:
+        mindist = 1000
+
+        # fig1, ax1 = plt.subplots()
+        # if prob_rej_type == 'custom_logistic':
+        #             # print('coef ' + str(coef))
+        #             # print('dist: ' + str(intercept))
+        #             x = np.arange(-10,11)
+        #             prob_placement = logistic_coef_inflectX(x, coef, intercept)
+        #             ax1.plot(x, prob_placement)
+        #             ax1.set_title('coef=' + str(coef) + ', intercept=' + str(intercept))
+
+
+        while not enough_placed and not sim_failed:
             tries = tries + 1
             # get random int between 1 and the number of cones available to be placed 
             r = np.random.randint(low=0, high=len(temp_x), size=1)
@@ -1131,11 +1205,13 @@ def dmin(all_coord, num2gen, num2place, max_dist, prob_rej_type, IND = np.nan, i
             # a cone would be found here under the dmin model 
     
             test_cone_passed = True
+            
             for ind, p in enumerate(placed):
                 px = p[0]
                 py = p[1]
                 dist = np.sqrt((candidate_x - px)**2 + (candidate_y - py)**2)
-
+                if dist < mindist:
+                    mindist = dist
                 if prob_rej_type == 'all_or_none':
 
                     if dist < max_dist:
@@ -1150,20 +1226,29 @@ def dmin(all_coord, num2gen, num2place, max_dist, prob_rej_type, IND = np.nan, i
                     else:
                         prob_placement = 1
 
-                if prob_rej_type == 'IND_shift_basic_logistic':
+                elif prob_rej_type == 'IND_shift_basic_logistic':
+                    
                     prob_placement = 1/(1+ (np.exp((IND - (dist-IND)))))
 
-                if prob_rej_type == 'custom_logistic':
-                    prob_placement = 1/(1 + (np.exp((-1*coef*(dist))-intercept)))
-
+                elif prob_rej_type == 'custom_logistic':
+                    # print('coef ' + str(coef))
+                    # print('dist: ' + str(intercept))
+                    prob_placement = logistic_coef_inflectX(dist, coef, inflect)
+                
                 # draw a random number between 0 and 1.  
                 r2 = np.random.rand(1)
+                # print(dist)
+                # print(prob_placement)
+                # print(r2)
+                # print(test_cone_passed)
+                # print('')
+
 
                 # if r is less than probability of placement for any already-placed
                 # cone, the candidate cone fails the test.  
                 if r2[0] > prob_placement:
                     test_cone_passed = False
-
+            
             # if the candidate placement has passed all tests with previously-set
             # cones, place a cone here
             if test_cone_passed:
@@ -1197,6 +1282,10 @@ def dmin(all_coord, num2gen, num2place, max_dist, prob_rej_type, IND = np.nan, i
                 temp_coord[p,:] = placed[p]
 
             dmin_coord[mos,:,:] = temp_coord
+
+    if sim_failed:
+        dmin_coord = np.zeros([num2gen, num2place, 2]) 
+        dmin_coord[:] = np.nan
 
     return dmin_coord
 

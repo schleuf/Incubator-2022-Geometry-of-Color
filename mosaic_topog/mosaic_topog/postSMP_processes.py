@@ -110,6 +110,7 @@ def getMetric(variables, user_param, process, metric, string=False):
                             output.append(file[process][metric][()][0])
                     else:
                         output.append(np.squeeze(file[process][metric][()]))
+                        # output.append(file[process][metric][()])
                     
         try:
             output = np.array(output)

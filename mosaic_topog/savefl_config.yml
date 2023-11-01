@@ -76,7 +76,7 @@ input_data:
     - to_be_corr_colors
     - sim_hexgrid_by
     - dmin_probability_func
-    - dmin_func_intercept
+    - dmin_func_inflect
     - dmin_func_coef
 
 basic_stats:
@@ -121,7 +121,7 @@ dmin:
   - coord
   - dmin_maxdist
   - prob_rej_type
-  - intercept
+  - inflect
   - coef
 
 # coneLocked_spacify_by_nearest_neighbors:

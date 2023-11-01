@@ -59,6 +59,44 @@ def updateEccentricity(xlsx_path, outputs):
 
     return ecc_updated
 
+
+
+def cum_hist_to_line_plottables(bin_edges, hist):
+    # print(bin_edges.shape[0])
+    hist_x = np.empty(bin_edges.shape[0]*2)
+    hist_y = np.empty(bin_edges.shape[0]*2)
+   
+    hist_x[:] = np.nan
+    hist_y[:] = np.nan
+
+    nan_inds = np.nonzero([np.isnan(hist[v]) for v in np.arange(0, hist.shape[0])])[0]
+
+    if nan_inds.shape[0] > 0:
+        last_non_nan_ind = (nan_inds[nan_inds.shape[0]-1]+1) * 2
+
+    else:
+        last_non_nan_ind = (hist.shape[0]) * 2
+
+    for ind, b in enumerate(np.arange(0, hist_x.shape[0])):
+        hist_x[ind] = bin_edges[int(np.floor(ind/2))]
+        # print(int(np.floor(ind/2)))
+        
+        if ind == 0:
+            hist_y[ind] = 0
+
+        elif ind > last_non_nan_ind:
+            hist_y[ind] = 1
+
+        elif ind < last_non_nan_ind+1 and ind > 0: 
+            hist_y[ind] = hist[int(np.floor((ind-1)/2))]
+
+    return hist_x, hist_y
+
+
+
+
+
+
 def reformat_stat_hists_for_plot(bin_edges, hist_mean, hist_std):
     # print(bin_edges.shape[0])
     hist_x = np.empty(bin_edges.shape[0]*2)
