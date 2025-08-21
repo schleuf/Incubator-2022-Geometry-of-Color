@@ -13,235 +13,392 @@ import mosaic_topog.utilities as util
 # from py import process
 # from shapely.geometry.polygon import Polygon
 import scipy
+from scipy import spatial
 # from scipy import spatial
 
 import random
+import glob
+
+
+def concentric_ring_analysis_process(param, sav_cfg):
+
+    proc = 'concentric_ring_analysis'
+    proc_vars = sav_cfg[proc]['variables']
+    sav_fl = param['sav_fl']
+
+    use_cut_in_coord = param['use_cut_in_coord']
+    num_rings = param['num_rings']
+
+    path_AllConeRef = param['path_AllConeRef']
+    fileinput_for_AllConeRef = param['fileinput_for_AllConeRef']
+    if path_AllConeRef:
+        sep_folder = fileinput_for_AllConeRef
+    else:
+        sep_folder = "nah"
+
+    all_dat = flsyst.getAllConeDat(sav_fl, param['mosaic'], 
+                                     [['input_data', 'cone_coord'],
+                                      ['measured_voronoi', 'bound_cones'],
+                                      ['measured_voronoi', 'neighbors_cones']],
+                                      sep_folder=sep_folder, 
+                                      use_cut_in_coord = use_cut_in_coord)
+    A_coord = all_dat[0]
+    A_bound = all_dat[1][0]
+    A_neighb = all_dat[2][0]
+
+
+    #need this for the PD_string that will sort the 2PC results to each mosaic types save spot
+    coord, PD_string = getDataForPrimaryProcess(sav_fl)
+    perc = [.025, .25, .5, .75, .975]
+
+    for ind, PD in enumerate(PD_string):      
+        if PD_string[ind] in ['measured_', 'monteCarlo_coneLocked_', 'coneLocked_maxSpacing_']:
+            
+            num_mosaic = coord[ind].shape[0]
+            print('     Running concentric ring analysis on ' + str(num_mosaic) + " " + PD_string[ind] + ' mosaics...') 
+            if (not np.all(np.isnan(coord[ind]))) and (coord[ind].shape[1] > 5):
+                
+                
+                type_coord = coord[ind]
+
+                numtrl = type_coord.shape[0]
+                numcone = type_coord.shape[1]
+                
+                all_Sprop_in_rings= np.empty([numtrl, numcone, num_rings])
+                all_numS_in_rings= np.empty([numtrl, numcone, num_rings])
+                all_dist_in_rings=[]
+                all_Sprop_in_rings[:] = np.nan
+                all_numS_in_rings[:] = np.nan
+                
+                all_numA_in_rings= np.empty([numtrl, A_coord.shape[0], num_rings])
+                all_numA_in_rings[:] = np.nan
+
+                A_ind2_S = np.empty([numtrl, numcone])
+                A_ind2_S[:] = np.nan
+
+                percentile_dist_in_rings=np.empty([numtrl, num_rings, len(perc)]) 
+                percentile_dist_in_rings[:] = np.nan
+                mean_prop_in_rings=(np.empty([num_rings]))
+                mean_prop_in_rings[:] = np.nan
+
+                max_c_in_rings = 0
+
+                S_rings_mat = util.NaN([numcone, numcone, numtrl])
+
+                for trl in np.arange(0,numtrl):
+                    
+                    this_coord = np.squeeze(type_coord[trl,:,:]) #* CF_pixels_to_arcmin
+
+                    all_dist_in_rings.append([])
+                    
+                    this_A_ind2_S = util.all_coord_match_inds(A_coord, this_coord)
+                    
+                    neighb_rings = []
+                    S_in_rings = []
+                 
+
+                    temp_dist_in_rings = []
+                    for i, c_ind in enumerate(this_A_ind2_S):
+                        neighb_rings.append([])
+                        S_in_rings.append([])
+                        if i == 0: 
+                            temp_dist_in_rings.append([])
+                        if A_bound[c_ind]:
+                            all_in = [c_ind]
+                            c = A_coord[c_ind,:]
+
+                            neighb = A_neighb[c_ind,~np.isnan(A_neighb[c_ind,:])].astype('int64')
+                            neighb_rings[i].append(neighb.tolist())
+
+                            #get distance between this cone and all cones in this ring
+                            ring_dists = spatial.distance_matrix([c], A_coord[neighb,:]).flatten().tolist()
+                            temp_dist_in_rings[0].extend(ring_dists)
+
+
+                            temp_S_in = np.nonzero([z in neighb for z in this_A_ind2_S])[0]
+                            S_in_rings[i].append(temp_S_in.tolist())
+                            S_rings_mat[i, temp_S_in, trl] = 1
+                            
+
+                            all_in.extend(neighb)
+                            
+                            if num_rings > 0:
+                                
+                                for r in np.arange(1, num_rings):
+                                    if len(temp_dist_in_rings) < r+1:
+                                        temp_dist_in_rings.append([])
+                                    prev_neighbs = all_in
+                                    temp_neighbs = []
+
+                                    for pn in prev_neighbs:
+                                        neighbneighbs = A_neighb[pn,np.squeeze(~np.isnan(A_neighb[pn,:]))]
+                                        temp_neighbs.extend(neighbneighbs.tolist())
+
+                                    temp_neighbs = np.array(np.unique(temp_neighbs)).astype('int64')
+
+                                    temp_neighbs = temp_neighbs[np.nonzero([not z in prev_neighbs and not z == c_ind for z in temp_neighbs])[0]]
+                                    temp_S_in = np.nonzero([z in temp_neighbs for z in this_A_ind2_S])[0]
+                                    S_in_rings[i].append(temp_S_in.tolist())
+                    
+                                    S_rings_mat[i, temp_S_in, trl] = r+1
+
+
+                                    ring_dists = spatial.distance_matrix([c], A_coord[temp_neighbs,:]).flatten().tolist()
+                                    temp_dist_in_rings[r].extend(ring_dists)
+
+                                    neighb_rings[i].append(temp_neighbs.tolist())
+                                    all_in.extend(temp_neighbs)
+                                    
+       
+                            numS_in_rings = [len(S_in_rings[i][z]) for z in np.arange(0, len(S_in_rings[i]))]
+                            numA_in_rings = [len(neighb_rings[i][z]) for z in np.arange(0,len(neighb_rings[i]))]
+
+                            propS_in_rings = [numS_in_rings[z]/numA_in_rings[z] for z in np.arange(0, len(S_in_rings[i]))]
+                            all_Sprop_in_rings[trl, i, :] = propS_in_rings
+                            all_numS_in_rings[trl, i, :] = numS_in_rings
+                            all_numA_in_rings[trl, i, :] = numA_in_rings
+                    
+                    all_dist_in_rings[trl] = temp_dist_in_rings
+                    numperring = [len(all_dist_in_rings[trl][z]) for z in np.arange(0, num_rings)]
+                    max_c_in_rings = np.nanmax(numperring + [max_c_in_rings])
+                
+                temp = np.empty([numtrl, max_c_in_rings, num_rings])
+                temp[:] = np.nan
+                for trl in np.arange(0, numtrl):
+                    for r in np.arange(0, num_rings):
+                        temp_dists = all_dist_in_rings[trl][r]
+                        temp[trl, 0:len(temp_dists), r] = temp_dists
+                temp2 = temp[:, :, 0] #.flatten()
+                all_dist_in_rings = temp
+
+                data_to_set = util.mapStringToLocal(proc_vars, locals())
+            else:
+                data_to_set = util.mapStringToNan(proc_vars, locals())
+            flsyst.setProcessVarsFromDict(param, sav_cfg, proc, data_to_set, prefix=PD)
 
 
 ## --------------------------------SECONDARY ANALYSIS FUNCTIONS--------------------------------------
-def degree_structure_process(param, sav_cfg):
-    proc = 'degree_structure'
-    proc_vars = sav_cfg[proc]['variables']
-    proc_metrics = sav_cfg[proc]['metrics']
-    sav_fl = param['sav_fl']
-    mos_types = ['Ru', 'Rr', 'M', 'Sr', 'Su','Dm']
-    mos_labels = ['monteCarlo_uniform', 'monteCarlo_coneLocked', 'measured', 'coneLocked_maxSpacing', 'hexgrid_by_density', 'dmin']
+# def degree_structure_process(param, sav_cfg):
+#     proc = 'degree_structure'
+#     proc_vars = sav_cfg[proc]['variables']
+#     proc_metrics = sav_cfg[proc]['metrics']
+#     sav_fl = param['sav_fl']
+#     mos_types = ['Ru', 'Rr', 'M', 'Sr', 'Su','Dm']
+#     mos_labels = ['monteCarlo_uniform', 'monteCarlo_coneLocked', 'measured', 'coneLocked_maxSpacing', 'hexgrid_by_density', 'dmin']
 
-    metric_colors = ['rebeccapurple', 'dodgerblue', 'white', 'darkorange', 'firebrick','chartreuse']
-    print(sav_fl)
-    for met in proc_metrics:
-        metric = met[1]
-        mosaic = param['mosaic']
-        # print([metric_key[x] == met for x in np.arange(0,len(metric_key))])
-        data, metrics_taken, metric_key, mos_key = getDataForMosaicSetProcess(sav_fl, [met])
+#     metric_colors = ['rebeccapurple', 'dodgerblue', 'white', 'darkorange', 'firebrick','chartreuse']
+#     print(sav_fl)
+#     for met in proc_metrics:
+#         metric = met[1]
+#         mosaic = param['mosaic']
+#         # print([metric_key[x] == met for x in np.arange(0,len(metric_key))])
+#         data, metrics_taken, metric_key, mos_key = getDataForMosaicSetProcess(sav_fl, [met])
 
-        min_max_per_mosaic = np.empty([2,6])
-        min_max_per_mosaic[:] = np.nan
+#         min_max_per_mosaic = np.empty([2,6])
+#         min_max_per_mosaic[:] = np.nan
 
-        flat_data = [[], [], [], [], [], []]
-        for mi in np.arange(0, len(data)):
-            for li, lab in enumerate(mos_labels):
-                if mos_key[mi] == lab:
-                    flat_data[mi] = data[mi].flatten()
-                    min_max_per_mosaic[0,mi] = np.nanmin(data[mi].flatten())
-                    min_max_per_mosaic[1,mi] = np.nanmax(data[mi].flatten())
+#         flat_data = [[], [], [], [], [], []]
+#         for mi in np.arange(0, len(data)):
+#             for li, lab in enumerate(mos_labels):
+#                 if mos_key[mi] == lab:
+#                     flat_data[mi] = data[mi].flatten()
+#                     min_max_per_mosaic[0,mi] = np.nanmin(data[mi].flatten())
+#                     min_max_per_mosaic[1,mi] = np.nanmax(data[mi].flatten())
 
-        Ru_data = flat_data[0]
-        Rr_data = flat_data[1]
-        M_data = flat_data[2]
-        Sr_data = flat_data[3]
-        Su_data = flat_data[4]
-        Dm_data = flat_data[5]
+#         Ru_data = flat_data[0]
+#         Rr_data = flat_data[1]
+#         M_data = flat_data[2]
+#         Sr_data = flat_data[3]
+#         Su_data = flat_data[4]
+#         Dm_data = flat_data[5]
 
-        min_val = np.nanmin(min_max_per_mosaic[0,:])
-        max_val = np.nanmax(min_max_per_mosaic[1,:])
+#         min_val = np.nanmin(min_max_per_mosaic[0,:])
+#         max_val = np.nanmax(min_max_per_mosaic[1,:])
 
-        # avoid the extremely high upper limit of regularity indices
-        # print('metric')
-        # print(met[1])
-        met_split = met[1].split('_')
-        if met_split[len(met_split)-1] == 'regularity':
-            max_val = np.nanmin([max_val,100])
+#         # avoid the extremely high upper limit of regularity indices
+#         # print('metric')
+#         # print(met[1])
+#         met_split = met[1].split('_')
+#         if met_split[len(met_split)-1] == 'regularity':
+#             max_val = np.nanmin([max_val,100])
 
   
-        if M_data.shape[0] > 1:
-            #print([met[1] + ': apply FD to Ru'])
-            non_nans = np.nonzero([not np.isnan(M_data[x]) for x in np.arange(0, M_data.size)])[0]
-            n = non_nans.size
-            temp_bin_edge = np.histogram_bin_edges(M_data[non_nans], bins='fd') 
+#         if M_data.shape[0] > 1:
+#             #print([met[1] + ': apply FD to Ru'])
+#             non_nans = np.nonzero([not np.isnan(M_data[x]) for x in np.arange(0, M_data.size)])[0]
+#             n = non_nans.size
+#             temp_bin_edge = np.histogram_bin_edges(M_data[non_nans], bins='fd') 
         
-        elif M_data.shape[0] == 1:
-            #print([met[1] + ': apply FD to M'])
-            non_nans = np.nonzero([not np.isnan(Rr_data[x]) for x in np.arange(0, Rr_data.size)])[0]
-            n = non_nans.size
-            # if met[1] == 'exclusion_radius':
-            #     temp_bin_edge = [0,3]
-            # elif met[1] == 'exclusion_area':
-            #     temp_bin_edge = [0,.5]
-            # elif met[1] == 'exclusion_obed':
-            #     temp_bin_edge = [0,.05]
+#         elif M_data.shape[0] == 1:
+#             #print([met[1] + ': apply FD to M'])
+#             non_nans = np.nonzero([not np.isnan(Rr_data[x]) for x in np.arange(0, Rr_data.size)])[0]
+#             n = non_nans.size
+#             # if met[1] == 'exclusion_radius':
+#             #     temp_bin_edge = [0,3]
+#             # elif met[1] == 'exclusion_area':
+#             #     temp_bin_edge = [0,.5]
+#             # elif met[1] == 'exclusion_obed':
+#             #     temp_bin_edge = [0,.05]
 
-            temp_bin_edge = np.histogram_bin_edges(Rr_data[non_nans], bins='scott') 
-            temp_bin_edge = temp_bin_edge
+#             temp_bin_edge = np.histogram_bin_edges(Rr_data[non_nans], bins='scott') 
+#             temp_bin_edge = temp_bin_edge
 
-        else:
-            print('uhm, ' + met[1] + ' is empty')
+#         else:
+#             print('uhm, ' + met[1] + ' is empty')
         
-        bin_width = temp_bin_edge[1] - temp_bin_edge[0]
-        round_min = np.floor(min_val)
-        round_max = np.ceil(max_val)
-        #print(met)
-        hist_extents = [round_min, round_max + ((round_max-round_min) % bin_width)]
-        # print(hist_extents)
-        # print('')
-        bin_edge = np.arange(hist_extents[0], hist_extents[1], bin_width)
-        # print('BIN EDGE')
-        # print(bin_edge.shape)
-        metric_values = [Ru_data, Rr_data, M_data, Sr_data, Su_data, Dm_data]
-        metric_hists = np.empty([6,bin_edge.shape[0]-1])
-        metric_hists[:] = np.nan
+#         bin_width = temp_bin_edge[1] - temp_bin_edge[0]
+#         round_min = np.floor(min_val)
+#         round_max = np.ceil(max_val)
+#         #print(met)
+#         hist_extents = [round_min, round_max + ((round_max-round_min) % bin_width)]
+#         # print(hist_extents)
+#         # print('')
+#         bin_edge = np.arange(hist_extents[0], hist_extents[1], bin_width)
+#         # print('BIN EDGE')
+#         # print(bin_edge.shape)
+#         metric_values = [Ru_data, Rr_data, M_data, Sr_data, Su_data, Dm_data]
+#         metric_hists = np.empty([6,bin_edge.shape[0]-1])
+#         metric_hists[:] = np.nan
 
-        # ax = show.plotKwargs({}, "")
-        for ind, vals in enumerate(metric_values):    
-            # print(mos_types[ind])
-            # if met == 'exclusion_factor':
-                # print('EXCLUSION FACTORRR')
-                # print(vals)
-            if vals.shape[0] > 1:
-                hist, bin_edge = np.histogram(vals, bin_edge)
-                non_nan = np.nonzero(~np.isnan(vals))[0]
-                hist = hist/non_nan.shape[0]
-                metric_hists[ind, :] = hist
-                # hist_x, hist_y, blah, bloo = util.reformat_stat_hists_for_plot(bin_edge, metric_hists[ind, :], np.zeros([metric_hists[ind, :].shape[0],]))
-                # ax = show.line(hist_x, hist_y, mosaic + ' ' + met[1], plot_col = metric_colors[ind], linewidth = 2, ax = ax)
+#         # ax = show.plotKwargs({}, "")
+#         for ind, vals in enumerate(metric_values):    
+#             # print(mos_types[ind])
+#             # if met == 'exclusion_factor':
+#                 # print('EXCLUSION FACTORRR')
+#                 # print(vals)
+#             if vals.shape[0] > 1:
+#                 hist, bin_edge = np.histogram(vals, bin_edge)
+#                 non_nan = np.nonzero(~np.isnan(vals))[0]
+#                 hist = hist/non_nan.shape[0]
+#                 metric_hists[ind, :] = hist
+#                 # hist_x, hist_y, blah, bloo = util.reformat_stat_hists_for_plot(bin_edge, metric_hists[ind, :], np.zeros([metric_hists[ind, :].shape[0],]))
+#                 # ax = show.line(hist_x, hist_y, mosaic + ' ' + met[1], plot_col = metric_colors[ind], linewidth = 2, ax = ax)
                 
-                #plt.stairs(metric_hist, bin_edge, color = metric_colors[])
-            else:
-                # print('VAL')
-                # print(vals.shape)
-                # plt.scatter(vals[0], 0, 50, 'w', 'o', 'filled')
-                try:
-                    metric_hists[ind, 0] = np.array([vals[0]])
-                except:
-                    print('WARNING: still that thing where histogram stuff in degree structure fails for overly discrete metric outputs')
+#                 #plt.stairs(metric_hist, bin_edge, color = metric_colors[])
+#             else:
+#                 # print('VAL')
+#                 # print(vals.shape)
+#                 # plt.scatter(vals[0], 0, 50, 'w', 'o', 'filled')
+#                 try:
+#                     metric_hists[ind, 0] = np.array([vals[0]])
+#                 except:
+#                     print('WARNING: still that thing where histogram stuff in degree structure fails for overly discrete metric outputs')
     
-        #print(np.concatenate([Rr_data,Sr_data]))
-        max_constrained = np.nanmax(np.concatenate([Rr_data,Sr_data]))
-        min_constrained = np.nanmin(np.concatenate([Rr_data,Sr_data]))
-        max_unconstrained = np.nanmax(np.concatenate([Ru_data,Su_data]))
-        min_unconstrained = np.nanmin(np.concatenate([Ru_data,Su_data]))
+#         #print(np.concatenate([Rr_data,Sr_data]))
+#         max_constrained = np.nanmax(np.concatenate([Rr_data,Sr_data]))
+#         min_constrained = np.nanmin(np.concatenate([Rr_data,Sr_data]))
+#         max_unconstrained = np.nanmax(np.concatenate([Ru_data,Su_data]))
+#         min_unconstrained = np.nanmin(np.concatenate([Ru_data,Su_data]))
 
-        cone_constrained_span = max_constrained - min_constrained
-        unconstrained_span = max_unconstrained - min_unconstrained
-        constraint_ratio = cone_constrained_span/unconstrained_span
+#         cone_constrained_span = max_constrained - min_constrained
+#         unconstrained_span = max_unconstrained - min_unconstrained
+#         constraint_ratio = cone_constrained_span/unconstrained_span
 
-        # ax = show.plotKwargs({}, "")
-        # ax = show.line([min_constrained, max_constrained], [-.05, -.05], '', ax=ax, linewidth=2, plot_col = 'y')
-        # ax = show.line([min_unconstrained, max_unconstrained], [-.1, -.1], met[1] + ' constraint_ratio: ' + str(constraint_ratio), ax=ax, linewidth=2, plot_col = 'g')
+#         # ax = show.plotKwargs({}, "")
+#         # ax = show.line([min_constrained, max_constrained], [-.05, -.05], '', ax=ax, linewidth=2, plot_col = 'y')
+#         # ax = show.line([min_unconstrained, max_unconstrained], [-.1, -.1], met[1] + ' constraint_ratio: ' + str(constraint_ratio), ax=ax, linewidth=2, plot_col = 'g')
 
-        constrained_inds = [1,2,3]
+#         constrained_inds = [1,2,3]
 
-        # ax = show.plotKwargs({}, '')
-        # for i in constrained_inds:
-        #     hist = metric_hists[i,:]
-            # print(mos_types[i])
-            # print(np.nonzero(~np.isnan(hist))[0].shape)
-            # print(np.nonzero(~np.isnan(hist))[0].shape[0] > 1)
-            # if np.nonzero(~np.isnan(hist))[0].shape[0] > 1:
-            #     hist_x, hist_y, blah, bloo = util.reformat_stat_hists_for_plot(bin_edge, hist, np.zeros([hist.shape[0],]))
-            #     ax = show.line(hist_x, hist_y, mosaic + ' ' + met[1], plot_col = metric_colors[i], linewidth = 2, ax = ax)
+#         # ax = show.plotKwargs({}, '')
+#         # for i in constrained_inds:
+#         #     hist = metric_hists[i,:]
+#             # print(mos_types[i])
+#             # print(np.nonzero(~np.isnan(hist))[0].shape)
+#             # print(np.nonzero(~np.isnan(hist))[0].shape[0] > 1)
+#             # if np.nonzero(~np.isnan(hist))[0].shape[0] > 1:
+#             #     hist_x, hist_y, blah, bloo = util.reformat_stat_hists_for_plot(bin_edge, hist, np.zeros([hist.shape[0],]))
+#             #     ax = show.line(hist_x, hist_y, mosaic + ' ' + met[1], plot_col = metric_colors[i], linewidth = 2, ax = ax)
                 
-                #plt.stairs(metric_hist, bin_edge, color = metric_colors[])
-            # else:
-            #     plt.scatter(hist[0], 0, 50, 'w', 'o', 'filled')
-        # ax.set_xlim([min_constrained - bin_width, max_constrained + bin_width])
-        #print(met)
-        try: 
+#                 #plt.stairs(metric_hist, bin_edge, color = metric_colors[])
+#             # else:
+#             #     plt.scatter(hist[0], 0, 50, 'w', 'o', 'filled')
+#         # ax.set_xlim([min_constrained - bin_width, max_constrained + bin_width])
+#         #print(met)
+#         try: 
         
-            KS_Rr_Sr = scipy.stats.kstest(Rr_data, Sr_data)
-            KS_Rr_Sr_statistic = KS_Rr_Sr.statistic
-            KS_Rr_Sr_pval = KS_Rr_Sr.pvalue
-            #print(mosaic + ' ' + met[1])
-            #print('KS_Rr_Sr: (stat) ' + str(KS_Rr_Sr.statistic) + ' (p) ' + str(KS_Rr_Sr.pvalue))
-            #if KS_Rr_Sr.pvalue < .05:
-            #    print('Rr & Sr SIGNIFICANTLY DIFFERENT')
-            # print(met)
+#             KS_Rr_Sr = scipy.stats.kstest(Rr_data, Sr_data)
+#             KS_Rr_Sr_statistic = KS_Rr_Sr.statistic
+#             KS_Rr_Sr_pval = KS_Rr_Sr.pvalue
+#             #print(mosaic + ' ' + met[1])
+#             #print('KS_Rr_Sr: (stat) ' + str(KS_Rr_Sr.statistic) + ' (p) ' + str(KS_Rr_Sr.pvalue))
+#             #if KS_Rr_Sr.pvalue < .05:
+#             #    print('Rr & Sr SIGNIFICANTLY DIFFERENT')
+#             # print(met)
 
-            Q_Rr = np.quantile(Rr_data[np.nonzero(~np.isnan(Rr_data))[0]], [.025, .975])
-            Q_Sr = np.quantile(Sr_data[np.nonzero(~np.isnan(Sr_data))[0]], [.025, .975])
-            percentiles_Rr = np.quantile(Rr_data[np.nonzero(~np.isnan(Rr_data))[0]], np.arange(.001,.999,.001))
-            percentiles_Sr = np.quantile(Sr_data[np.nonzero(~np.isnan(Sr_data))[0]], np.arange(.001,.999,.001))
-            Q_Ru = np.quantile(Ru_data[np.nonzero(~np.isnan(Ru_data))[0]], [.025, .975])
-            #print('Su_data')
-            #print(Su_data.shape)
-            #if Su_data.shape[0] < 200:
-            #    print(Su_data)
-            #Q_Su = np.quantile(Su_data[np.nonzero(~np.isnan(Su_data))[0]], [.025, .975])
-            Q_Dm = np.quantile(Dm_data[np.nonzero(~np.isnan(Dm_data))[0]], [.025, .975])
-            percentiles_Rr = np.quantile(Ru_data[np.nonzero(~np.isnan(Ru_data))[0]], np.arange(.001,.999,.001))
-            percentiles_Sr = np.quantile(Su_data[np.nonzero(~np.isnan(Su_data))[0]], np.arange(.001,.999,.001))
-            percentiles_Dm = np.quantile(Dm_data[np.nonzero(~np.isnan(Dm_data))[0]], np.arange(.001,.999,.001))
-            #print('Rr .95 confidence intervals: ' + str(Q_Sr))
-            #print('Rr .95 confidence intervals: ' + str(Q_Sr))
-            if M_data.shape[0] > 1:
-                KS_M_Rr = scipy.stats.kstest(M_data, Rr_data)
-                KS_M_Rr_statistic = KS_M_Rr.statistic
-                KS_M_Rr_pval = KS_M_Rr.pvalue
-                KS_M_Sr = scipy.stats.kstest(M_data, Sr_data)
-                KS_M_Sr_statistic = KS_M_Sr.statistic
-                KS_M_Sr_pval = KS_M_Sr.pvalue
-                KS_M_Dm = scipy.stats.kstest(M_data, Dm_data)
-                KS_M_Dm_statistic = KS_M_Dm.statistic
-                KS_M_Dm_pval = KS_M_Dm.pvalue
+#             Q_Rr = np.quantile(Rr_data[np.nonzero(~np.isnan(Rr_data))[0]], [.025, .975])
+#             Q_Sr = np.quantile(Sr_data[np.nonzero(~np.isnan(Sr_data))[0]], [.025, .975])
+#             percentiles_Rr = np.quantile(Rr_data[np.nonzero(~np.isnan(Rr_data))[0]], np.arange(.001,.999,.001))
+#             percentiles_Sr = np.quantile(Sr_data[np.nonzero(~np.isnan(Sr_data))[0]], np.arange(.001,.999,.001))
+#             Q_Ru = np.quantile(Ru_data[np.nonzero(~np.isnan(Ru_data))[0]], [.025, .975])
+#             #print('Su_data')
+#             #print(Su_data.shape)
+#             #if Su_data.shape[0] < 200:
+#             #    print(Su_data)
+#             #Q_Su = np.quantile(Su_data[np.nonzero(~np.isnan(Su_data))[0]], [.025, .975])
+#             Q_Dm = np.quantile(Dm_data[np.nonzero(~np.isnan(Dm_data))[0]], [.025, .975])
+#             percentiles_Rr = np.quantile(Ru_data[np.nonzero(~np.isnan(Ru_data))[0]], np.arange(.001,.999,.001))
+#             percentiles_Sr = np.quantile(Su_data[np.nonzero(~np.isnan(Su_data))[0]], np.arange(.001,.999,.001))
+#             percentiles_Dm = np.quantile(Dm_data[np.nonzero(~np.isnan(Dm_data))[0]], np.arange(.001,.999,.001))
+#             #print('Rr .95 confidence intervals: ' + str(Q_Sr))
+#             #print('Rr .95 confidence intervals: ' + str(Q_Sr))
+#             if M_data.shape[0] > 1:
+#                 KS_M_Rr = scipy.stats.kstest(M_data, Rr_data)
+#                 KS_M_Rr_statistic = KS_M_Rr.statistic
+#                 KS_M_Rr_pval = KS_M_Rr.pvalue
+#                 KS_M_Sr = scipy.stats.kstest(M_data, Sr_data)
+#                 KS_M_Sr_statistic = KS_M_Sr.statistic
+#                 KS_M_Sr_pval = KS_M_Sr.pvalue
+#                 KS_M_Dm = scipy.stats.kstest(M_data, Dm_data)
+#                 KS_M_Dm_statistic = KS_M_Dm.statistic
+#                 KS_M_Dm_pval = KS_M_Dm.pvalue
 
-            #    print('KS_M_Rr:  (stat) ' + str(KS_M_Rr.statistic) + ' (p) ' + str(KS_M_Rr.pvalue))
-            #    print('KS_M_Sr:  (stat) ' + str(KS_M_Sr.statistic) + ' (p) ' + str(KS_M_Sr.pvalue))
-            #    if KS_M_Rr.pvalue < .05:
-            #        print('M & Rr SIGNIFICANTLY DIFFERENT')
-            #    if KS_M_Sr.pvalue < .05:
-            #        print('M & Sr SIGNIFICANTLY DIFFERENT')
-                degree_structure = np.nan
-                DS_Q_Rr = np.nan
-                DS_Q_Sr = np.nan
-                DS_Q_Dm = np.nan
-                DS_Rr = np.nan
-                DS_Sr = np.nan
-                DS_Dm = np.nan
-            else:
-                KS_M_Rr = np.nan
-                KS_M_Sr = np.nan
-                KS_M_Dm = np.nan
-                KS_M_Rr_statistic = np.nan
-                KS_M_Rr_pval = np.nan
-                KS_M_Sr_statistic = np.nan
-                KS_M_Sr_pval = np.nan
-                KS_M_Dm_statistic = np.nan
-                KS_M_Dm_pval = np.nan
+#             #    print('KS_M_Rr:  (stat) ' + str(KS_M_Rr.statistic) + ' (p) ' + str(KS_M_Rr.pvalue))
+#             #    print('KS_M_Sr:  (stat) ' + str(KS_M_Sr.statistic) + ' (p) ' + str(KS_M_Sr.pvalue))
+#             #    if KS_M_Rr.pvalue < .05:
+#             #        print('M & Rr SIGNIFICANTLY DIFFERENT')
+#             #    if KS_M_Sr.pvalue < .05:
+#             #        print('M & Sr SIGNIFICANTLY DIFFERENT')
+#                 degree_structure = np.nan
+#                 DS_Q_Rr = np.nan
+#                 DS_Q_Sr = np.nan
+#                 DS_Q_Dm = np.nan
+#                 DS_Rr = np.nan
+#                 DS_Sr = np.nan
+#                 DS_Dm = np.nan
+#             else:
+#                 KS_M_Rr = np.nan
+#                 KS_M_Sr = np.nan
+#                 KS_M_Dm = np.nan
+#                 KS_M_Rr_statistic = np.nan
+#                 KS_M_Rr_pval = np.nan
+#                 KS_M_Sr_statistic = np.nan
+#                 KS_M_Sr_pval = np.nan
+#                 KS_M_Dm_statistic = np.nan
+#                 KS_M_Dm_pval = np.nan
        
-                max_val = np.nanmax(np.concatenate([Sr_data, Rr_data, Dm_data]))
-                min_val = np.nanmin(np.concatenate([Sr_data, Rr_data, Dm_data]))
+#                 max_val = np.nanmax(np.concatenate([Sr_data, Rr_data, Dm_data]))
+#                 min_val = np.nanmin(np.concatenate([Sr_data, Rr_data, Dm_data]))
 
-                degree_structure = ((M_data[0] - min_val) / (max_val-min_val))
+#                 degree_structure = ((M_data[0] - min_val) / (max_val-min_val))
 
-                DS_Q_Rr = np.array([(Q_Rr[0] - min_val / (max_val-min_val)),
-                                    (Q_Rr[1] - min_val / (max_val-min_val))])
-                DS_Q_Sr = np.array([(Q_Sr[0] - min_val / (max_val-min_val)),
-                                    (Q_Sr[1] - min_val / (max_val-min_val))])
-                DS_Q_Dm = np.array([(Q_Dm[0] - min_val / (max_val-min_val)),
-                                    (Q_Dm[1] - min_val / (max_val-min_val))])
+#                 DS_Q_Rr = np.array([(Q_Rr[0] - min_val / (max_val-min_val)),
+#                                     (Q_Rr[1] - min_val / (max_val-min_val))])
+#                 DS_Q_Sr = np.array([(Q_Sr[0] - min_val / (max_val-min_val)),
+#                                     (Q_Sr[1] - min_val / (max_val-min_val))])
+#                 DS_Q_Dm = np.array([(Q_Dm[0] - min_val / (max_val-min_val)),
+#                                     (Q_Dm[1] - min_val / (max_val-min_val))])
                 
-                DS_Rr = np.array([(z - min_val) / (max_val-min_val) for z in Rr_data])
-                DS_Sr = np.array([(z - min_val) / (max_val-min_val) for z in Sr_data])
-                DS_Dm = np.array([(z - min_val) / (max_val-min_val) for z in Dm_data])
+#                 DS_Rr = np.array([(z - min_val) / (max_val-min_val) for z in Rr_data])
+#                 DS_Sr = np.array([(z - min_val) / (max_val-min_val) for z in Sr_data])
+#                 DS_Dm = np.array([(z - min_val) / (max_val-min_val) for z in Dm_data])
 
-            data_to_set = util.mapStringToLocal(proc_vars, locals())
-        except:
-            print('Exception: Degree Structure not calculated for ' + met + '(likely because metric is empty, which may or may not be appropriate)')
-            data_to_set = util.mapStringToNan(proc_vars)
+#             data_to_set = util.mapStringToLocal(proc_vars, locals())
+#         except:
+#             print('Exception: Degree Structure not calculated for ' + met + '(likely because metric is empty, which may or may not be appropriate)')
+#             data_to_set = util.mapStringToNan(proc_vars)
     
-        flsyst.setProcessVarsFromDict(param, sav_cfg, proc, data_to_set, prefix='mosaic_set_' + metric + '_')
-
-
+#         flsyst.setProcessVarsFromDict(param, sav_cfg, proc, data_to_set, prefix='mosaic_set_' + metric + '_')
         
         
 def metrics_of_2PC_process(param, sav_cfg):
@@ -254,18 +411,22 @@ def metrics_of_2PC_process(param, sav_cfg):
     bin_width = param['bin_width']
 
     coord, PD_string = getDataForPrimaryProcess(sav_fl)
+    
+    path_AllConeRef = param['path_AllConeRef']
+    fileinput_for_AllConeRef = param['fileinput_for_AllConeRef']
+    if path_AllConeRef:
+        sep_folder = fileinput_for_AllConeRef
+    else:
+        sep_folder = "nah"
 
-    if bin_width == -1:
-        save_path = os.path.dirname(sav_fl)
-        all_coord_fl = save_path + '\\' + param['mosaic'] + '_all.hdf5'
+    try:
+        dat = flsyst.getAllConeDat(sav_fl, param['mosaic'], [['measured_voronoi', 'icd_mean']], sep_folder)
+        all_cone_mean_icd = dat[0]
+    except:
+        print('could not pull mean nearest from all-cone file')
 
-        try:
-            with h5py.File(all_coord_fl, 'r') as file2:
-                all_cone_mean_icd   = file2['measured_voronoi']['icd_mean'][()]
-        except:
-            print('could not pull mean nearest from ' + all_coord_fl)
-
-        bin_width = all_cone_mean_icd
+    if bin_width < 0:
+        bin_width = all_cone_mean_icd / np.abs(bin_width)
 
     with h5py.File(sav_fl, 'r') as file:
         corr_by_corr = file['measured' + '_' + 'two_point_correlation']['corred'][()]
@@ -273,18 +434,25 @@ def metrics_of_2PC_process(param, sav_cfg):
         max_bins = file['measured' + '_' + 'two_point_correlation']['max_bins'][()]
         bin_edge = file['measured' + '_' + 'two_point_correlation']['max_bin_edges'][()]
         sim_hexgrid_by = bytes(file['input_data']['sim_hexgrid_by'][()]).decode("utf8")
-        if sim_hexgrid_by == 'rectangular':
-            hex_radius = file['basic_stats']['hex_radius_of_this_density'][()]
-        elif sim_hexgrid_by == 'voronoi':
-            hex_radius = file['measured_voronoi']['hex_radius'][()]
-        else:
-            print('ack!!! problem getting hex_radius in metrics_of_2PC_process')
+
         
-        emp_max_rad = np.nanmax(file['coneLocked_maxSpacing']['hex_radii_used'][()])
+        fileinput_for_eMR = param['fileinput_for_eMR']
+        if fileinput_for_eMR:
+            path_eMR = param['path_eMR']
+            fl_list = glob.glob(path_eMR + '*')
+            sav_fl_split = sav_fl.split('\\')
+            sav_fl_end = sav_fl_split[-1]
+            this_fl_ind = np.nonzero([sav_fl_end in z for z in fl_list])[0].astype('int64')
+            this_fl = fl_list[this_fl_ind[0]]
+
+            with h5py.File(this_fl, 'r') as file2:
+                emp_max_rad = np.nanmean(file2['coneLocked_maxSpacing']['hex_radii_used'][()])
+        else:
+            emp_max_rad = np.nanmean(file['coneLocked_maxSpacing']['hex_radii_used'][()])
 
 
     
-    analysis_x_cutoff = int(np.argmin(np.abs((bin_edge - (2 * hex_radius)))))
+    analysis_x_cutoff = int(np.argmin(np.abs((bin_edge - (15 * all_cone_mean_icd)))))
 
     corr_by_corr = corr_by_corr[:, 0:analysis_x_cutoff]
     corr_by_mean = np.nanmean(corr_by_corr, axis=0)
@@ -312,6 +480,8 @@ def metrics_of_2PC_process(param, sav_cfg):
         exclusion_bins = np.empty([crop_corr.shape[0],])
         exclusion_radius = np.empty([crop_corr.shape[0],])
         exclusion_factor = np.empty([crop_corr.shape[0],])
+        exclusion_strength = np.empty([crop_corr.shape[0],])
+
         # exclusion_area = np.empty([crop_corr.shape[0],])
         # max_obed_exclusion_area = np.empty([crop_corr.shape[0],])
         # exclusion_obed = np.empty([crop_corr.shape[0],])
@@ -319,6 +489,7 @@ def metrics_of_2PC_process(param, sav_cfg):
         exclusion_bins[:] = np.nan
         exclusion_radius[:] = np.nan
         exclusion_factor[:] = np.nan
+        exclusion_strength[:] = np.nan
         # exclusion_area[:] = np.nan
         # max_obed_exclusion_area[:] = np.nan
         # exclusion_obed[:] = np.nan
@@ -351,6 +522,7 @@ def metrics_of_2PC_process(param, sav_cfg):
                 ax.scatter(bin_edge[peak_bins[m]] + bin_width/2, crop_corr[m, peak_bins[m]], color='y')
 
 
+
             if np.all((dearth_bins[m].shape[0] > 0) and (dearth_bins[m][0] == 0)):
                 if dearth_bins[m].shape[0] == 1:
                     exclusion_bins[m] = 1
@@ -360,10 +532,10 @@ def metrics_of_2PC_process(param, sav_cfg):
                     diff_dearth = np.diff(dearth_bins[m])
                     diff1 = [d == 1 for d in diff_dearth.tolist()]               
                     zeros = np.nonzero([d == 0 for d in diff1])[0]
-                    if m == 0 and printStuff:
-                        print(diff_dearth)
-                        print(diff1)
-                        print(zeros)
+                    # if m == 0 and printStuff:
+                    #     print(diff_dearth)
+                    #     print(diff1)
+                    #     print(zeros)
                     if not np.any(zeros):
                         if np.all([diff1[x] ==1 for x in np.arange(0,len(diff1))]):
                             exclusion_bins[m] = dearth_bins[m].shape[0]
@@ -389,16 +561,15 @@ def metrics_of_2PC_process(param, sav_cfg):
             #exclusion_bins[m] = int(exclusion_bins[m])
 
             if exclusion_bins[m] > 0:
-
                 exclusion_radius[m] = bin_edge[int(exclusion_bins[m])]
 
             else: 
                 exclusion_radius[m] = 0
-            if m == 0 and printStuff:
-                print('exclusion_bins')
-                print(exclusion_bins[m])
-                print('exclusion_radius')
-                print(exclusion_radius[m])
+            # if m == 0 and printStuff:
+            #     print('exclusion_bins')
+            #     print(exclusion_bins[m])
+            #     print('exclusion_radius')
+            #     print(exclusion_radius[m])
 
             if m == 0 and printStuff:
                 ax = show.line([exclusion_radius, exclusion_radius], [-1, 1], '', plot_col = 'g', ax=ax)
@@ -413,60 +584,27 @@ def metrics_of_2PC_process(param, sav_cfg):
                 
                 # print('exclusionary bins')
                 # print(exclusion_bins[m])
-                for b in np.arange(0, int(exclusion_bins[m])):
+                # for b in np.arange(0, int(exclusion_bins[m])):
                     # print('EXCLUsION FACTOR')
                     # print(exclusion_radius[m])
                     # print(hex_radius)
                     # print(exclusion_radius[m]/hex_radius)
-                    try:
-                        exclusion_factor[m] = (exclusion_radius[m]/emp_max_rad)**2
-                        
-                        #exclusion_factor[m] = exclusion_radius[m]/hex_radius[0]
-                    except:
-                        print('could not set exclusion factor for ')
-     
-
+                try:
+                    exclusion_factor[m] = (exclusion_radius[m]/emp_max_rad)**2
+                    this_ExR_corr = crop_corr[m, 0:exclusion_bins[m].astype('int64')]
+                    exclusion_strength[m] = np.mean(np.absolute(this_ExR_corr))  
                     
-                    # print('            ' + str(exclusion_area[m]))
-                    # print('                   ' + str((corr_by_mean[b] + (2 * corr_by_std))-crop_corr[m, b]))
-                    # print(corr_by_mean[b] + (2 * corr_by_std[b]))
-                    # print(crop_corr[m, b])
-                    #print(((corr_by_mean[b] - (2 * corr_by_std[b]))-crop_corr[m, b]))
-                    # Rumean_minus2std = (corr_by_pi[0,b])
-                    # test = crop_corr[m, b]
-                    # exclusion_area[m] = exclusion_area[m] + (bin_width * (Rumean_minus2std-test))
-                    # max_obed_exclusion_area[m] = max_obed_exclusion_area[m] + (bin_width * (Rumean_minus2std-(-1)))
-              
-                    # print(exclusion_radius[m])
-                    # print(exclusion_area[m])
-                    # if m == 0 and printStuff:
-                    #     ax.fill_between(bin_edge[b:b+2],
-                    #                     [crop_corr[m,b], crop_corr[m,b]],
-                    #                     [corr_by_pi[0,b], corr_by_pi[0,b]], 
-                    #                     color='g', alpha=.5)
+    
+                except:
+                    print('could not set exclusion factor for ')
+     
             else:
                 exclusion_factor[m] = 0
-            # if max_obed_exclusion_area[m] > 0:
-            #     exclusion_obed[m] = exclusion_area[m] / max_obed_exclusion_area[m]
-            # else: 
-            #     max_obed_exclusion_area[m] = 0
-        
+                exclusion_strength[m] = np.nan
             if m == 0 and printStuff:
                 ax.set_title(PD + ' mosaic #' + str(m))
                 ax.set_xticks(bin_edge[0:analysis_x_cutoff])
                 ax.set_ylim([-1.5, 4])
-        
-        # print(PD)
-        # print('radii')
-        # print(exclusion_radius)
-        # print('bins1')
-        # print(exclusion_radius/bin_width)
-        # # print('bins2')
-        # # print(exclusion_bins)
-        # print('EXCLUSION AREA')
-        # print(exclusion_area)
-        # print('')
-
 
         longest_dearth_list = np.amax([dearth_bins[x].shape[0] for x in np.arange(0,crop_corr.shape[0])])
         longest_peak_list= np.amax([x.shape[0] for x in peak_bins])
@@ -475,6 +613,7 @@ def metrics_of_2PC_process(param, sav_cfg):
         temp_peak = np.empty([crop_corr.shape[0], longest_peak_list])
         temp_dearth[:] = np.nan
         temp_peak[:] = np.nan
+
         for m in np.arange(0,crop_corr.shape[0]):
             temp_dearth[m,0:dearth_bins[m].shape[0]] = dearth_bins[m]
             temp_peak[m,0:peak_bins[m].shape[0]] = peak_bins[m]
@@ -496,60 +635,80 @@ def two_point_correlation_process(param, sav_cfg):
     sim_to_gen = param['sim_to_gen']
     corr_by = param['corr_by']
 
+    fileinput_for_2PCref = param['fileinput_for_2PCref']
+    if fileinput_for_2PCref:
+        path_2PCref = param['path_2PCref']
+
+    
     #need this for the PD_string that will sort the 2PC results to each mosaic types save spot
     coord, PD_string = getDataForPrimaryProcess(sav_fl)
 
     dist_hists = []
     max_bins = 0
+
+    run_2PC = np.ones([len(PD_string),])
     with h5py.File(sav_fl, 'r') as file:
         xlim = [0, file['input_data']['img_x'][()]]
         ylim = [0, file['input_data']['img_y'][()]]
-
-        contains_mc_uniform = False
-
-        if 'measured_two_point_correlation' in file.keys():
-            if 'corr_by_pi' in file['measured_two_point_correlation'].keys():
-                contains_mc_uniform = True
-                print('     Loading in data from random uniform mosaics for 2PC...')
-                corr_by_pi = file['measured_two_point_correlation']['corr_by_pi'][()]
-                corr_by_hists = file['measured_two_point_correlation']['corr_by_hists'][()]
-                corr_by_mean = file['measured_two_point_correlation']['corr_by_mean'][()]
-                corr_by_std = file['measured_two_point_correlation']['corr_by_std'][()]
-                corr_by_poisson_95conf = file['measured_two_point_correlation']['corr_by_poisson_95conf'][()]
 
         for ind, PD in enumerate(PD_string):
             num_mosaic = coord[ind].shape[0]
             print('     Running two point correlation on ' + str(num_mosaic) + " " + PD_string[ind] + ' mosaics...') 
 
-            # if PD == corr_by + '_':
-            #     corr_by_ind = ind
-            #     corr_by_mean = file[PD + 'intracone_dist']['hist_mean'][()]
-            #     corr_by_std = file[PD + 'intracone_dist']['hist_std'][()]
-            #     corr_by_pi = file[PD + 'intracone_dist']['poisson_intervals'][()]
-            
             dist_hists.append(file[PD + 'intracone_dist']['hist_mat'][()])
             temp_edges = file[PD + 'intracone_dist']['bin_edge'][()]
             num_bins = temp_edges.shape[0]
 
-            # ax = show.plotKwargs({}, '')
-
-            # for m in np.arange(0, dist_hists[ind].shape[0]):
-            #     plt.stairs(dist_hists[ind][m,:], temp_edges)
-
             if num_bins > max_bins:
                 max_bins = num_bins
                 max_bin_edges = temp_edges
-
-            bin_width = temp_edges[1] - temp_edges[0]
+            
+            if np.isnan(temp_edges[0]):
+                run_2PC[ind] = 0
+            else:
+                bin_width = temp_edges[1] - temp_edges[0]
 
 
     # create the population of simulated mosaics to be correlated against
-    if contains_mc_uniform == False:
-        numcorrmos = 100
-        numcone = coord[0].shape[1]
+    numcone = coord[0].shape[1]
+    if fileinput_for_2PCref:
+        # get all file paths in the directory
+        fl_list = glob.glob(path_2PCref + '*')
+        sav_fl_split = sav_fl.split('\\')
+        sav_fl_end = sav_fl_split[-1]
+        this_fl_ind = np.nonzero([sav_fl_end in z for z in fl_list])[0].astype('int64')
+        this_fl = fl_list[this_fl_ind[0]]
+        
+        with h5py.File(this_fl, 'r') as file:
+            mc_coord = file['monteCarlo_uniform']['coord'][()]
+            numcorrmos = mc_coord.shape[0]
+
+            if 'monteCarlo_uniform_intracone_dist' in file.keys():
+                print('found u-rand intracone dists in file')
+                histmat_in_file = file['monteCarlo_uniform_intracone_dist']['hist_mat'][()]
+                bin_edges_in_file = file['monteCarlo_uniform_intracone_dist']['bin_edge'][()]
+                bin_width_in_file = bin_edges_in_file[1] - bin_edges_in_file[0]
+                if '%.4f'%(bin_width) == '%.4f'%(bin_width_in_file):
+                    print('using u-rand intracone dists found in file')
+                    run_intracone_dist = False
+                    hist_mat = histmat_in_file
+                    max_bins = np.max([max_bins, hist_mat.shape[1]])
+                else:
+                    print('not using u-rand intracone dists found in file because it does not have the requested bin width')
+                    print('requested bin width: ' + str(bin_width))
+                    print('bin width found in file: ' + str(bin_width_in_file))
+                    run_intracone_dist = True
+            else:
+                run_intracone_dist = True
+                print('running new u-rand intracone dists')
+            
+    else:
+        numcorrmos = 100000
         print('     Generating ' + str(numcorrmos) + " random uniform mosaics for 2PC...") 
         mc_coord = calc.monteCarlo_uniform(numcone, numcorrmos, xlim, ylim)
+        run_intracone_dist = True
 
+    if run_intracone_dist:
         # copied from smp.intracone_dist_process, variable names modified ------------------------------------
         dist = np.zeros((numcorrmos, numcone, numcone))
         mean_nearest = np.zeros(numcorrmos)
@@ -564,44 +723,42 @@ def two_point_correlation_process(param, sav_cfg):
             if hist[mos].shape[0] > max_bins:
                 max_bins = hist[mos].shape[0]
         
-        
-        poisson_intervals = np.empty([2, max_bins])
-        poisson_intervals[:] = np.nan
-
-
         # this is just to convert the returned histograms into a rectangular array
         # (this can't be done in advance because of...slight variability in the number of bins returned? why?)
         hist_mat = np.zeros([numcorrmos, max_bins])
         for mos in np.arange(0, numcorrmos):
             hist_mat[mos, 0:hist[mos].shape[0]] = hist[mos]
 
-        corr_by_hists = hist_mat
-
-        #sierra why did you do this
-        corr_by_poisson_95conf = poisson_intervals
-        corr_by_pi = corr_by_poisson_95conf
-
-        if numcorrmos > 1:
-            for b in np.arange(0, hist_mat.shape[1]):
-                poisson_intervals[0, b], poisson_intervals[1, b] = calc.poisson_interval(np.nanmean(hist_mat[:,b]))
-
-        #----------------------------------------------------------------------------
-
-        # while len(bin_edge) < max_hist_bin + 1:
-        #     bin_edge = np.append(bin_edge, np.max(bin_edge)+bin_width)
-
-        corr_by_mean = np.nanmean(hist_mat, axis=0)
-        corr_by_std = np.nanstd(hist_mat, axis=0)
-
-        # if corr_by_mean.shape[0] < max_bins:
+    corr_by_hists = hist_mat    
         
-        corr_by_mean = util.vector_zeroPad(corr_by_mean, 0, max_bins - (corr_by_mean.shape[0]))
-        corr_by_std = util.vector_zeroPad(corr_by_std, 0, max_bins - (corr_by_std.shape[0]))
-        corr_by_pi_row0= util.vector_zeroPad(corr_by_pi[0, :], 0, max_bins - (corr_by_pi.shape[1]))
-        corr_by_pi_row1 = util.vector_zeroPad(corr_by_pi[1, :], 0, max_bins - (corr_by_pi.shape[1]))
-        corr_by_pi = np.empty([2, max_bins])
-        corr_by_pi[0,:] = corr_by_pi_row0
-        corr_by_pi[1,:] = corr_by_pi_row1
+    poisson_intervals = np.empty([2, max_bins])
+    poisson_intervals[:] = np.nan
+
+    #sierra why did you do this
+    corr_by_poisson_95conf = poisson_intervals
+    corr_by_pi = corr_by_poisson_95conf
+
+    if numcorrmos > 1:
+        for b in np.arange(0, hist_mat.shape[1]):
+            poisson_intervals[0, b], poisson_intervals[1, b] = calc.poisson_interval(np.nanmean(hist_mat[:,b]))
+
+    #----------------------------------------------------------------------------
+
+    # while len(bin_edge) < max_hist_bin + 1:
+    #     bin_edge = np.append(bin_edge, np.max(bin_edge)+bin_width)
+
+    corr_by_mean = np.nanmean(hist_mat, axis=0)
+    corr_by_std = np.nanstd(hist_mat, axis=0)
+
+    # if corr_by_mean.shape[0] < max_bins:
+    
+    corr_by_mean = util.vector_zeroPad(corr_by_mean, 0, max_bins - (corr_by_mean.shape[0]))
+    corr_by_std = util.vector_zeroPad(corr_by_std, 0, max_bins - (corr_by_std.shape[0]))
+    corr_by_pi_row0= util.vector_zeroPad(corr_by_pi[0, :], 0, max_bins - (corr_by_pi.shape[1]))
+    corr_by_pi_row1 = util.vector_zeroPad(corr_by_pi[1, :], 0, max_bins - (corr_by_pi.shape[1]))
+    corr_by_pi = np.empty([2, max_bins])
+    corr_by_pi[0,:] = corr_by_pi_row0
+    corr_by_pi[1,:] = corr_by_pi_row1
 
     # else:
     #     corr_by_pi_row0 = corr_by_pi[0, :]
@@ -621,29 +778,30 @@ def two_point_correlation_process(param, sav_cfg):
 
         # for each mosaic to be correlated against the msoaics
         for ind, dist_mat in enumerate(dist_hists):
-
-            # preallocation for new 2PC matrix
             corred = np.empty([dist_mat.shape[0], max_bins])
             corred[:] = np.nan
-            #ax = show.plotKwargs({},'')
+            if run_2PC[ind]:
+                # preallocation for new 2PC matrix
 
-            corr_pi_row1 = calc.corr(corr_by_pi_row0, corr_by_hist)
-            corr_pi_row2 = calc.corr(corr_by_pi_row1, corr_by_hist)
-            corr_by_pi = np.empty([2, max_bins])
-            corr_by_pi[0,:] = corr_pi_row1
-            corr_by_pi[1,:] = corr_pi_row2
+                #ax = show.plotKwargs({},'')
 
-            for mos in np.arange(0, dist_mat.shape[0]):
-                hist = dist_mat[mos,:]
+                corr_pi_row1 = calc.corr(corr_by_pi_row0, corr_by_hist)
+                corr_pi_row2 = calc.corr(corr_by_pi_row1, corr_by_hist)
+                corr_by_pi = np.empty([2, max_bins])
+                corr_by_pi[0,:] = corr_pi_row1
+                corr_by_pi[1,:] = corr_pi_row2
 
-                if hist.shape[0] < max_bins:
-                    hist = util.vector_zeroPad(hist, 0, max_bins - hist.shape[0])
+                for mos in np.arange(0, dist_mat.shape[0]):
+                    hist = dist_mat[mos,:]
 
-                # new 2PC calculation
-                corred[mos,:] = calc.corr(hist, corr_by_hist)
-                # ax.stairs(corred[mos,:], max_bin_edges)
+                    if hist.shape[0] < max_bins:
+                        hist = util.vector_zeroPad(hist, 0, max_bins - hist.shape[0])
 
-            corred = np.float64(corred)
+                    # new 2PC calculation
+                    corred[mos,:] = calc.corr(hist, corr_by_hist)
+                    # ax.stairs(corred[mos,:], max_bin_edges)
+
+                corred = np.float64(corred)
 
             data_to_set = util.mapStringToLocal(proc_vars, locals())
             flsyst.setProcessVarsFromDict(param, sav_cfg, proc, data_to_set, prefix=PD_string[ind])
@@ -673,6 +831,7 @@ def drp_process(param, sav_cfg):
         coord_unit = bytes(file['input_data']['coord_unit'][()]).decode("utf8")
         img_y = [0, file['input_data']['img_y'][()]]
         img_x = [0, file['input_data']['img_x'][()]]
+
         if convert_coord_unit:
             coord_conversion_factor = file['input_data']['coord_conversion_factor'][()]
             if type(coord_conversion_factor) == str:
@@ -707,8 +866,11 @@ def drp_process(param, sav_cfg):
         with h5py.File(sav_fl, 'r') as file:
             PD = PD_string[ind]
             bin_edges = file[PD + 'intracone_dist']['bin_edge'][()]
-            bin_width = bin_edges[1]-bin_edges[0]
-
+            try:
+                bin_width = bin_edges[1]-bin_edges[0]
+            except:
+                print('GOTTEM')
+                print(bin_edges)
         # max_pixel_distance = 100
         
         # higher_bins = np.nonzero([bin_edges[i] > max_pixel_distance for i in np.arange(0,bin_edges.shape[0])])[0]
@@ -805,6 +967,7 @@ def drp_process(param, sav_cfg):
             data_to_set = util.mapStringToLocal(proc_vars, locals())
 
         else:
+            print('didnt run drp bc lack of data')
             data_to_set = util.mapStringToNan(proc_vars)
 
         flsyst.setProcessVarsFromDict(param, sav_cfg, proc, data_to_set,
@@ -848,16 +1011,13 @@ def voronoi_process(param, sav_cfg):
     coord, PD_string = getDataForPrimaryProcess(sav_fl)
 
     for ind, point_data in enumerate(coord):
+        
         # print('COORD SHAPE')
         # print(point_data.shape)
         if len(point_data.shape) == 2:
             print('ack 2D data!!!')
 
-        if np.nonzero(~np.isnan(point_data))[0].shape[0] == 0:
-            print('skipping voronoi analysis for ' + PD_string[ind] + ' due to lack of cones')
-            bound_regions = [[0]]
-
-        else:
+        if point_data.shape[1] >= 5:
             print('     Running voronois for ' + str(point_data.shape[0]) + " " + PD_string[ind] + ' mosaics...') 
         
             # ax = show.scatt(np.squeeze(point_data), 'points to be voronoid')
@@ -889,133 +1049,156 @@ def voronoi_process(param, sav_cfg):
             # print('NEIGHBORS CONES')
             # print(neighbors_cones)
         
-        if np.nansum(bound_regions[0]) > 5:
-            # print(np.nansum(bound_regions[0]))
-            icd = np.empty([point_data.shape[0], point_data.shape[1], neighbors_cones.shape[2]])
-            icd_mean = np.empty([point_data.shape[0], ])
-            icd_std = np.empty([point_data.shape[0], ])
-            icd_regularity = np.empty([point_data.shape[0], ])
-            icd[:] = np.nan
-            icd_mean[:] = np.nan
-            icd_std[:] = np.nan
-            icd_regularity[:] = np.nan
+            if np.nansum(bound_regions[0]) > 5:
+                # print(np.nansum(bound_regions[0]))
+                icd = np.empty([point_data.shape[0], point_data.shape[1], neighbors_cones.shape[2]])
+                icd_mean = np.empty([point_data.shape[0], ])
+                icd_std = np.empty([point_data.shape[0], ])
+                icd_regularity = np.empty([point_data.shape[0], ])
+                icd[:] = np.nan
+                icd_mean[:] = np.nan
+                icd_std[:] = np.nan
+                icd_regularity[:] = np.nan
 
-            # it's possible for some cones in erratic mosaics to be bound but have no bound neighbors. get rid of those.
-            for m in np.arange(point_data.shape[0]):
-                dists = calc.dist_matrices(np.squeeze(point_data[m, :, :]))
-                non_nan = np.nonzero(~np.isnan(point_data[m,:,0]))[0]
-                for nc in np.arange(0, non_nan.shape[0]):
-                    not_nans = [~np.isnan(neighbors_cones[m, nc, x]) for x in np.arange(0, neighbors_cones.shape[2])]
-                    neighb_cones = np.array(neighbors_cones[m, nc, np.nonzero(not_nans)[0]], dtype=int)
-                    if ~np.any(np.nonzero(bound_cones[m][neighb_cones])[0]):
-                        bound_cones[m][nc] = 0
-                        r = point_region[m][nc]
-                        bound_regions[m][int(r)] = 0
-                        neighbors_cones[m, nc, :] = np.nan
-                    else:
-                        #get ICDs while we're here
-                        icd[m, nc, np.array(np.nonzero(not_nans)[0], dtype=int)] = dists[nc, np.array(neighbors_cones[m, nc, np.nonzero(not_nans)[0]], dtype=int)]
-                # print('ICD')
-                # print(icd)
-                icd_mean[m] = np.nanmean(icd[m, :, :])
-                icd_std[m] = np.nanstd(icd[m, :, :])
-                icd_regularity[m] = icd_mean[m]/icd_std[m]
+                # it's possible for some cones in erratic mosaics to be bound but have no bound neighbors. get rid of those.
+                for m in np.arange(point_data.shape[0]):
+                    dists = calc.dist_matrices(np.squeeze(point_data[m, :, :]))
+                    non_nan = np.nonzero(~np.isnan(point_data[m,:,0]))[0]
+                    for nc in np.arange(0, non_nan.shape[0]):
+                        not_nans = [~np.isnan(neighbors_cones[m, nc, x]) for x in np.arange(0, neighbors_cones.shape[2])]
+                        neighb_cones = np.array(neighbors_cones[m, nc, np.nonzero(not_nans)[0]], dtype=int)
+                        if ~np.any(np.nonzero(bound_cones[m][neighb_cones])[0]):
+                            bound_cones[m][nc] = 0
+                            r = point_region[m][nc]
+                            bound_regions[m][int(r)] = 0
+                            neighbors_cones[m, nc, :] = np.nan
+                        else:
+                            #get ICDs while we're here
+                            icd[m, nc, np.array(np.nonzero(not_nans)[0], dtype=int)] = dists[nc, np.array(neighbors_cones[m, nc, np.nonzero(not_nans)[0]], dtype=int)]
+                    # print('ICD')
+                    # print(icd)
+                    icd_mean[m] = np.nanmean(icd[m, :, :])
+                    icd_std[m] = np.nanstd(icd[m, :, :])
+                    icd_regularity[m] = icd_mean[m]/icd_std[m]
 
+                    
+                [voronoi_area, voronoi_area_mean,
+                voronoi_area_std, voronoi_area_regularity,
+                num_neighbor, num_neighbor_mean,
+                num_neighbor_std, num_neighbor_regularity]  = calc.voronoi_region_metrics(bound_regions, regions, vertices, point_region)
+
+                # def convertRegion2Cone(metric, point_region):
+                #     print('CONVERT REGION TO CONE')
+                #     print(metric.shape)
+                #     print(metric)
+                #     print(point_region.shape)
+                #     print(point_region)
+                #     # temp = np.empty(np.squeeze(metric[m,:].shape))
+                #     # temp[:] = np.nan
+                #     # temp[:] = metric[m, point_region[m], :]
+
+
+                # #convert voronoi region metrics to voronoi cone metrics
+                # voronoi_area = convertRegion2Cone(voronoi_area, point_region)
                 
-            [voronoi_area, voronoi_area_mean,
-            voronoi_area_std, voronoi_area_regularity,
-            num_neighbor, num_neighbor_mean,
-            num_neighbor_std, num_neighbor_regularity]  = calc.voronoi_region_metrics(bound_regions, regions, vertices, point_region)
-
-            # def convertRegion2Cone(metric, point_region):
-            #     print('CONVERT REGION TO CONE')
-            #     print(metric.shape)
-            #     print(metric)
-            #     print(point_region.shape)
-            #     print(point_region)
-            #     # temp = np.empty(np.squeeze(metric[m,:].shape))
-            #     # temp[:] = np.nan
-            #     # temp[:] = metric[m, point_region[m], :]
-
-
-            # #convert voronoi region metrics to voronoi cone metrics
-            # voronoi_area = convertRegion2Cone(voronoi_area, point_region)
-            
-            
-            density = np.empty([point_data.shape[0],])
-            hex_radius = np.empty([point_data.shape[0],])
-            
-            try:
-                maxnum = int(np.nanmax([np.nanmax(num_neighbor[s]) for s in np.arange(0, len(num_neighbor))]))
-            except:
-                print(num_neighbor)
+                
+                density = np.empty([point_data.shape[0],])
+                hex_radius = np.empty([point_data.shape[0],])
+                
+                try:
+                    maxnum = int(np.nanmax([np.nanmax(num_neighbor[s]) for s in np.arange(0, len(num_neighbor))]))
+                except:
+                    print(num_neighbor)
 
 
 
-            if not neighbors_cones.shape[2] == maxnum:
-                print('THROW A HECKIN FIT NUM NEIGHBORS ARE COMING OUT DIFFERENT AAUUUGHGHGHH')
+                if not neighbors_cones.shape[2] == maxnum:
+                    print('THROW A HECKIN FIT NUM NEIGHBORS ARE COMING OUT DIFFERENT AAUUUGHGHGHH')
 
-            temp_reg = np.empty([point_data.shape[0], 
-                                int(np.nanmax([len(regions[m]) for m in np.arange(0, len(regions))])), 
-                                maxnum])
-            temp_reg[:] = np.nan
-            temp_vert = np.empty([point_data.shape[0],
-                        int(np.nanmax([len(vertices[m]) for m in np.arange(0, len(vertices))])),
-                        2])
-            
-            for m in np.arange(0, point_data.shape[0]):
-                numbound = np.sum(bound_regions[m])
+                temp_reg = np.empty([point_data.shape[0], 
+                                    int(np.nanmax([len(regions[m]) for m in np.arange(0, len(regions))])), 
+                                    maxnum])
+                temp_reg[:] = np.nan
+                temp_vert = np.empty([point_data.shape[0],
+                            int(np.nanmax([len(vertices[m]) for m in np.arange(0, len(vertices))])),
+                            2])
+                
+                for m in np.arange(0, point_data.shape[0]):
+                    numbound = np.sum(bound_regions[m])
 
-                sumarea = np.sum(np.squeeze(voronoi_area[m, np.nonzero(bound_regions[m])]))
-                density[m] = numbound/sumarea
-                hex_radius[m] = calc.hex_radius(density[m])
+                    sumarea = np.sum(np.squeeze(voronoi_area[m, np.nonzero(bound_regions[m])]))
+                    density[m] = numbound/sumarea
+                    hex_radius[m] = calc.hex_radius(density[m])
 
-                if convert_coord_unit:
-                    density = density * density_conversion_factor
+                    if convert_coord_unit:
+                        density = density * density_conversion_factor
 
-                # convert list of lists to numpy arrays that can be saved in the h5py
-                for r, reg in enumerate(regions[m]):
-                    if bound_regions[m][r]:
-                        temp_reg[m, r, 0:len(reg)] = reg
+                    # convert list of lists to numpy arrays that can be saved in the h5py
+                    for r, reg in enumerate(regions[m]):
+                        if bound_regions[m][r]:
+                            temp_reg[m, r, 0:len(reg)] = reg
 
-                temp_vert[m, 0:len(vertices[m]), :] = np.array(vertices[m])
+                    temp_vert[m, 0:len(vertices[m]), :] = np.array(vertices[m])
 
-            regions = temp_reg
-            vertices = temp_vert
+                regions = temp_reg
+                vertices = temp_vert
 
-            max_pr = 0
-            for i, p in enumerate(point_region):
-                max_pr = np.amax([max_pr, p.shape[0]]) 
+                max_pr = 0
+                for i, p in enumerate(point_region):
+                    max_pr = np.amax([max_pr, p.shape[0]]) 
 
-            temp_pr = np.empty([len(point_region), max_pr])
-            temp_pr[:] = np.nan
-            for i, p in enumerate(point_region):
-                temp_pr[i, 0:len(p)] = p
+                temp_pr = np.empty([len(point_region), max_pr])
+                temp_pr[:] = np.nan
+                for i, p in enumerate(point_region):
+                    temp_pr[i, 0:len(p)] = p
 
-            max_br = 0
-            for i, br in enumerate(bound_regions):
-                max_br = np.amax([max_br, br.shape[0]]) 
+                max_br = 0
+                for i, br in enumerate(bound_regions):
+                    max_br = np.amax([max_br, br.shape[0]]) 
 
-            temp_br = np.empty([len(bound_regions), max_br])
-            temp_br[:] = np.nan
-            for i, br in enumerate(bound_regions):
-                temp_br[i, 0:len(br)] = br
+                temp_br = np.empty([len(bound_regions), max_br])
+                temp_br[:] = np.nan
+                for i, br in enumerate(bound_regions):
+                    temp_br[i, 0:len(br)] = br
 
-            max_bc = 0
-            for i, bc in enumerate(bound_cones):
-                max_bc = np.amax([max_bc, bc.shape[0]]) 
+                max_bc = 0
+                for i, bc in enumerate(bound_cones):
+                    max_bc = np.amax([max_bc, bc.shape[0]]) 
 
-            temp_bc = np.empty([len(bound_cones), max_bc])
-            temp_bc[:] = np.nan
-            for i, bc in enumerate(bound_cones):
-                temp_bc[i, 0:len(bc)] = bc
+                temp_bc = np.empty([len(bound_cones), max_bc])
+                temp_bc[:] = np.nan
+                for i, bc in enumerate(bound_cones):
+                    temp_bc[i, 0:len(bc)] = bc
 
-            point_region = temp_pr
-            bound_regions = temp_br
-            bound_cones = temp_bc
+                point_region = temp_pr
+                bound_regions = temp_br
+                bound_cones = temp_bc
+            else:
+                print(sav_fl)
+                print('LESS THAN 5 BOUND CONES')
+                regions = np.nan
+                vertices = np.nan
+                point_region = np.nan
+                bound_regions = np.nan
+                bound_cones = np.nan
+                voronoi_area = np.nan
+                voronoi_area_mean = np.nan
+                voronoi_area_std = np.nan
+                neighbors_cones = np.nan
+                num_neighbor = np.nan
+                num_neighbor_mean = np.nan
+                num_neighbor_std = np.nan
+                icd = np.nan
+                icd_mean = np.nan
+                icd_std = np.nan
+                icd_regularity = np.nan
+                voronoi_area_regularity = np.nan
+                num_neighbor_regularity = np.nan
+                density = np.nan
+                hex_radius = np.nan
         else:
             print(sav_fl)
-            print('LESS THAN 5 BOUND CONES')
+            print('LESS THAN 5 CONES')
             regions = np.nan
             vertices = np.nan
             point_region = np.nan
@@ -1193,6 +1376,30 @@ def getDataForPrimaryProcess(sav_fl):
     return coord, PD_string
 
 
+def intracone_dist_guts(num_mosaic, points_per_mos, point_data, bin_width, dist_area_norm,offset_bin,PD_string):
+    dist = np.zeros((num_mosaic, points_per_mos, points_per_mos))
+    mean_nearest = np.zeros(num_mosaic)
+    std_nearest = np.zeros(num_mosaic)
+    hist = np.empty(num_mosaic, dtype=np.ndarray)
+    max_hist_bin = 0
+    print('     Running intracone distances on ' + str(num_mosaic) + " " + PD_string + ' mosaics...') 
+
+    for mos in np.arange(0, num_mosaic):
+        this_coord = point_data[mos, :, :]
+        dist[mos, :, :], mean_nearest[mos], std_nearest[mos], hist[mos], bin_edge, annulus_area = intracone_dist_common(this_coord.squeeze(), bin_width, dist_area_norm, offset_bin)
+        if hist[mos].shape[0] > max_hist_bin:
+            max_hist_bin = hist[mos].shape[0]
+
+    # this is just to convert the returned histograms into a rectangular array
+    # (this can't be done in advance because of...slight variability in the number of bins returned? why?)
+    hist_mat = np.zeros([num_mosaic, max_hist_bin])
+    for mos in np.arange(0, num_mosaic):
+        hist_mat[mos, 0:hist[mos].shape[0]] = hist[mos]
+
+
+    return hist_mat, max_hist_bin, bin_edge, annulus_area
+
+
 def intracone_dist_process(param, sav_cfg):
     """
     Inputs
@@ -1210,51 +1417,86 @@ def intracone_dist_process(param, sav_cfg):
     dist_area_norm = param['dist_area_norm']
     sim_to_gen = param['sim_to_gen']
 
-    if bin_width == -1:
-         # look for all cone mosaic for this data
-        save_path = os.path.dirname(sav_fl)
-        all_coord_fl = save_path + '\\' + param['mosaic'] + '_all.hdf5'
+    if bin_width < 0:
+        path_AllConeRef = param['path_AllConeRef']
+        fileinput_for_AllConeRef = param['fileinput_for_AllConeRef']
+        if path_AllConeRef:
+            sep_folder = fileinput_for_AllConeRef
+        else:
+            sep_folder = "nah"
 
-        try:
-            with h5py.File(all_coord_fl, 'r') as file:
-                all_cone_mean_icd   = file['measured_voronoi']['icd_mean'][()]
-        except:
-            print('could not pull mean icd from ' + all_coord_fl)
-        bin_width = all_cone_mean_icd
+        # try:
+        dat = flsyst.getAllConeDat(sav_fl, param['mosaic'], [['measured_voronoi', 'icd_mean']], sep_folder)
+        all_cone_mean_icd = dat[0]
+        # except:
+            # print('could not pull mean icd from all-cone file')
+        bin_width = all_cone_mean_icd / np.abs(bin_width)
         offset_bin = False
     else:
         offset_bin = False
 
     coord, PD_string = getDataForPrimaryProcess(sav_fl)
-    
+
+
     for ind, point_data in enumerate(coord):
         # if this is a valid coordinate dataset for this process...
 
-        if len(point_data.shape) == 3 and not(np.nonzero(~np.isnan(point_data))[0].shape[0] == 0):
+        if len(point_data.shape) == 3 and not point_data.shape[1] < 5:
             num_mosaic = point_data.shape[0]
             points_per_mos = point_data.shape[1]
-            dist = np.zeros((num_mosaic, points_per_mos, points_per_mos))
-            mean_nearest = np.zeros(num_mosaic)
-            std_nearest = np.zeros(num_mosaic)
-            hist = np.empty(num_mosaic, dtype=np.ndarray)
-            max_hist_bin = 0
-            print('     Running intracone distances on ' + str(num_mosaic) + " " + PD_string[ind] + ' mosaics...') 
+            
+            bin_edge = []
+            try:
+                hist_mat, max_hist_bin, bin_edge, annulus_area = intracone_dist_guts(num_mosaic, points_per_mos, point_data, bin_width, dist_area_norm,offset_bin, PD_string[ind])
+            except:
+                mos_per_chunk = 1000 
+                print('breaking the job up into chunks of ' + str(mos_per_chunk))
+                num_chunk = np.array(num_mosaic/mos_per_chunk).astype('int64')
+                temp_max_hist_bin = 0
+                temp_annulus_area = []
+                temp_bin_edge = []
 
-            for mos in np.arange(0, num_mosaic):
-                this_coord = point_data[mos, :, :]
-                dist[mos, :, :], mean_nearest[mos], std_nearest[mos], hist[mos], bin_edge, annulus_area = intracone_dist_common(this_coord.squeeze(), bin_width, dist_area_norm, offset_bin)
-                if hist[mos].shape[0] > max_hist_bin:
-                    max_hist_bin = hist[mos].shape[0]
+                for chunk in np.arange(0, num_chunk):
+                    
+                    [chunk_hist_mat, 
+                    chunk_max_hist_bin, chunk_bin_edge, 
+                    chunk_annulus_area] = intracone_dist_guts(mos_per_chunk, points_per_mos, 
+                                                             point_data[(chunk * mos_per_chunk):(chunk * mos_per_chunk) + mos_per_chunk], 
+                                                             bin_width, dist_area_norm, offset_bin, PD_string[ind])
+                    
+                    if chunk == 0:
+                        temp_hist_mat = chunk_hist_mat
+                        temp_bin_edge = chunk_bin_edge
+                    else:
+                        
+                        # def vector_zeroPad(vector_to_pad, num_preceding, num_following):
+                        tempbins = temp_hist_mat.shape[1]
+                        chunkbins = chunk_hist_mat.shape[1]
+                        
+                        if  tempbins > chunkbins:
+                            temp = np.zeros([chunk_hist_mat.shape[0], tempbins])
+                            temp[:, 0:chunkbins] = chunk_hist_mat
+                            chunk_hist_mat = temp
+
+                        elif  tempbins < chunkbins:
+                            temp = np.zeros([temp_hist_mat.shape[0], chunkbins])
+                            temp[:,0:tempbins] = temp_hist_mat
+                            temp_hist_mat = temp
+
+                        temp_hist_mat = np.concatenate([temp_hist_mat, chunk_hist_mat], axis=0)
+
+                    temp_max_hist_bin = max(temp_max_hist_bin, chunk_max_hist_bin)
+                    if len(temp_bin_edge) < len(chunk_bin_edge):
+                        temp_bin_edge = chunk_bin_edge
+                        temp_annulus_area = chunk_annulus_area
+
+                max_hist_bin = temp_max_hist_bin
+                hist_mat = temp_hist_mat
+                annulus_area = temp_annulus_area
+                bin_edge = temp_bin_edge
+
             poisson_intervals = np.empty([2, max_hist_bin])
             poisson_intervals[:] = np.nan
-
-            # this is just to convert the returned histograms into a rectangular array
-            # (this can't be done in advance because of...slight variability in the number of bins returned? why?)
-            hist_mat = np.zeros([num_mosaic, max_hist_bin])
-            for mos in np.arange(0, num_mosaic):
-                hist_mat[mos, 0:hist[mos].shape[0]] = hist[mos]
-
-            hist = hist_mat
 
             if num_mosaic > 1:
                 for b in np.arange(0, hist_mat.shape[1]):
@@ -1287,12 +1529,17 @@ def dmin_process(param, sav_cfg):
     proc = 'dmin'
     proc_vars = sav_cfg['dmin']['variables']
 
+    path_AllConeRef = param['path_AllConeRef']
+    fileinput_for_AllConeRef = param['fileinput_for_AllConeRef']
+    if path_AllConeRef:
+        sep_folder = fileinput_for_AllConeRef
+    else:
+        sep_folder = "nah"
+
     # First load in the inputs that are needed for this function
     sav_fl = param['sav_fl']
     num2gen = util.numSim(proc, param['num_sim'], param['sim_to_gen'])
-
     with h5py.File(sav_fl, 'r') as file:
-        # get coordinates and # of cones
         og_coord = file['input_data']['cone_coord'][()]
         
     if og_coord.shape[0] > 1:
@@ -1300,14 +1547,14 @@ def dmin_process(param, sav_cfg):
         sim_to_gen = param['sim_to_gen']
 
         # look for all cone mosaic for this data
-        save_path = os.path.dirname(sav_fl)
-        all_coord_fl = save_path + '\\' + param['mosaic'] + '_all.hdf5'
         try:
-            with h5py.File(all_coord_fl, 'r') as file:
-                all_coord = file['input_data']['cone_coord'][()]
-                all_cone_mean_icd   = file['measured_voronoi']['icd_mean'][()]
+            dat = flsyst.getAllConeDat(sav_fl, param['mosaic'], [['input_data', 'cone_coord'],
+                                                                ['measured_voronoi', 'icd_mean']], sep_folder)
+            all_coord = dat[0]
+            all_cone_mean_icd = dat[1]
+
         except:
-            print('could not pull mean nearest from ' + all_coord_fl)
+            print('could not pull mean nearest from ' + sep_folder)
       
 
         # number of mosaics to generate
@@ -1322,15 +1569,24 @@ def dmin_process(param, sav_cfg):
         IND_entry = np.nan
         inflect = np.nan
         coef = np.nan
+
         if prob_rej_type == 'IND_shift_basic_logistic':
             IND_entry = all_cone_mean_icd
+
         elif prob_rej_type == 'custom_logistic':
             inflect = param['dmin_func_inflect']
             coef = param['dmin_func_coef']
+            if inflect < 0:
+                inflect = all_cone_mean_icd/np.abs(inflect)
+
+
         elif prob_rej_type == 'inverse_distance_squared':
-            dmin_maxdist = all_cone_mean_icd*2  
+            dmin_maxdist = float(param['dmin_hardExR'])
+
         elif prob_rej_type == 'all_or_none':
-            dmin_maxdist = all_cone_mean_icd*2 
+            dmin_maxdist = float(param['dmin_hardExR'])
+            if dmin_maxdist < 0:
+                dmin_maxdist = all_cone_mean_icd/np.abs(dmin_maxdist)
  
         dmin_coord = calc.dmin(all_coord, num2gen, cones2place, dmin_maxdist, prob_rej_type, IND_entry, inflect, coef)
         
@@ -1417,17 +1673,17 @@ def hexgrid_by_density_process(param, sav_cfg):
         plt.stairs(hist, bins)
         plt.title('hex_radii_used')
         
-        temp = np.empty([num2gen, num_cones, 2])
-        for m in np.arange(0,num2gen):
-            # print(['HEX COORD ' + str(m)])
-            # print(coord[m, :, :])
-            # print(np.nonzero([np.isnan(coord[m,a,0]) for a in np.arange(0,coord.shape[1])])[0].shape[0])
-            non_nan = np.array(np.nonzero(~np.isnan(coord[m,:,0]))[0], dtype=int)
-            ax = show.plotKwargs({},'')
-            before = show.scatt(np.squeeze(coord[m, :, :]), id + ' ' + str(m) + ' before', ax=ax)
-            temp[m,:,:] = util.trim_random_edge_points(coord[m, non_nan, :], num_cones, [0, img_x], [0, img_y])
-            ax1 = show.plotKwargs({},'')
-            after = show.scatt(np.squeeze(coord[m, :, :]), id + ' ' + str(m) + ' after', ax=ax1)
+        # temp = np.empty([num2gen, num_cones, 2])
+        # for m in np.arange(0,num2gen):
+        #     # print(['HEX COORD ' + str(m)])
+        #     # print(coord[m, :, :])
+        #     # print(np.nonzero([np.isnan(coord[m,a,0]) for a in np.arange(0,coord.shape[1])])[0].shape[0])
+        #     non_nan = np.array(np.nonzero(~np.isnan(coord[m,:,0]))[0], dtype=int)
+        #     ax = show.plotKwargs({},'')
+        #     before = show.scatt(np.squeeze(coord[m, :, :]), id + ' ' + str(m) + ' before', ax=ax)
+        #     temp[m,:,:] = util.trim_random_edge_points(coord[m, non_nan, :], num_cones, [0, img_x], [0, img_y])
+        #     ax1 = show.plotKwargs({},'')
+        #     after = show.scatt(np.squeeze(coord[m, :, :]), id + ' ' + str(m) + ' after', ax=ax1)
 
         data_to_set = util.mapStringToLocal(proc_vars, locals())
     else:
@@ -1440,6 +1696,14 @@ def coneLocked_maxSpacing_process(param, sav_cfg):
     proc = 'coneLocked_maxSpacing'
     proc_vars = sav_cfg[proc]['variables']
     sav_fl = param['sav_fl']    
+
+    path_AllConeRef = param['path_AllConeRef']
+    fileinput_for_AllConeRef = param['fileinput_for_AllConeRef']
+    if path_AllConeRef:
+        sep_folder = fileinput_for_AllConeRef
+    else:
+        sep_folder = "nah"
+
     with h5py.File(sav_fl, 'r') as file:
         og_coord = file['input_data']['cone_coord'][()]
         img_x = file['input_data']['img_x'][()]
@@ -1458,7 +1722,8 @@ def coneLocked_maxSpacing_process(param, sav_cfg):
 
 
         # get all-cone-coordinates
-        all_coord = flsyst.getAllConeCoord(sav_fl, param['mosaic'])
+        dat = flsyst.getAllConeDat(sav_fl, param['mosaic'], [['input_data', 'cone_coord']], sep_folder)
+        all_coord = dat[0]
         # number of mosaics to generate
         num2gen = util.numSim('coneLocked_maxSpacing', num_sim, sim_to_gen)
         # cones per mosaic to generate
@@ -1466,8 +1731,8 @@ def coneLocked_maxSpacing_process(param, sav_cfg):
         spaced_coord, num_cones_final, hex_radii_used = calc.coneLocked_hexgrid_mask(all_coord, num2gen, cones2place, x_dim, y_dim, hex_radius)
         
         # trim excess cones
-        temp = np.empty([num2gen, cones2place, 2])
-        ax0 = show.plotKwargs({},'')
+        # temp = np.empty([num2gen, cones2place, 2])
+        # ax0 = show.plotKwargs({},'')
         # for mos in np.arange(0, num2gen):
         #     print('num hexgrid pre trim')
         #     print(spaced_coord[mos,:,:].shape)
@@ -1556,11 +1821,16 @@ def monteCarlo_process(param, sav_cfg, mc_type):
         elif mc_type == 'coneLocked':
             # look for all cone mosaic for this data
             mosaic = param['mosaic']
-            save_path = os.path.dirname(sav_fl)
-            all_coord_fl = save_path + '\\' + mosaic + '_all.hdf5'
-            # try:
-            with h5py.File(all_coord_fl, 'r') as file:
-                all_coord = file['input_data']['cone_coord'][()]
+
+            path_AllConeRef = param['path_AllConeRef']
+            fileinput_for_AllConeRef = param['fileinput_for_AllConeRef']
+            if path_AllConeRef:
+                sep_folder = fileinput_for_AllConeRef
+            else:
+                sep_folder = "nah"
+            dat = flsyst.getAllConeDat(sav_fl, param['mosaic'], [['input_data', 'cone_coord']], sep_folder)
+            all_coord = dat[0]
+
             coord = calc.monteCarlo_coneLocked(num_coord, all_coord, num2gen)
             data_to_set = util.mapStringToLocal(proc_vars, locals())
             # except:
@@ -1578,7 +1848,7 @@ def monteCarlo_uniform_process(param, sav_cfg):
     Inputs
     ------
     
-    just a directory to the function for monteCarlo
+    waystation to monteCarlo
     processes that takes uniform and coneLocked as
     options
     """
@@ -1590,7 +1860,7 @@ def monteCarlo_coneLocked_process(param, sav_cfg):
     Inputs
     ------
     
-    just a directory to the function for monteCarlo
+    waystation to monteCarlo
     processes that takes uniform and coneLocked as
     options
     """
@@ -1612,11 +1882,26 @@ def input_data_process(param, sav_cfg):
     proc_vars = sav_cfg[proc]['variables']
     data_to_set = {}
 
-    coord = np.loadtxt(param['coord_fl'], delimiter=',')
+    if param['use_cut_in_coord']:
+        coord = param['cut_in_coord']
+    else:
+        coord = np.loadtxt(param['coord_fl'], delimiter=',')
     img = plt.imread(param['img_fl'])
 
-    param['img_x'] = img.shape[1]
-    param['img_y'] = img.shape[0]
+    if param['use_cut_in_coord']:
+        # print('THING ONE')
+        param['img_x'] = param['cut_in_img_x']
+        param['img_y'] = param['cut_in_img_y']
+    else:
+        # print('THING TWO')
+        param['img_x'] = img.shape[1]
+        param['img_y'] = img.shape[0]
+
+
+    # print('INPUT DATA')
+    # print(param['img_x'])
+    # print(param['img_y'])
+    # print('')
 
     if param['convert_coord_unit']:
         param['coord_unit'] = param['convert_coord_unit_to']
@@ -1665,8 +1950,10 @@ def basic_stats_process(param, sav_cfg):
     sav_fl = param['sav_fl']
     with h5py.File(sav_fl, 'r') as file:
         coord = file['input_data']['cone_coord'][()]
+
         img_x = file['input_data']['img_x'][()]
         img_y = file['input_data']['img_y'][()]
+
         num_cones = coord.shape[0]
         convert_coord_unit = bytes(file['input_data']['convert_coord_unit'][()]).decode("utf8")
         if convert_coord_unit:
@@ -1722,13 +2009,26 @@ def unpackThisParam(user_param, ind):
     param['dmin_probability_func'] = user_param['dmin_probability_func'][0]
     param['dmin_func_inflect'] = user_param['dmin_func_inflect'][0]
     param['dmin_func_coef'] = user_param['dmin_func_coef'][0]
-
+    param['dmin_hardExR'] = user_param['dmin_hardExR'][0]
     param['convert_coord_unit'] = user_param['convert_coord_unit']
     param['convert_coord_unit_to'] = user_param['convert_coord_unit_to']
     param['coord_conversion_factor'] = user_param['coord_conversion_factor']
     param['density_unit'] = user_param['density_unit']
     param['density_conversion_factor'] = user_param['density_conversion_factor']
     param['sim_hexgrid_by'] = user_param['sim_hexgrid_by']
+    param['fileinput_for_2PCref'] = user_param['fileinput_for_2PCref']
+    param['path_2PCref'] = user_param['path_2PCref']
+    param['fileinput_for_eMR'] = user_param['fileinput_for_eMR']
+    param['path_eMR'] = user_param['path_eMR']
+    param['path_AllConeRef'] = user_param['path_AllConeRef']
+    param['fileinput_for_AllConeRef'] = user_param['fileinput_for_AllConeRef']
+    param['use_cut_in_coord'] = user_param['use_cut_in_coord']
+    param['cut_in_coord'] = user_param['cut_in_coord']
+    param['cut_in_img_x'] = user_param['cut_in_img_x']
+    param['cut_in_img_y'] = user_param['cut_in_img_y']
+    param['num_rings'] = user_param['num_rings']
+
+
     
     return param
 
@@ -1741,6 +2041,7 @@ def runSingleMosaicProcess(user_param, sav_cfg):
     """
     # 
     for layer in sav_cfg['process_hierarchy']['content']:
+        print(sav_cfg[layer]['process'])
         globals()[sav_cfg[layer]['process']](user_param, sav_cfg)
 
 
@@ -1827,6 +2128,7 @@ def run_analysis_tiers_process(user_param, sav_cfg):
     for proc in tiers:
         if proc in user_param['analyses_to_run'][0]:
             for ind in processes[proc[0]]:
+                
                 print('Running process "' + proc[0] + '" on file' + str(ind+1) + '/' + str(len(processes[proc[0]])) +'...') 
                 param = unpackThisParam(user_param, ind)
                 globals()[sav_cfg[proc[0]]['process']](param, sav_cfg)

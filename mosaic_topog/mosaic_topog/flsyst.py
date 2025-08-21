@@ -7,6 +7,152 @@ import yaml
 import h5py
 import csv
 
+def save_list_to_hdf5(h5file, nested_list, path='/'):
+    # GPT code. not tested yet. 
+    def recursive_save_list(h5group, nested_list):
+        for i, item in enumerate(nested_list):
+            if isinstance(item, list):
+                subgroup = h5group.create_group(str(i))
+                recursive_save_list(subgroup, item)
+            else:
+                h5group.create_dataset(str(i), data=item)
+                
+    recursive_save_list(h5file.create_group(path), nested_list)
+
+# def load_list_from_hdf5(h5file, path='/'):
+#     # GPT code. not tested yet. 
+#     def recursive_load_list(h5group):
+#         result = []
+#         for key in sorted(h5group.keys(), key=lambda x: int(x)):
+#             if isinstance(h5group[key], h5py.Group):
+#                 result.append(recursive_load_list(h5group[key]))
+#             else:
+#                 result.append(h5group[key][()])
+#         return result
+    
+#     return recursive_load_list(h5file[path])
+
+
+# def load_list_from_hdf5(h5file, path='/'):
+#     def recursive_load_list(h5group):
+#         print('load list')
+#         print(h5group.keys())
+        
+#         keys = sorted(h5group.keys(), key=lambda x: int(x))
+#         result = []
+        
+#         for key in keys:
+#             if isinstance(h5group[key], h5py.Group):
+#                 result.append(recursive_load_list(h5group[key]))
+#             else:
+#                 result.append(h5group[key][()])
+#         return result
+#     return recursive_load_list(h5file[path])
+
+
+def save_dict_to_hdf5(h5file, dictionary, path='/'):
+    # GPT code. not tested yet. 
+    for key, value in dictionary.items():
+        full_path = f"{path}{key}"
+        if isinstance(value, dict):
+            group = h5file.create_group(full_path)
+            save_dict_to_hdf5(h5file, value, path=f"{full_path}/")
+        elif isinstance(value, np.ndarray):
+            h5file.create_dataset(full_path, data=value)
+        else:
+            # Convert other data types to string representation
+            h5file.create_dataset(full_path, data=str(value))
+
+
+# def load_dict_from_hdf5(h5file, path='/'):
+#     # GPT code. not tested yet. 
+#     result = {}
+#     keys = h5file[path].keys()
+#     numkeys = len(keys)
+#     keystr = [key for key in keys]
+#     print(keystr)
+#     print([keystr[z] == str(z) for z in np.arange(0,numkeys)])
+#     if np.all([keystr[z] == str(z) for z in np.arange(0,numkeys)]):
+#         result[key] = load_list_from_hdf5(h5file, path="/")
+#     else:   
+#         for key in h5file[path].keys():
+#             print(key)
+#             full_path = f"{path}{key}"
+#             if isinstance(h5file[full_path], h5py.Group):
+#                 result[key] = load_dict_from_hdf5(h5file, path=f"{full_path}/")
+#             else:
+#                 result[key] = h5file[full_path][()]
+#                 # Convert back from bytes if necessary
+#                 if isinstance(result[key], bytes):
+#                     result[key] = result[key].decode('utf-8')
+#     return result 
+
+def is_sequential_int_keys(keys):
+    try:
+        int_keys = list(map(int, keys))
+        return int_keys == list(range(len(int_keys)))
+    except ValueError:
+        return False
+
+def loadByType(obj):
+    # print(type(obj))
+    if isinstance(obj, h5py.Group):
+        # print('toload is group')
+        loaded = recursive_load_list_or_dict(obj) 
+    elif (isinstance(obj[()],  np.bytes_) or
+            isinstance(obj[()],  bytes)):
+        # print(type(obj[()]))
+        try:
+            loaded = [bytes(z).decode("utf8") for z in obj]
+            # print('toload is bytes list')
+        except:
+            try:
+                loaded = bytes(obj[()]).decode('utf8')
+                # print('toload is nonlist bytes')
+            except:
+                loaded = obj[()]
+                # print('toload is bytes problems???')
+    else:
+        # print('toload is ' + str(type(obj[()])))
+        loaded = obj[()]
+
+    return loaded
+
+
+def recursive_load_list_or_dict(h5group):
+    try:
+        keys = sorted(h5group.keys(), key=int)
+    except ValueError:
+        keys = sorted(h5group.keys())
+    # keys = sorted(h5group.keys(), key=lambda x: int(x))
+    if is_sequential_int_keys(keys):
+        result = []
+        # print('output as list')
+    else:
+        result = {}
+        # print('output as dict')
+    
+    for key in keys:
+        # print(type(h5group[key][()])) 
+        toload = loadByType(h5group[key])
+        if is_sequential_int_keys(keys):
+            result.append(toload)
+        else:
+            result[key] = toload
+        
+    return result
+
+    # def load_dataset:
+    #     if isinstance(h5group[key], h5py.Group):
+    #         result[key] = recursive_load_list_or_dict(h5group[key])
+    #     elif isinstance(value,  np.bytes_):
+    #         result[key] = [bytes(z).decode("utf8") for z in h5group[key]]
+    #     elif isinstance(value,  bytes):
+    #         result[key] = [bytes(z).decode("utf8") for z in h5group[key]]
+    #     else:
+    #         result[key] = h5group[key][()]
+
+
 
 def saveOutputsAsCSV(output_savename, outputs):
     with open(output_savename, 'w', newline='') as csvfile:
@@ -15,15 +161,59 @@ def saveOutputsAsCSV(output_savename, outputs):
             writer.writerow([key])
             writer.writerow(outputs[key])
 
+def getAllConeDat(sav_fl, mosaic, spec=[], sep_folder="nah", use_cut_in_coord = False):
+    all_dat = []
+    save_path = os.path.dirname(sav_fl)
+    needhelp = False
+    if not sep_folder == "nah":
+        all_coord_fl = sep_folder + mosaic + '_all.hdf5'
+    else:
+        all_coord_fl = save_path + '\\' + mosaic + '_all.hdf5'    
+
+    try: 
+        with h5py.File(all_coord_fl, 'r') as file:
+            for sp in spec:
+                try:
+                    # if sp[1] == 'cone_coord':
+                    #     if use_cut_in_coord:
+   
+                    #         cut_in_coord = file['input_data']['cut_in_coord']
+                    #         all_dat.append(cut_in_coord)
+                    #     else:
+                    #         all_dat.append(file[sp[0]][sp[1]][()])
+                    # else:
+                    all_dat.append(file[sp[0]][sp[1]][()])
+                except:
+                    print('no spec "' + sp + 'found in ' + all_coord_fl)
+    except:
+        print("could not access all-cone file in: " + sep_folder)
+        print("attempting to pull it from the save folder instead....")
+        all_coord_fl = save_path + '\\' + mosaic + '_all.hdf5' 
+        try: 
+            with h5py.File(all_coord_fl, 'r') as file:
+                for sp in spec:
+                    try:
+                        all_dat.append(file[sp[0]][sp[1]][()])
+                    except:
+                        print('no spec "' + sp + 'found in ' + all_coord_fl)
+        except:
+            print("could not access all-cone file in " + all_coord_fl + ', either')
+            
+
+    # except:
+    #     print('could not pull total cones coordinates from ' + all_coord_fl)
+    return all_dat
 
 
 def getAllConeCoord(sav_fl, mosaic):
+     # should replace this function everywhere with getAllConeDat
      # look for all cone mosaic for this data
     save_path = os.path.dirname(sav_fl)
     all_coord_fl = save_path + '\\' + mosaic + '_all.hdf5'
     try:
         with h5py.File(all_coord_fl, 'r') as file:
             all_coord = file['input_data']['cone_coord'][()]
+                
     except:
         print('could not pull total cones coordinates from ' + all_coord_fl)
     
@@ -46,19 +236,26 @@ def setProcessByType(file, proc, var, data, prefix=''):
     elif isinstance(data, bool):
         file[proc_to_set][var] = np.bool_(data)
     elif isinstance(data, dict):
-        file[proc_to_set][var] = data
+        # file[proc_to_set][var] = data
+        save_dict_to_hdf5(file, data, path = '/' + proc_to_set + '/' + var + '/')
     elif isinstance(data, list):
         try:
-            if not data:
-                file[proc_to_set][var] = np.array(data)
-            elif isinstance(data[0], str):
-                data = [n.encode('utf8', 'ignore') for n in data]
-                file[proc_to_set][var] = np.array(data)
-            else:
-                try:
-                    file[proc_to_set][var] = np.ndarray(data)
-                except:
-                    file[proc_to_set][var] = np.array([data])
+            save_list_to_hdf5(file, data, path = '/' + proc_to_set + '/' + var + '/')
+            
+            # UNCOMMENT HERE IF SMP STARTS BREAKING IN THIS TRY/CATCH LOOP, 
+            # ADDED THIS FUNCTIONALITY FOR PSMP AND HAVEN'T TESTED WHETHER 
+            # IT BREAKS SMP YET
+
+            # if not data:
+            #     file[proc_to_set][var] = np.array(data)
+            # elif isinstance(data[0], str):
+            #     data = [n.encode('utf8', 'ignore') for n in data]
+            #     file[proc_to_set][var] = np.array(data)
+            # else:
+            #     try:
+            #         file[proc_to_set][var] = np.ndarray(data)
+            #     except:
+            #         file[proc_to_set][var] = np.array([data])
         except TypeError:
             print('')
             print(var)
@@ -85,23 +282,13 @@ def setProcessVarsFromDict(param, sav_cfg, proc, data_to_set, spec='all', prefix
     this is called by process functions to initiate the data-saving process
     for that function after it has run
     """
-    sav_fl = param['sav_fl']
     
-    # if proc == 'drp':
-    #     print('DATA_TO_SET (IN FLSYST)')
-    #     print(data_to_set)
-    #     print('')
-    #     print('')
-    #     print('')
-    #     print('')
+    sav_fl = param['sav_fl']
 
     with h5py.File(sav_fl, 'r+') as file:
 
         # find all variables for this process
         proc_vars = sav_cfg[proc]['variables']
-        # if proc == 'drp':
-        #     print('hee hee you found me')
-        #     print('proc_vars')
 
         if spec == 'all':
             # set spec to equal all variables
@@ -130,39 +317,19 @@ def setProcessVarsFromDict(param, sav_cfg, proc, data_to_set, spec='all', prefix
             if var not in proc_vars:
                 print('variable "' + var + '" found in the save file is not found in the configuration file for process "' + proc + '". it will be removed from the save file.')
                 del temp_vars[var]
-            # else:
-            #     if proc == 'drp':
-            #         print('PRINTING VARS')
-            #         print(var)
-            #         print(data_to_set[var])
 
         # create process key in the save file
         if (proc_to_set) in file.keys():
             del file[proc_to_set]
         file.create_group(proc_to_set)
-
-        # print('SPEC')
-        # print(spec)
   
         # set variables
         for var in proc_vars:
             if var in spec:
-                # if proc == 'drp':
-                #     print('opt 1')
-                #     print(var)
-                #     print(data_to_set.keys())
-                #     print(data_to_set[var])
                 setProcessByType(file, proc, var, data_to_set[var], prefix=prefix)
             elif var in temp_vars:
-                # if proc == 'drp':
-                    # print('opt 2')
-                # sets variable to its pre-existing values if 'spec'
-                # doesn't equal "all" and the variable name is not
-                # contained in 'spec'
                 setProcessByType(file, proc, var, temp_vars[var], prefix=prefix)
             else:
-                # if proc == 'drp':
-                #     print('opt 3')
                 print('check for variables failed, go look for the bug earlier in this function')
 
 
@@ -331,6 +498,7 @@ def getFilesByDataGroup(user_param, filetype, getAll = False):
     fl_list = glob.glob(folder + '*')
     fl_list = [os.path.basename(file) for file in fl_list]  # listcomprehension
 
+
     #ADD ALLFILE READ-IN OPTION HERE
     if not getAll:
 
@@ -378,6 +546,8 @@ def getFilesByDataGroup(user_param, filetype, getAll = False):
                     mos_count = mos_count + 1
 
         # search for if those files exist.  if they don't, remove them from my list
+        
+
         pop_fls = util.indsNotInList(cat_comb, fl_list)
         cat_comb = util.removeListInds(cat_comb, pop_fls)
 
@@ -391,6 +561,7 @@ def getFilesByDataGroup(user_param, filetype, getAll = False):
     else:
 
         hdf5_list = [f for f in fl_list if 'hdf5' in f]
+        
         cat_comb = hdf5_list
         mosaic = []
         subject = []
@@ -416,8 +587,11 @@ def getFilesByDataGroup(user_param, filetype, getAll = False):
     cat_names = ['subject', 'angle', 'eccentricity', 'conetype', 'mosaic']
     cat_str = [subj_str, ang_str, ecc_str, end_str, cat_comb]
 
+
+
     # get category vectors to output
     cat_index = getIndexes(categories, cat_str, cat_names)
+
 
     for ind, fl in enumerate(cat_comb):
         cat_comb[ind] = folder + fl
@@ -518,6 +692,7 @@ def getIndex(cat_vals, fl_strings):
     index[:] = -1
 
     for ind, c in enumerate(cat_vals):
+
         directory.append(np.nonzero(np.char.find(np.asarray(fl_strings),
                                     c) > -1)[0])
         index[directory[ind]] = int(ind)
@@ -687,25 +862,30 @@ def printSaveFile(sav_fl):
             for key in file.keys():
                 key_div = '***************************************'
                 print(key_div + key + key_div)
-                # if key == 'input_data':
-                #     print('IMG DIMENSIONS')
-                #     print(file[key]['img_x'][()])
-                #     print(file[key]['img_y'][()])
                 for var in file[key]:
                     print(var)
-                    if isinstance(file[key][var][()], np.bytes_):
+                    if isinstance(file[key][var], h5py._hl.group.Group):
+                        data = recursive_load_list_or_dict(file[key][var])
+                        if isinstance(data, dict):
+                            print(data.keys())
+                            # util.printDict(data)
+                        elif isinstance(data, list):
+                            print(len(data))
+                            # util.printList(data)
+                    elif isinstance(file[key][var][()], np.bytes_):
                         data = bytes(file[key][var][()]).decode("utf8")
-                        # if 'voronoi' in key:
-                        #     print(data)
+                        try:
+                            print('    ' + data)
+                        except:
+                            print(type(data))
+                            print('-')
                     else:
                         data = file[key][var][()]
-                    try:
-                        print(data.shape)
-                        # if 'voronoi' in key:
-                        #     print(data)
-                    except:
-                        print('-')
-                    #print(data)
+                        try:
+                            print('     ' + str(data.shape))
+                        except:
+                            print(type(data))
+                            print('-')
                     print('')
     else:
         print('printSaveFile cannot print "' + sav_fl + '" because it does not exist')

@@ -1,0 +1,180 @@
+# MosTop post-single-mosaic-processes Save Config File
+# informs the process by which each analysis is run and defines what
+# data is saved in hdf5 and csv files
+
+# HIERARCHY PROCESSES---------------------------------------------------------
+
+process_hierarchy:
+  process: process_hierarchy_process
+  process_type: hierarchy
+  content: 
+  - default_processes
+  - run_analysis_tiers
+
+default_processes:
+  process: default_processes_process
+  process_type: hierarchy
+
+run_analysis_tiers:
+  process: run_analysis_tiers_process
+  process_type: hierarchy
+
+primary_analyses:
+  process: primary_analyses_process
+  process_type: hierarchy
+
+# INPUT PROCESSES-------------------------------------------------------------
+
+mosaic_meta: # needs to include all the ROIs included instead of just one
+  process: mosaic_meta_process
+  process_type: default
+  variables: 
+    - mosaic
+    - subject
+    - angle
+    - eccentricity
+    - conetype
+
+input_data: # add everything from the input config that 
+# needs to be stored here. or just let it save the whole thing? idk
+  process: input_data_process
+  process_type: default
+  variables: 
+    - smp_data_path
+    - psmp_save_path
+    - coord_unit
+    - num_sim
+    - mtype_to_get
+
+# ANALYSIS PROCESSES---------------------------------------------------------
+
+twoPC:
+  process: twoPC_process
+  process_type: analysis
+  analysis_tier: 1
+  all_conetype_dependencies:
+    - [['basic_stats', 'num_cones'],
+       ['measured_voronoi', 'icd_mean'],
+       ['input_data', 'cone_coord'],
+       ['measured_intracone_dist', 'hist_mat'],
+       ['measured_voronoi', 'density'],
+       ['mosaic_meta', 'mosaic'],
+       ['mosaic_meta', 'eccentricity'],
+       ['mosaic_meta', 'subject'],
+       ['mosaic_meta', 'angle']]
+  test_conetype_dependencies: # data required from the test cone type
+    - [['basic_stats', 'num_cones'],
+       ['input_data', 'cone_coord'],
+       ['coneLocked_maxSpacing', 'hex_radii_used']]
+  allmtype_test_conetype_dependencies: # data required 
+  # for each mosaictype specified by input config file's 'mtype_to_get' 
+    - [['metrics_of_2PC', 'exclusion_radius'],
+       ['metrics_of_2PC', 'exclusion_factor'],
+       ['metrics_of_2PC', 'exclusion_strength'],
+       ['voronoi', 'density'],           
+       ['intracone_dist', 'bin_edge'],
+       ['drp', 'effective_radius'],
+       ['drp', 'packing_factor'],
+       ['drp', 'maximum_radius']]
+  variables: # variables to be saved in psmp hdf5 file
+    - psmp_input_cfg # SET THIS EQUAL TO THE INPUT CONFIG VARS FOR THIS PROCESS
+    - ExR
+    - ExF
+    - ExS
+    - sig_ExR
+    - sig_dims
+    - sig_met_lab
+    - qs
+    - q_dims
+    - q_met_labs
+    - y_perc
+    - x_data # the basic metrics being analyzed with respect to y_data
+    - y_data # the analysis metrics being analyzed w respect to x_data
+    - x_shortlabs
+    - y_shortlabs
+    - x_labels
+    - y_labels 
+    - linreg_res # np.nan or a dict containing slope, intercept, rcoef, rs  
+                 # for every mtype and metric pair specified
+   
+
+DRP: 
+  process: drp_process
+  process_type: analysis
+  analysis_tier: 1
+  variables:
+  # all_conetype_dependencies: # not currently using
+  #   - [['basic_stats', 'num_cones'],
+  #      ['measured_voronoi', 'icd_mean'],
+  #      ['input_data', 'cone_coord'],
+  #      ['measured_intracone_dist', 'hist_mat'],
+  #      ['measured_voronoi', 'density'],
+  #      ['mosaic_meta', 'mosaic'],
+  #      ['mosaic_meta', 'eccentricity'],
+  #      ['mosaic_meta', 'subject'],
+  #      ['mosaic_meta', 'angle']]
+  # test_conetype_dependencies: # not currently using # data required from the test cone type
+  #   - [['basic_stats', 'num_cones'],
+  #      ['input_data', 'cone_coord'],
+  #      ['coneLocked_maxSpacing', 'hex_radii_used']]
+  # allmtype_test_conetype_dependencies: # not currently using :
+  #   - [['intracone_dist', 'bin_edge'],
+  #      ['drp', 'effective_radius'],
+  #      ['drp', 'packing_factor'],
+  #      ['drp', 'maximum_radius']]
+    - DRP_metric_qs
+    - metric_labs
+    - sig_ER
+    - MR
+    - mosaic_types
+    - test_types
+    - null_type
+    - ROIs
+    - percentiles
+    - dims 
+  
+
+CRA:
+  process: cra_process
+  process_type: analysis
+  analysis_tier: 1
+  variables:
+  - ExRa_trial_qs
+  - rings_siglowhigh
+  - rings_sigcounts
+  - ExRa_all_data
+  - CRA_metric_alltrl_qs
+  - prevalence_test_onetrl_qs
+  - prevalence_test_alltrl_qs 
+  - prevalence_null_alltrl_qs 
+  - mosaic_types
+  - test_types
+  - null_type
+  - ROIs
+  - prevalence_metrics 
+  - percentiles
+  - dims 
+
+NN: # number of immediate neighbors (chosen cone type versus cones not of that type)
+  process: NN_process
+  process_type: analysis
+  analysis_tier: 1
+  variables:
+  - NN_mwu
+  - NN_siglowhigh
+  - NN_Q
+  - dims
+  - ROIs
+  - percentiles
+
+ND: # distance of immediate neighbors (chosen cone type versus cones not of that type)
+  process: ND_process
+  process_type: analysis
+  analysis_tier: 1
+  variables:
+  - ND_mwu
+  - ND_siglowhigh
+  - ND_Q
+  - dims
+  - ROIs
+  - percentiles

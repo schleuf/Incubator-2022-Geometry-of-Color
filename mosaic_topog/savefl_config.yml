@@ -78,6 +78,18 @@ input_data:
     - dmin_probability_func
     - dmin_func_inflect
     - dmin_func_coef
+    - dmin_hardExR
+    - fileinput_for_2PCref
+    - path_2PCref
+    - fileinput_for_eMR
+    - path_eMR
+    - path_AllConeRef
+    - fileinput_for_AllConeRef
+    - use_cut_in_coord
+    - cut_in_coord
+    - cut_in_img_x
+    - cut_in_img_y
+
 
 basic_stats:
   process: basic_stats_process
@@ -152,8 +164,8 @@ intracone_dist:
   process_type: analysis
   analysis_tier: 2
   variables:
-  - mean_nearest
-  - std_nearest
+  # - mean_nearest
+  # - std_nearest
   - hist_mean
   - hist_std
   - hist_mat
@@ -209,10 +221,30 @@ drp:
   - expected_drp
 
 
+concentric_ring_analysis:
+  process: concentric_ring_analysis_process
+  process_type: analysis
+  analysis_tier: 4
+  dependencies:
+  - voronoi
+  variables:
+  - num_rings
+  - perc
+  - all_Sprop_in_rings 
+  - all_numS_in_rings
+  - all_numA_in_rings
+  - all_dist_in_rings
+  - percentile_dist_in_rings
+  - neighb_rings
+  - S_in_rings
+  - S_rings_mat
+
+
+
 two_point_correlation:
   process: two_point_correlation_process
   process_type: analysis
-  analysis_tier: 4
+  analysis_tier: 5
   dependencies:
   - intracone_dist
   variables:
@@ -220,7 +252,7 @@ two_point_correlation:
   - max_bins
   - max_bin_edges
   - corr_by_pi
-  - corr_by_hists
+  # - corr_by_hists
   - corr_by_mean
   - corr_by_std
   - corr_by_poisson_95conf
@@ -229,7 +261,7 @@ two_point_correlation:
 metrics_of_2PC:
   process: metrics_of_2PC_process
   process_type: analysis
-  analysis_tier: 5
+  analysis_tier: 6
   dependencies:
   - two_point_correlation
   variables:
@@ -242,14 +274,16 @@ metrics_of_2PC:
   - peak_bins
   - exclusion_radius
   - exclusion_factor
+  - exclusion_strength
   - exclusion_bins
   - first_peak_rad
   - emp_max_rad
 
+
 degree_structure:
   process: degree_structure_process
   process_type: analysis
-  analysis_tier: 6
+  analysis_tier: 7
   metrics:
   - ['voronoi', 'voronoi_area']
   - ['voronoi', 'icd']
@@ -292,6 +326,7 @@ degree_structure:
   - DS_Rr
   - DS_Sr
   - DS_Dm
+
 
 
   

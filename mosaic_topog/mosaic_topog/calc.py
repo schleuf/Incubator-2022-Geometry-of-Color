@@ -12,6 +12,56 @@ from shapely.geometry.polygon import Polygon
 import sys
 import math
 
+def normalize_matrix(matrix):
+
+    min_val = np.min(matrix)
+    max_val = np.max(matrix)
+    
+    # Normalize the matrix
+    normalized_matrix = (matrix - min_val) / (max_val - min_val)
+    
+    return normalized_matrix
+
+
+def calculate_angle_matrix(points):
+    # Number of points
+    n = points.shape[0]
+    
+    # Create arrays for broadcasting
+    dx = points[:, 0].reshape((n, 1)) - points[:, 0].reshape((1, n))
+    dy = points[:, 1].reshape((n, 1)) - points[:, 1].reshape((1, n))
+    
+    # xrange = np.arange(0, n)
+    # dx = np.array([[points[z,0] - points[w,0] for w in xrange] for z in xrange])
+    # dy = np.array([[points[z,1] - points[w,1] for w in xrange] for z in xrange])
+
+    # fig1, ax1 = plt.subplots()
+    # ax1.scatter(dx, dy)
+
+    angle_matrix = np.arctan2(dy, dx)
+
+    # angle_matrix = np.array([[np.arctan2(dy[z,w],dx[z,w]) for z in xrange] for w in xrange])
+    # print('ANG SHAPE')
+    # print(angle_matrix.shape)
+    return angle_matrix, dx, dy
+
+def coordIndexToOther(to_match, match_to):
+    num2match = to_match.shape[0]
+    index = np.empty([num2match, ])
+    index[:] = np.nan
+    for c_ind in np.arange(0, num2match):
+        # find ind of matching cone in all-cone coord
+        c = to_match[c_ind,:]
+        if not np.isnan(c[0]):
+            try:
+                match = np.nonzero([match_to[z,0] == c[0] and match_to[z,1] == c[1] for z in np.arange(match_to.shape[0])])[0][0].astype('int64')
+                index[c_ind] = match
+            except: 
+                print('no match found for coordinate #' + str(c_ind) + ', (' + str(c[0]) + ', ' + str(c[1]), + ')' )
+
+    return index
+
+
 def logistic_coef_intercept(x, c, i):
     # c = growth rate coefficient, i = x-val at x-intercept
     y = 1/(1 + np.exp((-x * c) - i))
@@ -160,11 +210,11 @@ def poisson_interval(k, alpha=0.05):
     a = alpha
     low, high = (chi2.ppf(a/2, 2*k) / 2, chi2.ppf(1-a/2, 2*k + 2) / 2)
     if np.all(k == 0): 
-        low = [0.0]
+        low = 0.0
 
     # print(low)
     # print(high)
-    return low[0], high[0]
+    return low, high
 
 
 def rotate_around_point(xy, radians, origin=(0, 0)):

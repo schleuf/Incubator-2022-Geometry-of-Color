@@ -7,11 +7,443 @@ from scipy.spatial import voronoi_plot_2d
 from shapely.geometry import Point
 from shapely.geometry.polygon import Polygon
 import mosaic_topog.utilities as util
+from matplotlib.patches import Circle
 
-# --------------------------data viewing and saving functions--------------------------
+def create_radial_gradient(size, center, radius, maxg = 1, steepness = 1):
+    """Creates a radial gradient array centered at `center` with `radius`."""
+    y, x = np.ogrid[:size, :size]
+    distance_from_center = np.sqrt((x - center[0])**2 + (y - center[1])**2)
+    gradient = np.clip(1 - (distance_from_center / radius), 0, 1)
+    gradient = gradient * maxg
+    gradient = gradient ** steepness
+    return gradient
 
-## --------------------------------SMP VIEWING FUNCTIONS--------------------------------------
+def plot_circles_with_gradients(field_size, centers, radius, ax, color, maxg = 1, steepness = 1):
+    """Plots multiple circles with radial gradient transparency on a rectangular field."""
 
+    # Normalize the color input (convert string to an RGB array)
+    rgb = np.array(plt.get_cmap('Blues')(0.5)[:3])  # Use a midpoint blue color
+
+    for c_ind in np.arange(0, centers.shape[0]):
+        center = centers[c_ind,:]
+
+        if not np.isnan(center[0]):
+            # Create a radial gradient centered at the origin
+            gradient = create_radial_gradient(2*radius, (radius, radius), radius, maxg, steepness)
+
+            # Create an RGBA image from the gradient
+            rgba_img = np.zeros((2*radius, 2*radius, 4))
+            rgba_img[..., :3] = rgb  # Set the RGB channels
+            rgba_img[..., 3] = gradient  # Set the alpha channel to the gradient
+
+            # Determine the extent of the image on the field
+            extent = (center[0] - radius, center[0] + radius, center[1] - radius, center[1] + radius)
+
+            # Overlay the gradient on the field at the correct location
+            ax.imshow(rgba_img, extent=extent, origin='lower', alpha=1)
+        
+    return ax
+
+
+def drawROI(centX, centY, wid, hei, col):
+    halfwid = wid/2
+    halfhei = hei/2
+    xs = [centX-halfwid, centX-halfwid, centX+halfwid, centX+halfwid, centX-halfwid]
+    ys = [centY-halfwid, centY+halfwid, centY+halfwid, centY-halfwid, centY-halfwid]
+    plt.fill(xs, ys, col, alpha=.5)
+
+
+def drawCircle(ax, centX, centY, rad, col, fill):
+    circ = plt.Circle((centX, centY), rad, color=col, fill=fill)
+    ax.add_patch(circ)
+
+
+def addAngLeg(ax, rangeX, rangeY, angles, colors, legbuff, legYstep, s, xlim, ylim, legTextBuffX = .075, legTextBuffY = .01):
+    legULX = xlim[1] - (legbuff * rangeX) - (.1 * rangeX)
+    legULY = ylim[1] - (legbuff * rangeY)
+
+    for sub_ind, sub in enumerate(angles):
+        legX = legULX
+        legY = legULY - (sub_ind * legYstep * rangeY)
+        legTextX = legX + (legTextBuffX * rangeX) 
+        legTextY = legY - (legTextBuffY * rangeY)
+
+        # ax.scatter(legX, legY, marker=markers[sub_ind], s=s, facecolors='none', edgecolors='k')
+        ax.text(legTextX, legTextY, sub, color = colors[sub_ind], fontsize=s)
+        
+    return ax
+
+
+
+def addSubjLeg(ax, rangeX, rangeY, subjects, markers, legbuff, legYstep, s, xlim, ylim, legTextBuffX = .075, legTextBuffY = .01, fontsize=15):
+    legULX = xlim[1] - (legbuff * rangeX) - (.1 * rangeX)
+    legULY = ylim[1] - (legbuff * rangeY)
+
+    for sub_ind, sub in enumerate(subjects):
+        legX = legULX
+        legY = legULY - (sub_ind * legYstep * rangeY)
+        legTextX = legX + (legTextBuffX * rangeX) 
+        legTextY = legY - (legTextBuffY * rangeY)
+
+        ax.scatter(legX, legY, marker=markers[sub_ind], s=s, facecolors='none', edgecolors='k')
+        ax.text(legTextX, legTextY, sub, color = 'k', fontsize=fontsize)
+        
+    return ax
+
+
+def unpack_fig_params(fig_params, d2g):
+    unpacked = []
+    for d in d2g:
+        unpacked.append(fig_params[d])
+    return unpacked
+
+
+def hex2rgb(hex_color):
+    """
+    Convert a hex color string to an RGB tuple.
+
+    Parameters:
+    - hex_color: str, a hex color string (e.g., '#FF5733' or 'FF5733').
+
+    Returns:
+    - tuple: An (R, G, B) tuple with values ranging from 0 to 1, suitable for use in Matplotlib.
+    """
+    # Remove the '#' if present
+    hex_color = hex_color.lstrip('#')
+    
+    # Convert the hex to an integer tuple
+    rgb = [int(hex_color[i:i+2], 16) for i in (0, 2, 4)]
+    
+    # Normalize the values to the range [0, 1] for Matplotlib
+    return np.array([val / 255.0 for val in rgb])
+
+
+def sTop_topmet_allROI_plot(x_data, x_labels, x_shortlabs, ROIs, mt_types,
+                                  y_data, y_shortlabs, y_labels, sigmat,
+                                  fig_params):
+    figset_d2g = ['meas_alpha','meas_mark_lw', 'meas_scat_size', 'nonmeas_scat_size',  
+                   'mtypes', 'mtype_colors', 'figx', 'figy', 
+                   'save_things', 'figsave_folder', 'figsave_type']
+    [meas_alpha, meas_mark_lw, meas_scat_size, nonmeas_scat_size,  
+     mtypes, mtype_colors, figx, figy, save_things, figsave_folder, figsave_type] = unpack_fig_params(fig_params, figset_d2g)
+    print(mt_types)
+    figures = []
+    axes = []
+    for x_ind, x in enumerate(x_data):
+        for y_ind, y in enumerate(y_data):
+            fig, ax = plt.subplots(figsize=(figx, figy))
+            for mt_ind, mt in enumerate(mt_types):
+
+                for mos, tit in enumerate(ROIs):
+                    marker, color = util.scatterBitsByTit(tit)
+                    edgecolor = (mtype_colors[mt_ind])
+                    if sigmat[mt_ind, mos]:
+            
+                        rgb = hex2rgb(mtype_colors[mt_ind])
+
+                        startat = .2
+                        interval = .001
+                        add = startat
+                        desat = False
+                        while not desat:
+                            temp = np.array([val + add for val in rgb])
+                            if np.all(temp<=1.0):
+                                rgb = temp    
+                                desat = True
+                            else:
+                                add = add - interval
+                        facecolor = tuple(rgb)
+                    else:
+                        facecolor = 'w'
+
+                    # if mt == 'measured':
+                    s = meas_scat_size
+                    alpha = meas_alpha
+                    lw = meas_mark_lw
+                    zorder = 3
+
+                    ax.scatter(x[mos],y[mt_ind,mos,2], s = s, marker=marker, edgecolors = edgecolor, facecolors = facecolor, alpha = alpha, linewidth = lw, zorder = zorder)
+                    ax.plot([x[mos], x[mos]], [y[mt_ind,mos,0], y[mt_ind,mos,4]], color = edgecolor, linewidth = lw, linestyle = ':', alpha=.5, zorder = 1)
+                    ax.plot([x[mos], x[mos]], [y[mt_ind,mos,1], y[mt_ind,mos,3]], color = edgecolor, linewidth = lw, alpha = .75, zorder = 0)
+
+            ax.set_xlabel(x_labels[x_ind], fontsize=15)
+            ax.set_ylabel(y_labels[y_ind], fontsize=15)
+            ax.tick_params(axis='both', labelsize=15)
+
+            figures.append(fig)
+            axes.append(ax)
+
+            if save_things:
+                figsave_path = (figsave_folder + 'DRP_' + x_shortlabs[x_ind] +'_X_' + y_shortlabs[y_ind] + '_Y_' + figsave_type)
+                fig.savefig(figsave_path)
+
+    return figures, axes
+
+def addScaleBar(ax, length, xbuff, ybuff, color, lw, xlim, ylim):
+    ax.plot([xlim[0] + xbuff, xlim[0] + xbuff], [ylim[1] - ybuff, ylim[1] - ybuff - length], color=color, linewidth = lw)
+    return ax
+
+def ColorByRings(T_coord, A_coord, cones_in_rings, numrings, regions, vertices, bound_regions, point_region, num_neighbor, cone_color, ring_colors, dir_path, save_things,  CF_DpP, save_type='.png', bkg_col = 'w', figsize=[10,10]):
+
+    fig, ax = plt.subplots(figsize=(figsize[0], figsize[1]))
+    ax.set_aspect('equal')
+    this_A_ind2_S = util.all_coord_match_inds(A_coord, T_coord)
+    frame = 0
+
+    if ~np.all(np.isnan(regions)): # type(regions) is np.ndarray or type(regions is np.float64):
+        for i in range(0, len(regions)):
+            if bound_regions[i]:
+                if not np.isnan(num_neighbor[i]):
+#                     colour = [255, 255, 255]
+                    colour = bkg_col
+#                     for ind, c in enumerate(colour): 
+#                         colour[ind] = c / 255
+
+                    vert = regions[i][np.nonzero(~np.isnan(regions[i]))]
+                    polygon = vertices[np.array(vert, dtype=int)]
+                    ax.fill(*zip(*polygon), facecolor = colour, edgecolor='none', zorder = 1)
+        # if save_things:            
+        #     fig.savefig(dir_path + 'fr' + str(frame) + save_type)
+        frame += 1
+        # print('yippee')
+        # print(len(cones_in_rings))
+        for r in np.arange(numrings-1, -1, -1):
+            for i in range(0, len(regions)):
+                if bound_regions[i]:
+                    if not np.isnan(num_neighbor[i]):
+
+                        region_ind = np.nonzero([z == i for z in point_region.astype('int64')])[0].astype('int64')
+                        # print(r)
+                        # print(num_neighbor[i])
+                        if region_ind in cones_in_rings[r]:
+                            colour = ring_colors[r]
+#                             colour = np.array(ring_colors[r]).astype('float')
+        
+#                             for ind, c in enumerate(colour): 
+#                                 colour[ind] = c / 255
+
+                            vert = regions[i][np.nonzero(~np.isnan(regions[i]))]
+                            polygon = vertices[np.array(vert, dtype=int)]
+                            ax.fill(*zip(*polygon), facecolor = colour, edgecolor='k', zorder = 1, linewidth=.1)
+            # if save_things:                
+            #     fig.savefig(dir_path + 'fr' + str(frame) + save_type)
+            frame += 1
+            
+        for i in range(0, len(regions)):
+            if bound_regions[i]:
+                if not np.isnan(num_neighbor[i]):
+
+                    region_ind = np.nonzero([z == i for z in point_region.astype('int64')])[0].astype('int64')
+
+                    if region_ind in this_A_ind2_S:
+                        vert = regions[i][np.nonzero(~np.isnan(regions[i]))]
+                        polygon = vertices[np.array(vert, dtype=int)]
+                        ax.fill(*zip(*polygon), facecolor = cone_color, edgecolor='k', zorder = 1, linewidth =.1)
+        # if save_things:              
+        #     fig.savefig(dir_path + 'fr' + str(frame) + save_type)
+        frame += 1
+        
+    ax.scatter(A_coord[:,0], A_coord[:,1], s=.1, marker= '.', color='k', zorder = 2)
+    
+    # pix5arc = 5/CF_pixels_to_arcmin
+    # ybuff = 5
+    # ax = addScaleBar(ax, pix5arc, 5, 0, 'k', 2, [np.nanmin(A_coord[:,0]), 0], [0, np.nanmax(A_coord[:,1])])
+    # # ax.plot([min(A_coord[:,0]), min(A_coord[:,0]) + pix5arc], [max(A_coord[:,1]) + ybuff, max(A_coord[:,1]) + 5], 'k', linewidth = 1)
+    # ax.text(min(A_coord[:,0]) + pix5arc+2, max(A_coord[:,1]) + ybuff, '5arcmin', fontsize=12)
+    # ax.plot([min(A_coord[:,0]), min(A_coord[:,0]) + muINDa], [max(A_coord[:,1]) + 8, max(A_coord[:,1]) + 8], 'k', linewidth = 3)
+
+    if save_things:
+        fig.savefig(dir_path + 'fr' + str(frame) + save_type)
+    frame += 1
+    
+    return fig, ax
+
+
+
+def ColorByRings2(T_coord, A_coord, cones_in_rings, ExRr, numrings, regions, vertices, bound_regions, point_region, num_neighbor, ring_colors, dir_path, save_things, CF_DpP, save_type='.png', bkg_col = 'w'):
+
+    fig, ax = plt.subplots(figsize=[10,10])
+    ax.set_aspect('equal')
+    this_A_ind2_S = util.all_coord_match_inds(A_coord, T_coord)
+    frame = 0
+    CF_pixels_to_arcmin = CF_DpP*60
+
+    if ~np.all(np.isnan(regions)): # type(regions) is np.ndarray or type(regions is np.float64):
+        for i in range(0, len(regions)):
+            if bound_regions[i]:
+                if not np.isnan(num_neighbor[i]):
+#                     colour = [255, 255, 255]
+                    colour = bkg_col
+#                     for ind, c in enumerate(colour): 
+#                         colour[ind] = c / 255
+
+                    vert = regions[i][np.nonzero(~np.isnan(regions[i]))]
+                    polygon = vertices[np.array(vert, dtype=int)]
+                    ax.fill(*zip(*polygon), facecolor = colour, edgecolor='none', zorder = 1)
+        if save_things:            
+            fig.savefig(dir_path + 'fr' + str(frame) + save_type)
+        frame += 1
+        
+        for r in np.arange(numrings-1, -1, -1):
+            for i in range(0, len(regions)):
+                if bound_regions[i]:
+                    if not np.isnan(num_neighbor[i]):
+
+                        region_ind = np.nonzero([z == i for z in point_region.astype('int64')])[0].astype('int64')
+
+                        if region_ind in cones_in_rings[r]:
+                            if r < ExRr:
+                                colour = ring_colors[r]
+                            else:
+                                colour = '#383838' # '#214761'
+#                             colour = np.array(ring_colors[r]).astype('float')
+        
+#                             for ind, c in enumerate(colour): 
+#                                 colour[ind] = c / 255
+
+                            vert = regions[i][np.nonzero(~np.isnan(regions[i]))]
+                            polygon = vertices[np.array(vert, dtype=int)]
+                            ax.fill(*zip(*polygon), facecolor = colour, edgecolor='k', zorder = 1)
+            if save_things:                
+                fig.savefig(dir_path + 'fr' + str(frame) + save_type)
+            frame += 1
+            
+        for i in range(0, len(regions)):
+            if bound_regions[i]:
+                if not np.isnan(num_neighbor[i]):
+
+                    region_ind = np.nonzero([z == i for z in point_region.astype('int64')])[0].astype('int64')
+
+                    if region_ind in this_A_ind2_S:
+                        colour = np.array([102, 178, 255]).astype('float')
+
+                        for ind, c in enumerate(colour): 
+                            colour[ind] = c / 255
+
+                        vert = regions[i][np.nonzero(~np.isnan(regions[i]))]
+                        polygon = vertices[np.array(vert, dtype=int)]
+                        ax.fill(*zip(*polygon), facecolor = colour, edgecolor='k', zorder = 1)
+        if save_things:              
+            fig.savefig(dir_path + 'fr' + str(frame) + save_type)
+        frame += 1
+    
+    ax.scatter(A_coord[:,0], A_coord[:,1], marker= '.', color='k', zorder = 2)
+    pix5arc = 5/CF_pixels_to_arcmin
+    ax.plot([min(A_coord[:,0]), min(A_coord[:,0]) + pix5arc], [max(A_coord[:,1]) + 5, max(A_coord[:,1]) + 5], 'r', linewidth = 3)  
+    # ax.plot([min(A_coord[:,0]), min(A_coord[:,0]) + muINDa], [max(A_coord[:,1]) + 8, max(A_coord[:,1]) + 8], 'k', linewidth = 3)
+    
+    if save_things:
+        fig.savefig(dir_path + 'fr' + str(frame) + save_type)
+    frame += 1
+    
+    return fig, ax
+
+def ColorByRings3(T_coord, A_coord, cones_in_rings, numrings, regions, vertices, bound_regions, point_region, num_neighbor, ring_colors, dir_path, save_things, CF_DpP, save_type='.png', bkg_col = 'w'):
+    frame = 0
+    CF_pixels_to_arcmin = CF_DpP*60  
+    this_A_ind2_S = util.all_coord_match_inds(A_coord, T_coord)
+    for f_ind in np.arange(0, numrings):
+        fig, ax = plt.subplots(figsize=[10,10])
+        ax.set_aspect('equal')
+        gotone = 0
+        if ~np.all(np.isnan(regions)): # type(regions) is np.ndarray or type(regions is np.float64):
+            for i in range(0, len(regions)):
+                if bound_regions[i]:
+                    if not np.isnan(num_neighbor[i]):
+    #                     colour = [255, 255, 255]
+                        colour = bkg_col
+    #                     for ind, c in enumerate(colour): 
+    #                         colour[ind] = c / 255
+
+                        vert = regions[i][np.nonzero(~np.isnan(regions[i]))]
+                        polygon = vertices[np.array(vert, dtype=int)]
+                        ax.fill(*zip(*polygon), facecolor = colour, edgecolor='k', zorder = 1)
+            if save_things:            
+                fig.savefig(dir_path + 'fr' + str(frame) + save_type)
+            frame += 1
+
+            for r in np.arange(numrings-1, -1, -1):
+                for i in range(0, len(regions)):
+                    if bound_regions[i]:
+                        if not np.isnan(num_neighbor[i]):
+
+                            region_ind = np.nonzero([z == i for z in point_region.astype('int64')])[0].astype('int64')
+
+                            if region_ind in cones_in_rings[r]:
+                                if r == f_ind and gotone == 0:
+                                    colour = 'r'
+                                    gotone = 1
+                                else:
+                                    colour = 'w' # '#214761'
+    #                             colour = np.array(ring_colors[r]).astype('float')
+
+    #                             for ind, c in enumerate(colour): 
+    #                                 colour[ind] = c / 255
+
+                                vert = regions[i][np.nonzero(~np.isnan(regions[i]))]
+                                polygon = vertices[np.array(vert, dtype=int)]
+                                ax.fill(*zip(*polygon), facecolor = colour, edgecolor='k', zorder = 1)
+
+
+            for i in range(0, len(regions)):
+                if bound_regions[i]:
+                    if not np.isnan(num_neighbor[i]):
+
+                        region_ind = np.nonzero([z == i for z in point_region.astype('int64')])[0].astype('int64')
+
+                        if region_ind in this_A_ind2_S:
+                            colour = np.array([102, 178, 255]).astype('float')
+
+                            for ind, c in enumerate(colour): 
+                                colour[ind] = c / 255
+
+                            vert = regions[i][np.nonzero(~np.isnan(regions[i]))]
+                            polygon = vertices[np.array(vert, dtype=int)]
+                            ax.fill(*zip(*polygon), facecolor = colour, edgecolor='k', zorder = 1)
+            
+            ax.scatter(A_coord[:,0], A_coord[:,1], marker= '.', color='k', zorder = 2)
+            pix5arc = 5/CF_pixels_to_arcmin
+            ax.plot([min(A_coord[:,0]), min(A_coord[:,0]) + pix5arc], [max(A_coord[:,1]) + 5, max(A_coord[:,1]) + 5], 'r', linewidth = 3)
+            # ax.plot([min(A_coord[:,0]), min(A_coord[:,0]) + muINDa], [max(A_coord[:,1]) + 8, max(A_coord[:,1]) + 8], 'k', linewidth = 3)
+
+            if save_things:              
+                fig.savefig(dir_path + 'fr' + str(frame) + save_type)
+            frame += 1
+
+        
+#         if save_things:
+#             fig.savefig(dir_path + 'fr' + str(frame) + save_type)
+#         frame += 1
+
+        return fig, ax
+
+def plot_a_violin(dat, x, color, ax, widths = 0.5, marker='o', lw=2, msize=30, kw=0.1, alpha=0.5, vz=0, lz=1, dz=2, va=np.nan, la=0.5, da=0.5):
+    
+    violin_parts = ax.violinplot(dat, x, widths=widths,showextrema= False, showmeans = False, showmedians = True, quantiles = [.025, .975], bw_method=kw)
+        
+    
+    for pc in violin_parts['bodies']:
+        pc.set_facecolor([color])
+
+    violin_parts['cmedians'].set_facecolor(['none'])
+    violin_parts['cmedians'].set_edgecolor(['none'])
+
+    violin_parts['cquantiles'].set_facecolor(['none'])
+    violin_parts['cquantiles'].set_edgecolor(['none'])
+    
+    quartile1, medians, quartile3 = np.percentile(dat, [25, 50, 75], axis=1, method='nearest')
+    
+#     whiskers = np.array([
+#                         adjacent_values(sorted_array, q1, q3)
+#                         for sorted_array, q1, q3 in zip(dat, quartile1, quartile3)])
+
+#     whiskers_min, whiskers_max = whiskers[:, 0], whiskers[:, 1]
+
+    inds = np.arange(1, len(medians) + 1)
+    ax.scatter(x, medians, marker=marker, color=color, s=msize, alpha = da, zorder = dz)
+    ax.vlines(x, quartile1, quartile3, color=color, linestyle='-', lw=lw, alpha = la, zorder = lz)
+    
+    return ax
 
 
 def arcminToPix(data, degrees = False):  #degrees is actually density
@@ -167,10 +599,11 @@ def mosaic_set_ViewHistogram(metric, save_name, save_things=False, save_path='')
 
 
 def view2PCmetric(mos_type, save_name, z_dim = 0, scale_std=2, showNearestCone=False, save_things=False, save_path='', save_type='.png'):
-
+   
     for fl in save_name:
         with h5py.File(fl, 'r') as file: 
             analysis_x_cutoff = file[mos_type + '_' + 'metrics_of_2PC']['analysis_x_cutoff'][()]
+            
             corred = file[mos_type + '_' + 'two_point_correlation']['corred'][()][z_dim, 0:analysis_x_cutoff]
             corr_by_mean = file[mos_type + '_' + 'metrics_of_2PC']['corr_by_mean'][()]
             #corr_by_std = file[mos_type + '_' + 'metrics_of_2PC']['corr_by_std'][()]
@@ -184,24 +617,18 @@ def view2PCmetric(mos_type, save_name, z_dim = 0, scale_std=2, showNearestCone=F
             exclusion_factor = file[mos_type + '_' + 'metrics_of_2PC']['exclusion_factor'][()][z_dim]
 
             corr_by = bytes(file['input_data']['corr_by'][()]).decode("utf8")
-            corr_by_corr = file[corr_by + '_' + 'two_point_correlation']['corred'][()][:, 0:analysis_x_cutoff]
-            max_bins = file[corr_by + '_' + 'two_point_correlation']['max_bins'][()]
-            bin_edge = file[corr_by + '_' + 'two_point_correlation']['max_bin_edges'][()]
+            corr_by_corr = file[mos_type + '_' + 'two_point_correlation']['corred'][()][:, 0:analysis_x_cutoff]
+            # corr_by_corr = file[corr_by + '_' + 'two_point_correlation']['corred'][()][:, 0:analysis_x_cutoff]
+            max_bins = file[mos_type + '_' + 'two_point_correlation']['max_bins'][()]
+            bin_edge = file[mos_type + '_' + 'two_point_correlation']['max_bin_edges'][()]
 
-            sim_hexgrid_by = bytes(file['input_data']['sim_hexgrid_by'][()]).decode("utf8")
-            if sim_hexgrid_by == 'rectangular':
-                hex_radius = file['basic_stats']['hex_radius_of_this_density'][()]
-            elif sim_hexgrid_by == 'voronoi':
-                hex_radius = file['measured_voronoi']['hex_radius'][()]
-            else:
-                print('ack!!! problem getting hex_radius in metrics_of_2PC_process')
-            
-            # print(corr_by_mean)
-
+            if 'AO001R_inferior_4_S' in fl:
+                print(str(z_dim) + ": " + str(exclusion_radius))
 
             mosaic = bytes(file['mosaic_meta']['mosaic'][()]).decode("utf8")
             bin_width = file['input_data']['bin_width'][()]
-            if bin_width == -1:
+
+            if bin_width < 0:
                 save_path_h = os.path.dirname(fl)
                 all_coord_fl = save_path_h + '\\' + mosaic + '_all.hdf5'
                 try:
@@ -210,11 +637,13 @@ def view2PCmetric(mos_type, save_name, z_dim = 0, scale_std=2, showNearestCone=F
                 except:
                     print('could not pull mean nearest from ' + all_coord_fl)
 
-                bin_width = all_cone_mean_icd
-
-        ax = plotKwargs({'figsize':(10,4)}, '')
+                bin_width = all_cone_mean_icd / np.abs(bin_width)
+        
+        fig, ax = plt.subplots(figsize=[4,4])
 
         bins = bin_edge[0:analysis_x_cutoff+1]
+
+        
 
         # the big lazy conversion insert
         convert = True
@@ -227,19 +656,13 @@ def view2PCmetric(mos_type, save_name, z_dim = 0, scale_std=2, showNearestCone=F
             coord_unit = 'arcmin'
 
         c = 'y'
-        # boxbiz = plt.boxplot(corr_by_corr, positions=bin_edge[1:analysis_x_cutoff+1]-(bin_width/2),
-        #             notch=False,
-        #             boxprops=dict({'color': c}),
-        #             capprops=dict({'color'                        : c}),
-        #             whiskerprops=dict({'color': c}),
-        #             flierprops=dict({'color': c}),
-        #             )
 
         corr_by_x, corr_by_y, corr_by_y_plus, corr_by_y_minus = util.reformat_stat_hists_for_plot(bins, corr_by_mean, corr_by_pi)
-        #ax = line(corr_by_x, corr_by_y, '', ax=ax, plot_col = 'firebrick')
 
-        ax = line([bin_edge[0], exclusion_radius], [-1.1, -1.1], '', bckg_col = 'w', ax=ax, plot_col = 'g', linewidth=4)
-        ax.fill_between(corr_by_x, corr_by_y_plus, corr_by_y_minus, color='rebeccapurple', alpha=.7)
+        ax.plot([bin_edge[0], exclusion_radius], [0, 0], color = 'g', linewidth=4)
+        ax.fill_between(corr_by_x, corr_by_y_plus, corr_by_y_minus, color='rebeccapurple', alpha=.5)
+        ax.plot([0,analysis_x_cutoff], [0,0], color='rebeccapurple', alpha=.7)
+
 
         if len(corred.shape) == 1:
             corr = corred[0:analysis_x_cutoff]
@@ -249,75 +672,49 @@ def view2PCmetric(mos_type, save_name, z_dim = 0, scale_std=2, showNearestCone=F
             hist_x, hist_y, hist_y_plus, hist_y_minus = util.reformat_stat_hists_for_plot(bins, corr, np.zeros(corr.shape[0],))
 
             ax = line(hist_x, hist_y, '', ax=ax, plot_col='k', bckg_col = 'w', linewidth=4)
-            # ax.fill_between(hist_x, hist_y_plus, hist_y_minus, color='royalblue', alpha=.7)
 
-            # plt.stairs(corred -.5, bins, color='r')
-
-            # if (exclusion_bins > 0):
-            #     for b, ind in enumerate(np.arange(0, exclusion_bins)):
-            #         if b in dearth_bins:
-                        #ax.scatter(bin_edge[b+1]-(bin_width/2), corr[b], 20, 'g')
-                    
-                    # plt.stairs(corr-.5, bins, color='r')
-                    # ax.fill_between(bin_edge[b:b+2],
-                    #                 [corr[b], corr[b]],
-                    #                 [corr_by_pi[0, b], corr_by_pi[0,b]], 
-                    #                 color='g', alpha=.5)
         else:
             runs = corred.shape[0]
             bin_dim = 1
 
             for m in np.arange(0, corred.shape[0]):
+
                 corr = corred[m, 0:analysis_x_cutoff]
                 hist_x, hist_y, hist_y_plus, hist_y_minus = util.reformat_stat_hists_for_plot(bins, corr, np.zeros(corr.shape[0],))
                 ax = line(hist_x, hist_y, '', ax=ax, plot_col='k', bckg_col='w', linewidth=4)
-                
-                # if (exclusion_bins > 0):
-                #     for b, ind in enumerate(np.arange(0, exclusion_bins)):
-                #         ax.fill_between(bin_edge[b:b+2],
-                #                         [corr[b], corr[b]],
-                #                         [corr_by_pi[0,b], corr_by_pi[0,b]], 
-                #                         color='g', alpha=.5)
-                        
-                ax.fill_between(hist_x, hist_y_plus, hist_y_minus, color='royalblue', alpha=.7)
 
-        # if dearth_bins.shape[0] > 0:
-        #     ax.scatter(bin_edge[dearth_bins] + bin_width/2, mean_corr[dearth_bins], color='g')
-        # if peak_bins.shape[0] > 0:
-        #     ax.scatter(bin_edge[peak_bins] + bin_width/2, mean_corr[peak_bins], color='y')
-
+                ax.fill_between(hist_x, hist_y_plus, hist_y_minus, color='royalblue', alpha=.5)
 
         title = [mosaic + ', bin width: ' + str(np.around(bin_width, decimals=2)) 
                  + ', excl rad: ' + str(np.around(exclusion_radius, decimals =2))
                  + ', excl fact' + str(np.around(exclusion_factor, decimals = 2))]
-
-        ax.set_title(title)
+        
+        if exclusion_bins > 0:
+            for bin in np.arange(0,int(exclusion_bins)):
+                x = bin_edge[bin+1] - (bin_width/2)
+                ax.plot([x,x], [0, corr[bin]], 'g:', linewidth=4)
+        
+        ax.tick_params(axis='both', labelsize=15)
+        ax.set_title(mosaic) #title)
         xtick_float = np.around(bin_edge[0:analysis_x_cutoff],2)
-        xtick_str = xtick_float.astype('str')
-
-
-        ax.set_xticks(xtick_float, xtick_str)
-        ax.set_ylim([-1.25, .5 + np.nanmax([1, np.nanmax(corr), np.nanmax(corr_by_pi[1,:])])])
-
+        xtick_labels = [str(np.round(i, decimals = 1)) for i in xtick_float]
+        ax.set_xticks(ticks=xtick_float, labels=xtick_labels)    
+        ax.set_ylim([-1.25, 2])
         ax.set_xlabel('radius from individual S cones, ' + coord_unit)
         ax.set_ylabel('correlation')
-
-        ax.set_xlim([-.5, bin_width * 8 + 0.5])
-        # for b in np.arange(0, analysis_x_cutoff):
-        #     ax = plotKwargs({'figsize':10}, '')
-        #     binhist, binhistedge = np.histogram(corr_by_corr[:,b])
-        #     plt.stairs(binhist, binhistedge)
-        #     title = ['bin ' + str(b)]
+        ax.set_xlim([-.05, bin_width* 5 + .05])
 
         ax.figure
         # ax.set_aspect(1.5)
 
         if save_things:
-            savnm = save_path + mosaic + '_metricsOf2PC' + save_type
-            plt.savefig(savnm)
+            savnm = save_path + '\\' + mosaic + '_metricsOf2PC' + save_type
+            fig.savefig(savnm)
 
 
-def viewDRP(mos_type, save_name, z_dim=0, scale_std=2, showNearestCone=False, save_things=False, save_path='', save_type='.png'):
+def viewDRP(mos_type, save_name, z_dim=0, scale_std=2, showNearestCone=False, save_things=False, save_path='', save_type='.png', 
+            plot_color = 'k', scale_bar_color = 'g', dens_line_color = 'gray',
+            plot_alpha = .5, dens_alpha = .5, plotFill = False, densFill = False, scalebar_lw = 2):
 
     for fl in save_name:
 
@@ -352,39 +749,52 @@ def viewDRP(mos_type, save_name, z_dim=0, scale_std=2, showNearestCone=False, sa
             drp_std = pixToArcmin(drp_std, degrees = True)
             drp_ste = pixToArcmin(drp_ste, degrees = True)
             expected_DRP = pixToArcmin(expected_DRP, degrees = True)
-            density_unit = 'density (points per degree squared)'
+            density_unit = conetype + '-cone density'
         else:
             coord_unit = 'pixels'
             density_unit = 'density (points per pixel squared)'
 
-        ax = plotKwargs({'bckg_col':'w'}, '')
-        bin_width = bin_edges[1] - bin_edges[0]
+        fig, ax = plt.subplots(figsize=(3, 3))
 
+        bin_width = bin_edges[1] - bin_edges[0]
 
         # convert y values to density in cones per degree^2 instead of cones per arcmin^2
         y1 = expected_DRP[0,:] 
-        plt.stairs(y1, bin_edges, fill=False, linewidth = 4, color = 'gray')
+        plt.stairs(y1, bin_edges, fill=densFill, linestyle = '--', linewidth = 4, color = dens_line_color, alpha = dens_alpha)
         y2 = np.squeeze(drp_all[z_dim,:]) 
         
-        plt.stairs(y2, bin_edges, fill=False, color = 'k', linewidth = 4)
-        y3 = [np.nanmax(drp_all[z_dim,0:8]) * 1.05, np.nanmax(drp_all[z_dim,0:8])*1.05]
+        plt.stairs(y2, bin_edges, fill=plotFill, color = plot_color, linewidth = 4, alpha = plot_alpha)
+        scalebuff = -20
+        y3 = [expected_DRP[0,0] + scalebuff, expected_DRP[0,0] + scalebuff]
 
-        plt.plot([0, effective_radius[z_dim]], y3, 'g', linewidth = 4)
-        plt.xlabel("Distance from individual cones, " + coord_unit)
-        plt.xlim([0, bin_width * 8])
-        plt.ylim([0, y3[0] * 1.05])
+        plt.plot([0, effective_radius[z_dim]], y3, scale_bar_color, linewidth = scalebar_lw)
+        plt.xlabel("Distance from S-cones (" + coord_unit +')', size=10)
+        plt.xlim([0, bin_width * 5 + .05])
+        plt.ylim([0, 400]) #y3[0] * 1.05])
+
         if add_edge_correction:
-            plt.ylabel(density_unit + "(w/ edge correction)")
+            plt.ylabel(density_unit, size=10)
         else:
-            plt.ylabel(density_unit + "(w/o edge correction, a.u.)")
+            plt.ylabel(density_unit, size=10)
 
         plt.title("Density Recovery Profile")
+
+        ax.tick_params(axis='both', labelsize=10)
+        ax.set_title(mosaic) #title)
+        xtick_float = np.arange(0, bin_width * 5 + .1, bin_width)
+        xtick_labels = [str(np.round(i, decimals = 1)) for i in xtick_float]
+        ax.set_xticks(ticks=xtick_float, labels=xtick_labels)    
+        # ax.set_ylim([-1.25, 2])
+        # ax.set_xlim([-.05, bin_width* 5 + .05])
+
 
         #ax.figure
 
         if save_things:
             savnm = save_path + mosaic + '_DRP' + save_type
             plt.savefig(savnm)
+        
+        return fig, ax
 
 def view2PC(mos_type, save_name, z_dim=0, scale_std=2, showNearestCone=False, save_things=False, save_path='', save_type='.png'):
     for fl in save_name:
@@ -405,14 +815,14 @@ def view2PC(mos_type, save_name, z_dim=0, scale_std=2, showNearestCone=False, sa
             # to_be_corr = [bytes(n).decode('utf8') for n in file['input_data']['to_be_corr'][()]]
             sim_hexgrid_by = bytes(file['input_data']['sim_hexgrid_by'][()]).decode("utf8")
             
-            if sim_hexgrid_by == 'rectangular':
-                hex_radius = file['basic_stats']['hex_radius_of_this_density'][()]
+            # if sim_hexgrid_by == 'rectangular':
+            #     hex_radius = file['basic_stats']['hex_radius_of_this_density'][()]
 
-            elif sim_hexgrid_by == 'voronoi':
-                hex_radius = file['measured_voronoi']['hex_radius'][()]
+            # elif sim_hexgrid_by == 'voronoi':
+            #     hex_radius = file['measured_voronoi']['hex_radius'][()]
 
-            else:
-                print('ack!!! problem getting hex_radius in view_2PC')
+            # else:
+            #     print('ack!!! problem getting hex_radius in view_2PC')
 
             if bin_width == -1:
                 save_path_h = os.path.dirname(fl)
@@ -429,7 +839,7 @@ def view2PC(mos_type, save_name, z_dim=0, scale_std=2, showNearestCone=False, sa
             
             maxY = 0
 
-            fig, ax = plt.subplots(1, 1, figsize = [10,10])
+            fig, ax = plt.subplots(1, 1, figsize = [4,4])
 
             if not np.isnan(corred.all()):
                 if len(corred.shape) >= 2:
@@ -456,15 +866,15 @@ def view2PC(mos_type, save_name, z_dim=0, scale_std=2, showNearestCone=False, sa
 
                 hist_x, hist_y, hist_y_plus, hist_y_minus = util.reformat_stat_hists_for_plot(bin_edge, hist_mean, hist_std*2)
         
-                ax = line([hex_radius, hex_radius], [-1 * lin_extent, lin_extent], id='hex_radius', ax=ax, plot_col='r', linewidth=3)
+                # ax = line([hex_radius, hex_radius], [-1 * lin_extent, lin_extent], id='hex_radius', ax=ax, plot_col='r', linewidth=3)
                 ax = line(hist_x, hist_y, '', plot_col='w', ax=ax)
                 #ax.stairs(hist_mean-.5, bin_edge, color='r')
                 ax.fill_between(hist_x, 
                                 hist_y_plus, 
                                 hist_y_minus, color='w', alpha=.7)
-                ax.set_label = tit
-                ax.set_xlabel = xlab
-                ax.set_ylabel = ylab
+                ax.set_label(tit, fontsize=15)
+                ax.set_xlabel(xlab, fontsize=15)
+                ax.set_ylabel(ylab, fontsize=15)
 
                 # c='y'
                 # plt.boxplot(corred, positions=bin_edge[1:bin_edge.shape[0]]-(bin_width/2),
@@ -474,8 +884,21 @@ def view2PC(mos_type, save_name, z_dim=0, scale_std=2, showNearestCone=False, sa
                 #     whiskerprops=dict({'color': c}),
                 #     flierprops=dict({'color': c}),
                 # )
-            ax.set_xlim([0, bin_width * 8])
+            ax.set_xlim([0, bin_width * 5 + .1])
             ax.set_ylim([-1.2, 3])
+            ax.tick_params(axis='both', labelsize=15)
+
+            # fig, ax = plt.subplots(figsize = (4,4))
+            # ax.set_title(s + ' ' + tit + ' ' + top_met_labs[d])
+            # ax.set_xlabel('ring', fontsize=15)
+            # ax.set_ylabel(top_met_labs[d], fontsize=15)
+            
+            # ax.set_xticks(np.arange(1,num_rings+1))
+            # ytick_labels = [str(np.round(i, decimals=1)) if np.round(i % ymod, decimals = 1) == 0.0 else '' for i in np.arange(0, ymax+ybuff, ydel)]
+            # yticks = np.arange(0,ymax+ybuff, ydel)
+            # ax.set_yticks(ticks=yticks, labels=ytick_labels)    
+            # ax.set_ylim([0 - (1.5*ybuff), ymax + (1.5*ybuff)])
+                
             # ax.set_ylim([np.nanmin(hist_y_minus) - (np.nanmax(hist_y_plus)/10), 
             #             np.nanmax(hist_y_plus) + (np.nanmax(hist_y_plus)/10)])
 
@@ -741,9 +1164,107 @@ def viewVoronoiDiagram(mos_type, save_things=False, save_name=[], prefix='',
         print('skipping Voronoi diagram for ' + mosaic + ' due to lack of bound cones...')
 
 
-def viewMosaic(mos_type, save_things=False, save_name=[], prefix='',
+
+def overlayOCT(mos_type, save_things=False, save_name=[], prefix='',
             save_path='',save_type='.png', id='', z_dim=0, plot_col='w',
             mosaic_data=True, marker='.', s=30, label=None, xlim = [-1,-1], ylim = [-1,-1], **kwargs):
+
+    for fl in save_name:
+
+        # get spacified coordinate data and plotting parameters from the save file
+        with h5py.File(fl, 'r') as file:  # context manager
+            mosaic = bytes(file['mosaic_meta']['mosaic'][()]).decode("utf8")
+            conetype = bytes(file['mosaic_meta']['conetype'][()]).decode("utf8")
+            coord_unit = bytes(file['input_data']['coord_unit'][()]).decode("utf8")
+            conetype_color = bytes(file['input_data']['conetype_color'][()]).decode("utf8")   
+            img = file['input_data']['cone_img'][()]
+            if not np.all(xlim == [-1, -1]):
+                xlim = [0, file['input_data']['img_x'][()]]
+
+            if not np.all(ylim == [-1, -1]):
+                ylim = [0, file['input_data']['img_y'][()]]
+
+            if mos_type == 'measured':
+                coord = file['input_data']['cone_coord'][()]
+            else:
+                try:
+                    coord = file[mos_type]['coord'][()]
+                except:
+                    raise Exception('bad mosaic type sent to viewMosaic: ' + mos_type)
+
+       
+
+        save_path2 = os.path.dirname(fl)
+        all_coord_fl = save_path2 + '\\' + mosaic + '_all.hdf5'
+        try:
+            with h5py.File(all_coord_fl, 'r') as file:
+                all_cone_coord   = file['input_data']['cone_coord'][()]
+        except:
+            print('could not pull cone coord from ' + all_coord_fl)
+
+        # the big lazy conversion insert
+        convert = True
+        if convert:
+            coord = pixToArcmin(coord)
+            all_cone_coord = pixToArcmin(all_cone_coord)
+            coord_unit = 'arcmin'
+            # xlim = pixToArcmin(np.array(xlim))
+            # ylim = pixToArcmin(np.array(ylim))
+
+        #if not np.isnan(coord[0]).any():
+        if len(coord.shape) == 3:
+            num_mos = coord.shape[0]
+            num_cone = coord.shape[1]
+        elif len(coord.shape) == 2:
+            num_mos = 1
+            num_cone = coord.shape[0]
+
+        for mos in [z_dim]:
+            id_str = mos_type + '_(' + str(mos+1) + '//' + str(num_mos) + ')_' + mosaic + '_(' + str(num_cone) + ' cones)'
+            xlab = coord_unit
+            ylab = coord_unit
+            if len(coord.shape) == 3:
+                this_coord = np.zeros([num_cone, 2])
+                this_coord[:, :] = coord[mos, :, :]
+            else: 
+                this_coord = coord
+
+            # print(img.shape[1], img.shape[0])
+            # print(((img.shape[1]/300)*4, (img.shape[0]/300)*4))
+            fig, ax = plt.subplots(figsize = ((img.shape[1]/300)*6, (img.shape[0]/300)*6))
+
+            ax.imshow(img)
+
+            allcone_sz = 50
+            scone_sz = 500
+
+            # ax = scatt(all_cone_coord, id_str, s=allcone_sz, plot_col='k', bckg_col = 'w', ax=ax, xlabel=xlab, ylabel=ylab, mosaic_data= mosaic_data, z_dim=z_dim, marker=marker, label=label)
+            # ax = scatt(this_coord, id_str, s=scone_sz, plot_col='dodgerblue', bckg_col='w', xlabel=xlab, ax=ax, ylabel=ylab, mosaic_data= mosaic_data, z_dim=z_dim, marker=marker, label=label)
+            scalefact = 6.4
+            ax.scatter(all_cone_coord[:,0] * scalefact, all_cone_coord[:,1] * scalefact, facecolors = 'none', edgecolors = 'gold')
+            ax.scatter(this_coord[:,0] * scalefact, this_coord[:,1] * scalefact, facecolors = 'none', edgecolors = 'dodgerblue')
+
+            # top left down scalebar lines
+            ax.plot()
+            ax.plot()
+
+            ax.figure
+            
+            if save_things:
+                savnm = save_path + '\\' + mosaic + '_' + str(mos) + '_' + conetype + save_type
+ 
+                plt.savefig(savnm)
+
+            ax.set_title(mosaic)
+
+
+
+
+
+
+def viewMosaic(mos_type, save_things=False, save_name=[], prefix='',
+            mosaic_data=True, marker='.', s=30, label=None, xlim = [-1,-1], ylim = [-1,-1], **kwargs):
+            # save_path='',save_type='.png', id='', z_dim=0, plot_col='w',
 
     for fl in save_name:
 
@@ -783,8 +1304,8 @@ def viewMosaic(mos_type, save_things=False, save_name=[], prefix='',
             coord = pixToArcmin(coord)
             all_cone_coord = pixToArcmin(all_cone_coord)
             coord_unit = 'arcmin'
-            xlim = pixToArcmin(np.array(xlim))
-            ylim = pixToArcmin(np.array(ylim))
+            # xlim = pixToArcmin(np.array(xlim))
+            # ylim = pixToArcmin(np.array(ylim))
 
         #if not np.isnan(coord[0]).any():
         if len(coord.shape) == 3:
@@ -793,7 +1314,6 @@ def viewMosaic(mos_type, save_things=False, save_name=[], prefix='',
         elif len(coord.shape) == 2:
             num_mos = 1
             num_cone = coord.shape[0]
-
 
         for mos in [z_dim]:
             id_str = mos_type + '_(' + str(mos+1) + '//' + str(num_mos) + ')_' + mosaic + '_(' + str(num_cone) + ' cones)'
@@ -807,6 +1327,7 @@ def viewMosaic(mos_type, save_things=False, save_name=[], prefix='',
 
             ax = plotKwargs({'figsize':10}, '')
 
+
             # this needs to be thought out better for non-converted case
             # ax = line(np.array([.5, 10.5]), 
                     #   np.tile(np.nanmax(this_coord[:, 1])-2, 2), 
@@ -818,46 +1339,46 @@ def viewMosaic(mos_type, save_things=False, save_name=[], prefix='',
             #           '', ax=ax, linewidth = 5,
             #           plot_col = 'r', bckg_col = 'w')
 
-            crop_window = False
-            if crop_window:
-                allcone_sz = 100
-                scone_sz = 1000
-            else:
-                allcone_sz = 50
-                scone_sz = 500
+            # crop_window = False
+            # if crop_window:
+            #     allcone_sz = 100
+            #     scone_sz = 1000
+            # else:
+            allcone_sz = 50
+            scone_sz = 500
 
             ax = scatt(all_cone_coord, id_str, s=allcone_sz, plot_col='k', bckg_col = 'w', ax=ax, xlabel=xlab, ylabel=ylab, mosaic_data= mosaic_data, z_dim=z_dim, marker=marker, label=label)
             # ax = scatt(all_cone_coord, id_str, s=140, plot_col='w', bckg_col = 'w', ax=ax, xlabel=xlab, ylabel=ylab, mosaic_data= mosaic_data, z_dim=z_dim, marker=marker, label=label)
             ax = scatt(this_coord, id_str, s=scone_sz, plot_col='dodgerblue', bckg_col='w', xlabel=xlab, ax=ax, ylabel=ylab, mosaic_data= mosaic_data, z_dim=z_dim, marker=marker, label=label)
 
-            if not np.all(xlim == [-1, -1]):
-                ax.set_xlim(xlim)
+            # if not np.all(xlim == [-1, -1]):
+            #     ax.set_xlim(xlim)
 
-            if not np.all(ylim == [-1, -1]):
-                ax.set_ylim(ylim)
+            # if not np.all(ylim == [-1, -1]):
+            #     ax.set_ylim(ylim)
 
             
-            if crop_window:
-                # print('CROPPING IT')
-                arcmin_w = 30
-                arcmin_h = 30
-                x_temp = ax.get_xlim()
-                y_temp = ax.get_ylim()
-                x_mid = x_temp[0] + (x_temp[1] - x_temp[0])/2
-                y_mid = y_temp[0] + (y_temp[1] - y_temp[0])/2
-                x_set = [x_mid-arcmin_w/2, x_mid+arcmin_w/2]
-                y_set = [y_mid-arcmin_h/2, y_mid+arcmin_h/2]
-                ax.set_xlim(x_set)
-                ax.set_ylim(y_set)
-                ax = line(np.array([x_set[0]+.5, x_set[0] + 10.5]),           
-                          np.tile(y_set[1] - .5, 2), 
-                          '', ax=ax, linewidth = 5,
-                          plot_col = 'r', bckg_col = 'w')
-            else:
-                ax = line(np.array([.5, 10.5]),           
-                          np.tile(np.nanmax(this_coord[:, 1])/2, 2), 
-                          '', ax=ax, linewidth = 5,
-                          plot_col = 'r', bckg_col = 'w')
+            # if crop_window:
+            #     # print('CROPPING IT')
+            #     arcmin_w = 30
+            #     arcmin_h = 30
+            #     x_temp = ax.get_xlim()
+            #     y_temp = ax.get_ylim()
+            #     x_mid = x_temp[0] + (x_temp[1] - x_temp[0])/2
+            #     y_mid = y_temp[0] + (y_temp[1] - y_temp[0])/2
+            #     x_set = [x_mid-arcmin_w/2, x_mid+arcmin_w/2]
+            #     y_set = [y_mid-arcmin_h/2, y_mid+arcmin_h/2]
+            #     ax.set_xlim(x_set)
+            #     ax.set_ylim(y_set)
+            #     ax = line(np.array([x_set[0]+.5, x_set[0] + 10.5]),           
+            #               np.tile(y_set[1] - .5, 2), 
+            #               '', ax=ax, linewidth = 5,
+            #               plot_col = 'r', bckg_col = 'w')
+            # else:
+            ax = line(np.array([.5, 10.5]),           
+                        np.tile(np.nanmax(this_coord[:, 1])/2, 2), 
+                        '', ax=ax, linewidth = 5,
+                        plot_col = 'r', bckg_col = 'w')
 
             ax.figure
             
